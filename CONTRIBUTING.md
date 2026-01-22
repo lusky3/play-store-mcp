@@ -7,7 +7,7 @@ Thank you for your interest in contributing! This document provides guidelines f
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/play-store-mcp/play-store-mcp.git
+   git clone https://github.com/lusky3/play-store-mcp.git
    cd play-store-mcp
    ```
 

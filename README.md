@@ -1,6 +1,6 @@
 # Play Store MCP Server
 
-[![CI](https://github.com/play-store-mcp/play-store-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/play-store-mcp/play-store-mcp/actions/workflows/ci.yml)
+[![CI](https://github.com/lusky3/play-store-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/lusky3/play-store-mcp/actions/workflows/ci.yml)
 [![PyPI version](https://badge.fury.io/py/play-store-mcp.svg)](https://badge.fury.io/py/play-store-mcp)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -43,7 +43,7 @@ play-store-mcp
 #### From source
 
 ```bash
-git clone https://github.com/play-store-mcp/play-store-mcp.git
+git clone https://github.com/lusky3/play-store-mcp.git
 cd play-store-mcp
 pip install -e .
 play-store-mcp
@@ -164,7 +164,7 @@ Add to your `claude_desktop_config.json`:
 ### Setup
 
 ```bash
-git clone https://github.com/play-store-mcp/play-store-mcp.git
+git clone https://github.com/lusky3/play-store-mcp.git
 cd play-store-mcp
 pip install -e ".[dev]"
 ```

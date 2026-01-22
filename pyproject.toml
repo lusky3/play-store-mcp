@@ -34,30 +34,29 @@ classifiers = [
 ]
 dependencies = [
     "mcp>=1.9.0",
-    "google-api-python-client>=2.150.0",
-    "google-auth>=2.36.0",
+    "google-api-python-client>=2.180.0",
+    "google-auth>=2.40.0",
     "pydantic>=2.10.0",
-    "structlog>=24.4.0",
+    "structlog>=25.0.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.3.0",
-    "pytest-asyncio>=0.24.0",
+    "pytest-asyncio>=0.25.0",
     "pytest-cov>=6.0.0",
-    "ruff>=0.8.0",
-    "mypy>=1.13.0",
-    "types-google-cloud-ndb>=2.3.0",
+    "ruff>=0.9.0",
+    "mypy>=1.14.0",
 ]
 
 [project.scripts]
 play-store-mcp = "play_store_mcp:main"
 
 [project.urls]
-Homepage = "https://github.com/play-store-mcp/play-store-mcp"
-Documentation = "https://github.com/play-store-mcp/play-store-mcp#readme"
-Repository = "https://github.com/play-store-mcp/play-store-mcp"
-Issues = "https://github.com/play-store-mcp/play-store-mcp/issues"
+Homepage = "https://github.com/lusky3/play-store-mcp"
+Documentation = "https://github.com/lusky3/play-store-mcp#readme"
+Repository = "https://github.com/lusky3/play-store-mcp"
+Issues = "https://github.com/lusky3/play-store-mcp/issues"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/play_store_mcp"]
