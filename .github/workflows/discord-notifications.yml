@@ -63,6 +63,7 @@ jobs:
         uses: sarisia/actions-status-discord@v1
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: failure
           title: "❌ Workflow Failed: ${{ github.event.workflow_run.name }}"
           description: |
             **Repository:** ${{ github.repository }}
@@ -82,6 +83,7 @@ jobs:
         uses: sarisia/actions-status-discord@v1
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          status: success
           title: "✅ Build Successful: ${{ github.event.workflow_run.name }}"
           description: |
             **Repository:** ${{ github.repository }}
