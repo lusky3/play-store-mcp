@@ -12,11 +12,19 @@ from mcp.server.fastmcp import FastMCP
 
 from play_store_mcp.client import PlayStoreClient, PlayStoreClientError
 
-# Configure structured logging
+# Configure structured logging to stderr (stdout is reserved for MCP JSON-RPC)
+import sys
+
 log_level = os.environ.get("PLAY_STORE_MCP_LOG_LEVEL", "INFO")
 numeric_level = getattr(logging, log_level.upper(), logging.INFO)
 structlog.configure(
+    processors=[
+        structlog.processors.TimeStamper(fmt="iso"),
+        structlog.processors.add_log_level,
+        structlog.dev.ConsoleRenderer(),
+    ],
     wrapper_class=structlog.make_filtering_bound_logger(numeric_level),
+    logger_factory=structlog.PrintLoggerFactory(file=sys.stderr),
 )
 logger = structlog.get_logger(__name__)
 
