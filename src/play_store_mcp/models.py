@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime  # noqa: TC003 - Pydantic needs this at runtime
-from enum import Enum
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
-class Track(str, Enum):
+class Track(StrEnum):
     """Release track options."""
 
     INTERNAL = "internal"
@@ -18,7 +18,7 @@ class Track(str, Enum):
     PRODUCTION = "production"
 
 
-class ReleaseStatus(str, Enum):
+class ReleaseStatus(StrEnum):
     """Release status options."""
 
     DRAFT = "draft"
