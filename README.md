@@ -17,20 +17,20 @@ An MCP (Model Context Protocol) server that connects to the Google Play Develope
 ## ✨ Features
 
 - **🚀 App Deployment**: Deploy APK/AAB files to any track (internal, alpha, beta, production)
-- **⚡ Batch Operations**: Deploy to multiple tracks simultaneously
-- **🌍 Multi-Language Support**: Deploy with release notes in multiple languages
-- **✅ Input Validation**: Validate package names, tracks, and text before API calls
-- **🔄 Automatic Retries**: Built-in retry logic with exponential backoff for transient failures
-- **📝 Store Listings**: Update app titles, descriptions, and videos for any language
-- **📈 Release Management**: Promote releases between tracks, manage staged rollouts
-- **👥 Tester Management**: Add and manage testers for testing tracks
-- **⭐ Review Management**: Fetch and reply to user reviews
-- **📊 Android Vitals**: Monitor crashes, ANRs, and app health metrics
-- **💳 Subscription Management**: List subscriptions and check purchase status
-- **🛒 In-App Products**: List and manage in-app products
-- **📦 Expansion Files**: Manage APK expansion files for large apps
-- **🧾 Orders**: Retrieve detailed transaction information
-- **🔐 Secure**: Uses Google Cloud service account authentication
+- **Batch Operations**: Deploy to multiple tracks simultaneously
+- **Multi-Language Support**: Deploy with release notes in multiple languages
+- **Input Validation**: Validate package names, tracks, and text before API calls
+- **Automatic Retries**: Built-in retry logic with exponential backoff for transient failures
+- **Store Listings**: Update app titles, descriptions, and videos for any language
+- **Release Management**: Promote releases between tracks, manage staged rollouts
+- **Tester Management**: Add and manage testers for testing tracks
+- **Review Management**: Fetch and reply to user reviews
+- **Android Vitals**: Monitor crashes, ANRs, and app health metrics
+- **Subscription Management**: List subscriptions and check purchase status
+- **In-App Products**: List and manage in-app products
+- **Expansion Files**: Manage APK expansion files for large apps
+- **Orders**: Retrieve detailed transaction information
+- **Secure**: Uses Google Cloud service account authentication
 
 ## 🚀 Quick Start
 

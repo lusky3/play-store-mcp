@@ -1,0 +1,133 @@
+name: Bug Report
+description: Report a bug with the Play Store MCP server
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill out the sections below so we can reproduce and fix the issue.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: What version of play-store-mcp are you using?
+      placeholder: "0.1.1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: python-version
+    attributes:
+      label: Python Version
+      options:
+        - "3.11"
+        - "3.12"
+        - "3.13"
+        - "3.14"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mcp-client
+    attributes:
+      label: MCP Client
+      description: Which MCP client are you using?
+      options:
+        - Claude Desktop
+        - Kiro
+        - Gemini CLI
+        - VS Code (Copilot)
+        - Antigravity
+        - Cursor
+        - Other (specify in description)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear description of the bug.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this?
+      placeholder: |
+        1. Configure MCP server with ...
+        2. Call tool '...' with parameters ...
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Error Output
+      description: Paste any relevant logs or error messages. Redact any credentials or sensitive info.
+      render: shell
+
+  - type: dropdown
+    id: tool
+    attributes:
+      label: Related Tool
+      description: Which MCP tool is affected (if applicable)?
+      options:
+        - deploy_app
+        - deploy_app_multilang
+        - promote_release
+        - get_releases
+        - halt_release
+        - update_rollout
+        - list_apps
+        - get_app_details
+        - get_listing
+        - update_listing
+        - list_all_listings
+        - get_reviews
+        - reply_to_review
+        - list_subscriptions
+        - get_subscription_status
+        - list_voided_purchases
+        - list_in_app_products
+        - get_in_app_product
+        - get_testers
+        - update_testers
+        - get_order
+        - get_expansion_file
+        - validate_package_name
+        - validate_track
+        - validate_listing_text
+        - batch_deploy
+        - get_vitals_overview
+        - get_vitals_metrics
+        - N/A
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any other context, screenshots, or configuration details.
