@@ -3,7 +3,7 @@ name: Safety Dependency Check
 on:
   push:
     branches: [main]
-  pull_request:
+  pull_request_target:
     branches: [main]
   schedule:
     - cron: "0 5 * * 3"
@@ -17,6 +17,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
