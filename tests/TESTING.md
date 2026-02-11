@@ -33,6 +33,7 @@ def _mock_service() -> Generator[MagicMock, None, None]:
 ```
 
 This means:
+
 - No real HTTP requests are made
 - No authentication is required
 - Tests return predefined responses
@@ -49,7 +50,7 @@ These tests use mocked API responses and never make real API calls.
 uv run pytest tests/ -v
 
 # Using the test script
-./run_tests.sh
+./tests/run_tests.sh
 
 # With coverage report
 uv run pytest tests/ -v --cov=src/play_store_mcp --cov-report=term-missing
@@ -62,12 +63,14 @@ uv run pytest tests/ -v --ignore=tests/test_integration.py
 
 These tests use real Google Play API credentials but only perform READ operations.
 
-**Prerequisites:**
+Prerequisites:
+
 1. Valid Google Cloud service account credentials
 2. Service account with Play Console access
 3. At least one app in your Play Console account
 
-**Setup:**
+Setup:
+
 ```bash
 # 1. Ensure .env.local has credentials
 cat .env.local
@@ -77,10 +80,11 @@ cat .env.local
 export TEST_PACKAGE_NAME=com.your.app.package
 
 # 3. Run integration tests
-./run_integration_tests.sh
+./tests/run_integration_tests.sh
 ```
 
-**What Integration Tests Do:**
+What Integration Tests Do:
+
 - ✅ Verify real API connectivity
 - ✅ Test authentication works
 - ✅ Read app releases and details
@@ -88,25 +92,27 @@ export TEST_PACKAGE_NAME=com.your.app.package
 - ✅ List subscriptions and products
 - ✅ Test validation functions
 
-**What Integration Tests DON'T Do:**
+What Integration Tests DON'T Do:
+
 - ❌ Deploy apps
 - ❌ Modify releases
 - ❌ Update store listings
 - ❌ Reply to reviews
 - ❌ Make ANY changes to Play Console
 
-**Safety:**
 All integration tests are read-only. They will never modify your Play Console data.
 
 ## Test Coverage
 
 ### Client Tests (`test_client.py`)
 
-**Initialization & Setup**
+#### Initialization and Setup
+
 - ✅ Missing credentials error handling
 - ✅ Environment variable configuration
 
-**Publishing Operations**
+#### Publishing Operations
+
 - ✅ Get releases from all tracks
 - ✅ Deploy APK files
 - ✅ Deploy AAB files
@@ -115,44 +121,54 @@ All integration tests are read-only. They will never modify your Play Console da
 - ✅ Promote releases between tracks
 - ✅ Version not found error handling
 
-**Reviews**
+#### Reviews
+
 - ✅ Fetch reviews with filters
 - ✅ Reply to reviews
 
-**Subscriptions**
+#### Subscriptions
+
 - ✅ List subscription products
 - ✅ Get subscription purchase status
 
-**In-App Products**
+#### In-App Products
+
 - ✅ List in-app products
 - ✅ Get specific product details
 
-**Store Listings**
+#### Store Listings
+
 - ✅ Get listing for specific language
 - ✅ Update listing (title, descriptions, video)
 - ✅ List all language listings
 
-**Testers Management**
+#### Testers Management
+
 - ✅ Get testers for a track
 - ✅ Update testers list
 
-**Orders**
+#### Orders
+
 - ✅ Get order details
 
-**Expansion Files**
+#### Expansion Files
+
 - ✅ Get expansion file information
 
-**Validation**
+#### Validation
+
 - ✅ Validate package name format
 - ✅ Validate track names
 - ✅ Validate listing text lengths
 - ✅ Catch invalid inputs
 
-**Batch Operations**
+#### Batch Operations
+
 - ✅ Deploy to multiple tracks simultaneously
 - ✅ Track individual results
 
-**Vitals**
+#### Vitals
+
 - ✅ Get vitals metrics (placeholder implementation)
 
 ### Server Tests (`test_server.py`)
@@ -163,10 +179,12 @@ All integration tests are read-only. They will never modify your Play Console da
 
 ### Model Tests (`test_models.py`)
 
-**Enums**
+#### Enums
+
 - ✅ Track enum values
 
-**Data Models**
+#### Data Models
+
 - ✅ Release model (minimal and full)
 - ✅ DeploymentResult (success and failure)
 - ✅ Review model (with and without replies)
@@ -183,28 +201,36 @@ All integration tests are read-only. They will never modify your Play Console da
 ## What Tests Verify
 
 ### 1. API Client Behavior
+
 Tests verify that the client correctly:
+
 - Constructs API requests
 - Handles API responses
 - Processes data into models
 - Handles errors gracefully
 
 ### 2. Data Validation
+
 Tests verify that:
+
 - Invalid package names are caught
 - Invalid track names are rejected
 - Text length limits are enforced
 - Input validation prevents API errors
 
 ### 3. Business Logic
+
 Tests verify that:
+
 - Batch operations work correctly
 - Multi-language support functions properly
 - Rollout percentages are handled correctly
 - Edit sessions are managed properly
 
 ### 4. Error Handling
+
 Tests verify that:
+
 - Missing files are detected
 - API errors are caught and reported
 - Version not found scenarios are handled
@@ -219,6 +245,7 @@ The `@retry_with_backoff` decorator is applied to critical methods but is **not 
 3. The decorator is a cross-cutting concern
 
 The retry logic is tested through:
+
 - Manual integration testing
 - Production monitoring
 - Code review of the decorator implementation
@@ -226,6 +253,7 @@ The retry logic is tested through:
 ## CI/CD Integration
 
 Tests run automatically in GitHub Actions on:
+
 - Every push to main
 - Every pull request
 - Multiple Python versions (3.11, 3.12, 3.13)
@@ -283,18 +311,21 @@ For manual testing with real API calls:
 ## Recommendations
 
 ### For Development
+
 - Run tests frequently during development
 - Add tests for new features
 - Mock external dependencies
 - Keep tests fast and focused
 
 ### For Production
+
 - Monitor API errors in production
 - Set up alerting for failures
 - Test manually on staging apps
 - Review logs regularly
 
 ### For Contributors
+
 - Write tests for new features
 - Maintain test coverage above 80%
 - Use existing fixtures

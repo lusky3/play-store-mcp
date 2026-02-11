@@ -4,6 +4,9 @@
 
 set -e
 
+# Ensure we're running from the project root
+cd "$(dirname "$0")/.."
+
 echo "=========================================="
 echo "Play Store MCP - Integration Tests"
 echo "=========================================="
