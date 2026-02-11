@@ -1,8 +1,15 @@
 # Play Store MCP Server
 
 [![CI](https://github.com/lusky3/play-store-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/lusky3/play-store-mcp/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/github/lusky3/play-store-mcp/graph/badge.svg?token=iDdVHHp5Jw)](https://codecov.io/github/lusky3/play-store-mcp)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=lusky3_play-store-mcp&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=lusky3_play-store-mcp)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=lusky3_play-store-mcp&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=lusky3_play-store-mcp)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=lusky3_play-store-mcp&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=lusky3_play-store-mcp)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=lusky3_play-store-mcp&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=lusky3_play-store-mcp)
+
 [![PyPI version](https://badge.fury.io/py/play-store-mcp.svg)](https://badge.fury.io/py/play-store-mcp)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=lusky3_play-store-mcp&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=lusky3_play-store-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 An MCP (Model Context Protocol) server that connects to the Google Play Developer API. Deploy apps, manage releases, respond to reviews, and monitor app health - all through your AI assistant.
@@ -107,7 +114,7 @@ Add to your `claude_desktop_config.json`:
 ### Publishing Tools
 
 | Tool | Description |
-|------|-------------|
+| --- | --- |
 | `deploy_app` | Deploy an APK/AAB to a track with optional staged rollout and single-language release notes |
 | `deploy_app_multilang` | Deploy an APK/AAB with multi-language release notes |
 | `promote_release` | Promote a release from one track to another |
@@ -120,7 +127,7 @@ Add to your `claude_desktop_config.json`:
 ### Store Listings Tools
 
 | Tool | Description |
-|------|-------------|
+| --- | --- |
 | `get_listing` | Get store listing for a specific language |
 | `update_listing` | Update store listing (title, descriptions, video) |
 | `list_all_listings` | List all store listings for all languages |
@@ -128,14 +135,14 @@ Add to your `claude_desktop_config.json`:
 ### Review Tools
 
 | Tool | Description |
-|------|-------------|
+| --- | --- |
 | `get_reviews` | Fetch recent reviews with optional filters |
 | `reply_to_review` | Reply to a user review |
 
 ### Subscription Tools
 
 | Tool | Description |
-|------|-------------|
+| --- | --- |
 | `list_subscriptions` | List subscription products for an app |
 | `get_subscription_status` | Check subscription purchase status |
 | `list_voided_purchases` | List voided purchases |
@@ -143,33 +150,33 @@ Add to your `claude_desktop_config.json`:
 ### In-App Products Tools
 
 | Tool | Description |
-|------|-------------|
+| --- | --- |
 | `list_in_app_products` | List all in-app products for an app |
 | `get_in_app_product` | Get details of a specific in-app product |
 
 ### Testers Management Tools
 
 | Tool | Description |
-|------|-------------|
+| --- | --- |
 | `get_testers` | Get testers for a specific testing track |
 | `update_testers` | Update testers for a testing track |
 
 ### Orders Tools
 
 | Tool | Description |
-|------|-------------|
+| --- | --- |
 | `get_order` | Get detailed order/transaction information |
 
 ### Expansion Files Tools
 
 | Tool | Description |
-|------|-------------|
+| --- | --- |
 | `get_expansion_file` | Get APK expansion file information |
 
 ### Validation Tools
 
 | Tool | Description |
-|------|-------------|
+| --- | --- |
 | `validate_package_name` | Validate package name format |
 | `validate_track` | Validate track name |
 | `validate_listing_text` | Validate store listing text lengths |
@@ -177,13 +184,13 @@ Add to your `claude_desktop_config.json`:
 ### Batch Operations Tools
 
 | Tool | Description |
-|------|-------------|
+| --- | --- |
 | `batch_deploy` | Deploy to multiple tracks simultaneously |
 
 ### Vitals Tools
 
 | Tool | Description |
-|------|-------------|
+| --- | --- |
 | `get_vitals_overview` | Get Android Vitals overview (crashes, ANRs) |
 | `get_vitals_metrics` | Get specific vitals metrics |
 
@@ -341,7 +348,7 @@ validation = validate_listing_text(
 ## 🔒 Environment Variables
 
 | Variable | Description | Required |
-|----------|-------------|----------|
+| --- | --- | --- |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON key | Yes |
 | `PLAY_STORE_MCP_LOG_LEVEL` | Log level (DEBUG, INFO, WARNING, ERROR) | No (default: INFO) |
 
@@ -401,3 +408,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 - Inspired by [antoniolg/play-store-mcp](https://github.com/antoniolg/play-store-mcp) (Kotlin)
 - Built with the [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
 - Uses the [Google Play Developer API](https://developers.google.com/android-publisher)
+
+## 🤖 AI Usage Disclaimer
+
+Portions of this codebase were generated with the assistance of Large Language Models (LLMs). All AI-generated code has been reviewed and tested to ensure quality and correctness.
