@@ -1,0 +1,92 @@
+name: Discord Notifications
+
+on:
+  pull_request:
+    types: [opened, closed, reopened]
+  issues:
+    types: [opened, closed, reopened]
+  release:
+    types: [published]
+  workflow_run:
+    workflows: ["CI", "Release"]
+    types: [completed]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: PR Notification
+        if: github.event_name == 'pull_request'
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          title: "Pull Request ${{ github.event.action }}"
+          description: |
+            **${{ github.event.pull_request.title }}**
+            by @${{ github.event.pull_request.user.login }}
+          url: ${{ github.event.pull_request.html_url }}
+          color: >-
+            ${{
+              github.event.action == 'closed' && github.event.pull_request.merged && '0x00ff00' ||
+              github.event.action == 'opened' && '0x0099ff' ||
+              '0xffaa00'
+            }}
+
+      - name: Issue Notification
+        if: github.event_name == 'issues'
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          title: "Issue ${{ github.event.action }}"
+          description: |
+            **${{ github.event.issue.title }}**
+            by @${{ github.event.issue.user.login }}
+          url: ${{ github.event.issue.html_url }}
+          color: ${{ github.event.action == 'closed' && '0x00ff00' || '0xff0000' }}
+
+      - name: Release Notification
+        if: github.event_name == 'release'
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          title: "🚀 New Release: ${{ github.event.release.tag_name }}"
+          description: |
+            ${{ github.event.release.name }}
+
+            [View Release](${{ github.event.release.html_url }})
+          color: 0x00ff00
+
+      - name: Workflow Failure Notification
+        if: >-
+          github.event_name == 'workflow_run' &&
+          github.event.workflow_run.conclusion == 'failure'
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          title: "❌ Workflow Failed: ${{ github.event.workflow_run.name }}"
+          description: |
+            **Repository:** ${{ github.repository }}
+            **Branch:** `${{ github.event.workflow_run.head_branch }}`
+            **Commit:** `${{ github.event.workflow_run.head_sha }}`
+            **Triggered by:** @${{ github.event.workflow_run.triggering_actor.login }}
+            **Event:** ${{ github.event.workflow_run.event }}
+
+            [View Run](${{ github.event.workflow_run.html_url }})
+          color: 0xff0000
+
+      - name: Workflow Success Notification
+        if: >-
+          github.event_name == 'workflow_run' &&
+          github.event.workflow_run.conclusion == 'success' &&
+          github.event.workflow_run.name == 'Release'
+        uses: sarisia/actions-status-discord@v1
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          title: "✅ Build Successful: ${{ github.event.workflow_run.name }}"
+          description: |
+            **Repository:** ${{ github.repository }}
+            **Branch:** `${{ github.event.workflow_run.head_branch }}`
+            **Triggered by:** @${{ github.event.workflow_run.triggering_actor.login }}
+
+            [View Run](${{ github.event.workflow_run.html_url }})
+          color: 0x00ff00
