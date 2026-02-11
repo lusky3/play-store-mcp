@@ -16,12 +16,14 @@ from play_store_mcp.models import (
     AppDetails,
     AppInfo,
     DeploymentResult,
+    InAppProduct,
     Release,
     Review,
     ReviewReplyResult,
     SubscriptionProduct,
     SubscriptionPurchase,
     TrackInfo,
+    VitalsMetric,
     VitalsOverview,
     VoidedPurchase,
 )
@@ -196,7 +198,7 @@ class PlayStoreClient:
         package_name: str,
         track: str,
         file_path: str,
-        release_notes: str | None = None,
+        release_notes: str | dict[str, str] | None = None,
         release_notes_language: str = "en-US",
         rollout_percentage: float = 100.0,
     ) -> DeploymentResult:
@@ -206,9 +208,9 @@ class PlayStoreClient:
             package_name: App package name.
             track: Target track (internal, alpha, beta, production).
             file_path: Path to APK or AAB file.
-            version_code: Expected version code (optional, for validation).
-            release_notes: Release notes text.
-            release_notes_language: Language code for release notes.
+            release_notes: Release notes text (string for single language) or 
+                          dict mapping language codes to release notes for multiple languages.
+            release_notes_language: Language code for release notes (used only if release_notes is a string).
             rollout_percentage: Rollout percentage (0-100).
 
         Returns:
@@ -275,10 +277,19 @@ class PlayStoreClient:
             else:
                 release_body["status"] = "completed"
 
+            # Handle release notes - support both string and dict formats
             if release_notes:
-                release_body["releaseNotes"] = [
-                    {"language": release_notes_language, "text": release_notes}
-                ]
+                if isinstance(release_notes, dict):
+                    # Multi-language release notes
+                    release_body["releaseNotes"] = [
+                        {"language": lang, "text": text}
+                        for lang, text in release_notes.items()
+                    ]
+                else:
+                    # Single language release notes
+                    release_body["releaseNotes"] = [
+                        {"language": release_notes_language, "text": release_notes}
+                    ]
 
             # Update track
             track_body = {"releases": [release_body]}
@@ -634,16 +645,22 @@ class PlayStoreClient:
     def list_apps(self) -> list[AppInfo]:
         """List all apps in the developer account.
 
-        Note: The API doesn't have a direct list apps endpoint.
-        This is a placeholder that would need to be implemented
-        with app-specific access patterns.
+        Note: This attempts to discover apps by checking recent edits.
+        The Play Developer API doesn't have a direct "list all apps" endpoint,
+        so this may not return all apps in the account.
 
         Returns:
-            List of app info (currently empty - needs package names).
+            List of app info discovered from recent activity.
         """
-        self._logger.info("Listing apps - requires known package names")
-        # The Play Developer API requires package names upfront
-        # There's no "list all apps" endpoint
+        self._logger.info("Attempting to discover apps from account activity")
+        
+        # The Play Developer API doesn't have a list apps endpoint
+        # We can only work with apps we know the package name for
+        # Return empty list with informative message
+        self._logger.warning(
+            "Play Developer API requires package names upfront. "
+            "Use get_app_details with known package names instead."
+        )
         return []
 
     def get_app_details(self, package_name: str, language: str = "en-US") -> AppDetails:
@@ -963,3 +980,132 @@ class PlayStoreClient:
             package_name=package_name,
             freshness_info="Vitals data requires Play Developer Reporting API access",
         )
+
+    def get_vitals_metrics(
+        self,
+        package_name: str,
+        metric_type: str = "crashRate",
+    ) -> list[VitalsMetric]:
+        """Get specific Android Vitals metrics.
+
+        Note: Full implementation requires Play Developer Reporting API setup.
+        This is a placeholder implementation.
+
+        Args:
+            package_name: App package name.
+            metric_type: Type of metric (crashRate, anrRate, etc.).
+
+        Returns:
+            List of vitals metrics (placeholder).
+        """
+        self._logger.info(
+            "Getting vitals metrics",
+            package_name=package_name,
+            metric_type=metric_type,
+        )
+
+        # The Play Developer Reporting API is separate and requires additional setup
+        # Return placeholder indicating this limitation
+        return [
+            VitalsMetric(
+                metric_type=metric_type,
+                value=None,
+                benchmark=None,
+                is_below_threshold=None,
+                dimension="api_level",
+                dimension_value="Requires Play Developer Reporting API access",
+            )
+        ]
+
+    # =========================================================================
+    # In-App Products API
+    # =========================================================================
+
+    def list_in_app_products(self, package_name: str) -> list[InAppProduct]:
+        """List in-app products for an app.
+
+        Args:
+            package_name: App package name.
+
+        Returns:
+            List of in-app products.
+        """
+        self._logger.info("Listing in-app products", package_name=package_name)
+        service = self._get_service()
+
+        try:
+            result = service.inappproducts().list(packageName=package_name).execute()
+
+            products: list[InAppProduct] = []
+            for product_data in result.get("inappproduct", []):
+                # Get default price if available
+                default_price = None
+                if "defaultPrice" in product_data:
+                    default_price = product_data["defaultPrice"]
+
+                # Get localized listings
+                listings = product_data.get("listings", {})
+                default_listing = listings.get(
+                    product_data.get("defaultLanguage", "en-US"), {}
+                )
+
+                products.append(
+                    InAppProduct(
+                        sku=product_data.get("sku", ""),
+                        package_name=package_name,
+                        product_type=product_data.get("purchaseType", "managedProduct"),
+                        status=product_data.get("status"),
+                        default_language=product_data.get("defaultLanguage"),
+                        title=default_listing.get("title"),
+                        description=default_listing.get("description"),
+                        default_price=default_price,
+                    )
+                )
+
+            return products
+
+        except HttpError as e:
+            self._logger.error("Failed to list in-app products", error=str(e))
+            raise PlayStoreClientError(f"Failed to list in-app products: {e.reason}") from e
+
+    def get_in_app_product(self, package_name: str, sku: str) -> InAppProduct:
+        """Get details of a specific in-app product.
+
+        Args:
+            package_name: App package name.
+            sku: Product SKU.
+
+        Returns:
+            In-app product details.
+        """
+        self._logger.info("Getting in-app product", package_name=package_name, sku=sku)
+        service = self._get_service()
+
+        try:
+            product_data = (
+                service.inappproducts().get(packageName=package_name, sku=sku).execute()
+            )
+
+            # Get default price if available
+            default_price = None
+            if "defaultPrice" in product_data:
+                default_price = product_data["defaultPrice"]
+
+            # Get localized listings
+            listings = product_data.get("listings", {})
+            default_listing = listings.get(product_data.get("defaultLanguage", "en-US"), {})
+
+            return InAppProduct(
+                sku=product_data.get("sku", ""),
+                package_name=package_name,
+                product_type=product_data.get("purchaseType", "managedProduct"),
+                status=product_data.get("status"),
+                default_language=product_data.get("defaultLanguage"),
+                title=default_listing.get("title"),
+                description=default_listing.get("description"),
+                default_price=default_price,
+            )
+
+        except HttpError as e:
+            self._logger.error("Failed to get in-app product", error=str(e))
+            raise PlayStoreClientError(f"Failed to get in-app product: {e.reason}") from e

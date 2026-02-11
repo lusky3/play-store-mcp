@@ -165,3 +165,16 @@ class VitalsMetric(BaseModel):
     is_below_threshold: bool | None = Field(None, description="Whether below bad threshold")
     dimension: str | None = Field(None, description="Dimension (e.g., device, version)")
     dimension_value: str | None = Field(None, description="Dimension value")
+
+
+class InAppProduct(BaseModel):
+    """In-app product definition."""
+
+    sku: str = Field(..., description="Product SKU")
+    package_name: str = Field(..., description="App package name")
+    product_type: str = Field(..., description="Product type (managed_product or subscription)")
+    status: str | None = Field(None, description="Product status")
+    default_language: str | None = Field(None, description="Default language")
+    title: str | None = Field(None, description="Product title")
+    description: str | None = Field(None, description="Product description")
+    default_price: dict[str, Any] | None = Field(None, description="Default price information")

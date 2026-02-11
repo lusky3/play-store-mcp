@@ -32,6 +32,7 @@ class TestServerTools:
 
         expected_tools = [
             "deploy_app",
+            "deploy_app_multilang",
             "promote_release",
             "get_releases",
             "halt_release",
@@ -43,6 +44,9 @@ class TestServerTools:
             "get_subscription_status",
             "list_voided_purchases",
             "get_vitals_overview",
+            "get_vitals_metrics",
+            "list_in_app_products",
+            "get_in_app_product",
         ]
 
         for tool_name in expected_tools:

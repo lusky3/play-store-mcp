@@ -69,6 +69,7 @@ def deploy_app(
     track: str,
     file_path: str,
     release_notes: str | None = None,
+    release_notes_language: str = "en-US",
     rollout_percentage: float = 100.0,
 ) -> dict[str, Any]:
     """Deploy an APK or AAB file to a Play Store track.
@@ -77,7 +78,44 @@ def deploy_app(
         package_name: App package name (e.g., com.example.myapp)
         track: Release track - one of: internal, alpha, beta, production
         file_path: Absolute path to APK or AAB file
-        release_notes: Optional release notes for this version
+        release_notes: Optional release notes for this version (string for single language,
+                      or use release_notes_multilang for multiple languages)
+        release_notes_language: Language code for release notes (default: en-US)
+        rollout_percentage: Rollout percentage (0-100). Default 100 for full rollout.
+
+    Returns:
+        Deployment result with success status and details
+    """
+    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+
+    result = client.deploy_app(
+        package_name=package_name,
+        track=track,
+        file_path=file_path,
+        release_notes=release_notes,
+        release_notes_language=release_notes_language,
+        rollout_percentage=rollout_percentage,
+    )
+
+    return result.model_dump()
+
+
+@mcp.tool()
+def deploy_app_multilang(
+    package_name: str,
+    track: str,
+    file_path: str,
+    release_notes: dict[str, str],
+    rollout_percentage: float = 100.0,
+) -> dict[str, Any]:
+    """Deploy an APK or AAB file with multi-language release notes.
+
+    Args:
+        package_name: App package name (e.g., com.example.myapp)
+        track: Release track - one of: internal, alpha, beta, production
+        file_path: Absolute path to APK or AAB file
+        release_notes: Dictionary mapping language codes to release notes
+                      (e.g., {"en-US": "Bug fixes", "es-ES": "Corrección de errores"})
         rollout_percentage: Rollout percentage (0-100). Default 100 for full rollout.
 
     Returns:
@@ -381,6 +419,70 @@ def get_vitals_overview(package_name: str) -> dict[str, Any]:
 
     vitals = client.get_vitals_overview(package_name)
     return vitals.model_dump()
+
+
+@mcp.tool()
+def get_vitals_metrics(
+    package_name: str,
+    metric_type: str = "crashRate",
+) -> list[dict[str, Any]]:
+    """Get specific Android Vitals metrics for an app.
+
+    Retrieve detailed metrics like crash rates, ANR rates, etc.
+    Note: Full implementation requires Play Developer Reporting API setup.
+
+    Args:
+        package_name: App package name
+        metric_type: Type of metric to retrieve (crashRate, anrRate, etc.)
+
+    Returns:
+        List of vitals metrics with values and benchmarks
+    """
+    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+
+    metrics = client.get_vitals_metrics(package_name, metric_type)
+    return [metric.model_dump() for metric in metrics]
+
+
+# =============================================================================
+# In-App Products Tools
+# =============================================================================
+
+
+@mcp.tool()
+def list_in_app_products(package_name: str) -> list[dict[str, Any]]:
+    """List all in-app products for an app.
+
+    Args:
+        package_name: App package name
+
+    Returns:
+        List of in-app products with SKU, title, description, and pricing
+    """
+    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+
+    products = client.list_in_app_products(package_name)
+    return [product.model_dump() for product in products]
+
+
+@mcp.tool()
+def get_in_app_product(
+    package_name: str,
+    sku: str,
+) -> dict[str, Any]:
+    """Get details of a specific in-app product.
+
+    Args:
+        package_name: App package name
+        sku: Product SKU identifier
+
+    Returns:
+        In-app product details including title, description, and pricing
+    """
+    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+
+    product = client.get_in_app_product(package_name, sku)
+    return product.model_dump()
 
 
 # =============================================================================

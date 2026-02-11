@@ -299,3 +299,144 @@ class TestSubscriptions:
         assert len(subscriptions) == 2
         assert subscriptions[0].product_id == "premium_monthly"
         assert subscriptions[1].product_id == "premium_yearly"
+
+
+class TestDeployAppMultilang:
+    """Test deploy_app with multi-language release notes."""
+
+    def test_deploy_with_multilang_notes(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+        tmp_path: Any,
+    ) -> None:
+        """Test deployment with multi-language release notes."""
+        apk_file = tmp_path / "app.apk"
+        apk_file.write_bytes(b"content")
+
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.insert.return_value.execute.return_value = {"id": "edit-123"}
+        mock_edits.apks.return_value.upload.return_value.execute.return_value = {"versionCode": 100}
+        mock_edits.tracks.return_value.update.return_value.execute.return_value = {}
+        mock_edits.commit.return_value.execute.return_value = {}
+
+        release_notes = {
+            "en-US": "Bug fixes and improvements",
+            "es-ES": "Corrección de errores y mejoras",
+            "fr-FR": "Corrections de bugs et améliorations",
+        }
+
+        result = client.deploy_app(
+            package_name="com.example.app",
+            track="production",
+            file_path=str(apk_file),
+            release_notes=release_notes,
+            rollout_percentage=100.0,
+        )
+
+        assert result.success is True
+
+        # Verify the track update was called with multi-language notes
+        update_call = mock_edits.tracks.return_value.update.call_args
+        body = update_call.kwargs["body"]
+        notes = body["releases"][0]["releaseNotes"]
+        assert len(notes) == 3
+        assert any(n["language"] == "en-US" for n in notes)
+        assert any(n["language"] == "es-ES" for n in notes)
+        assert any(n["language"] == "fr-FR" for n in notes)
+
+
+class TestInAppProducts:
+    """Test in-app products methods."""
+
+    def test_list_in_app_products_success(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """Test listing in-app products."""
+        _mock_service.inappproducts.return_value.list.return_value.execute.return_value = {
+            "inappproduct": [
+                {
+                    "sku": "premium_upgrade",
+                    "purchaseType": "managedProduct",
+                    "status": "active",
+                    "defaultLanguage": "en-US",
+                    "listings": {
+                        "en-US": {
+                            "title": "Premium Upgrade",
+                            "description": "Unlock all features",
+                        }
+                    },
+                    "defaultPrice": {
+                        "currency": "USD",
+                        "priceMicros": "4990000",
+                    },
+                },
+                {
+                    "sku": "remove_ads",
+                    "purchaseType": "managedProduct",
+                    "status": "active",
+                    "defaultLanguage": "en-US",
+                    "listings": {
+                        "en-US": {
+                            "title": "Remove Ads",
+                            "description": "Remove all advertisements",
+                        }
+                    },
+                },
+            ]
+        }
+
+        products = client.list_in_app_products("com.example.app")
+
+        assert len(products) == 2
+        assert products[0].sku == "premium_upgrade"
+        assert products[0].title == "Premium Upgrade"
+        assert products[0].default_price is not None
+        assert products[1].sku == "remove_ads"
+
+    def test_get_in_app_product_success(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """Test getting a specific in-app product."""
+        _mock_service.inappproducts.return_value.get.return_value.execute.return_value = {
+            "sku": "premium_upgrade",
+            "purchaseType": "managedProduct",
+            "status": "active",
+            "defaultLanguage": "en-US",
+            "listings": {
+                "en-US": {
+                    "title": "Premium Upgrade",
+                    "description": "Unlock all features",
+                }
+            },
+            "defaultPrice": {
+                "currency": "USD",
+                "priceMicros": "4990000",
+            },
+        }
+
+        product = client.get_in_app_product("com.example.app", "premium_upgrade")
+
+        assert product.sku == "premium_upgrade"
+        assert product.title == "Premium Upgrade"
+        assert product.status == "active"
+
+
+class TestVitalsMetrics:
+    """Test vitals metrics methods."""
+
+    def test_get_vitals_metrics(
+        self,
+        client: PlayStoreClient,
+    ) -> None:
+        """Test getting vitals metrics."""
+        metrics = client.get_vitals_metrics("com.example.app", "crashRate")
+
+        assert len(metrics) > 0
+        assert metrics[0].metric_type == "crashRate"
+        # Note: This is a placeholder implementation
+        assert "Requires Play Developer Reporting API" in str(metrics[0].dimension_value)

@@ -10,10 +10,12 @@ An MCP (Model Context Protocol) server that connects to the Google Play Develope
 ## ✨ Features
 
 - **🚀 App Deployment**: Deploy APK/AAB files to any track (internal, alpha, beta, production)
+- **🌍 Multi-Language Support**: Deploy with release notes in multiple languages
 - **📈 Release Management**: Promote releases between tracks, manage staged rollouts
 - **⭐ Review Management**: Fetch and reply to user reviews
 - **📊 Android Vitals**: Monitor crashes, ANRs, and app health metrics
 - **💳 Subscription Management**: List subscriptions and check purchase status
+- **🛒 In-App Products**: List and manage in-app products
 - **🔐 Secure**: Uses Google Cloud service account authentication
 
 ## 🚀 Quick Start
@@ -99,12 +101,13 @@ Add to your `claude_desktop_config.json`:
 
 | Tool | Description |
 |------|-------------|
-| `deploy_app` | Deploy an APK/AAB to a track with optional staged rollout |
+| `deploy_app` | Deploy an APK/AAB to a track with optional staged rollout and single-language release notes |
+| `deploy_app_multilang` | Deploy an APK/AAB with multi-language release notes |
 | `promote_release` | Promote a release from one track to another |
 | `get_releases` | Get release status for all tracks |
 | `halt_release` | Halt a staged rollout |
 | `update_rollout` | Update rollout percentage for a staged release |
-| `list_apps` | List all apps in the developer account |
+| `list_apps` | List all apps in the developer account (limited by API) |
 | `get_app_details` | Get app metadata (title, description, etc.) |
 
 ### Review Tools
@@ -121,6 +124,13 @@ Add to your `claude_desktop_config.json`:
 | `list_subscriptions` | List subscription products for an app |
 | `get_subscription_status` | Check subscription purchase status |
 | `list_voided_purchases` | List voided purchases |
+
+### In-App Products Tools
+
+| Tool | Description |
+|------|-------------|
+| `list_in_app_products` | List all in-app products for an app |
+| `get_in_app_product` | Get details of a specific in-app product |
 
 ### Vitals Tools
 

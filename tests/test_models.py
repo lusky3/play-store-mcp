@@ -166,3 +166,48 @@ class TestVitalsOverview:
 
         assert vitals.crash_rate == 0.5
         assert vitals.excessive_wakeups is None
+
+
+
+class TestInAppProduct:
+    """Test InAppProduct model."""
+
+    def test_in_app_product(self) -> None:
+        """Test in-app product model."""
+        from play_store_mcp.models import InAppProduct
+
+        product = InAppProduct(
+            sku="premium_upgrade",
+            package_name="com.example.app",
+            product_type="managedProduct",
+            status="active",
+            default_language="en-US",
+            title="Premium Upgrade",
+            description="Unlock all features",
+            default_price={"currency": "USD", "priceMicros": "4990000"},
+        )
+
+        assert product.sku == "premium_upgrade"
+        assert product.product_type == "managedProduct"
+        assert product.default_price is not None
+
+
+class TestVitalsMetric:
+    """Test VitalsMetric model."""
+
+    def test_vitals_metric(self) -> None:
+        """Test vitals metric model."""
+        from play_store_mcp.models import VitalsMetric
+
+        metric = VitalsMetric(
+            metric_type="crashRate",
+            value=0.5,
+            benchmark=1.0,
+            is_below_threshold=True,
+            dimension="api_level",
+            dimension_value="30",
+        )
+
+        assert metric.metric_type == "crashRate"
+        assert metric.value == 0.5
+        assert metric.is_below_threshold is True
