@@ -15,9 +15,14 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        with:
+          egress-policy: audit
+
       - name: PR Notification
         if: github.event_name == 'pull_request'
-        uses: sarisia/actions-status-discord@v1
+        uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 # v1.16.0
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           title: "Pull Request ${{ github.event.action }}"
@@ -34,7 +39,7 @@ jobs:
 
       - name: Issue Notification
         if: github.event_name == 'issues'
-        uses: sarisia/actions-status-discord@v1
+        uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 # v1.16.0
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           title: "Issue ${{ github.event.action }}"
@@ -46,7 +51,7 @@ jobs:
 
       - name: Release Notification
         if: github.event_name == 'release'
-        uses: sarisia/actions-status-discord@v1
+        uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 # v1.16.0
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           title: "🚀 New Release: ${{ github.event.release.tag_name }}"
@@ -60,7 +65,7 @@ jobs:
         if: >-
           github.event_name == 'workflow_run' &&
           github.event.workflow_run.conclusion == 'failure'
-        uses: sarisia/actions-status-discord@v1
+        uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 # v1.16.0
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           status: failure
@@ -80,7 +85,7 @@ jobs:
           github.event_name == 'workflow_run' &&
           github.event.workflow_run.conclusion == 'success' &&
           github.event.workflow_run.name == 'Release'
-        uses: sarisia/actions-status-discord@v1
+        uses: sarisia/actions-status-discord@eb045afee445dc055c18d3d90bd0f244fd062708 # v1.16.0
         with:
           webhook: ${{ secrets.DISCORD_WEBHOOK }}
           status: success

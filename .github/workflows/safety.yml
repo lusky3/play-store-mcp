@@ -16,15 +16,20 @@ jobs:
     name: Safety Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@5ef0c079ce82195b2a36a210272d6b661572d83e # v2.14.2
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
         with:
           version: "latest"
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
         with:
           python-version: "3.13"
 
@@ -35,7 +40,7 @@ jobs:
         run: uv export --no-hashes --format requirements-txt > requirements.txt
 
       - name: Run Safety check
-        uses: pyupio/safety-action@v1
+        uses: pyupio/safety-action@7baf6605473beffc874c1313ddf2db085c0cacf2 # v1
         with:
           api-key: ${{ secrets.SAFETY_API_KEY }}
           args: --full-report
