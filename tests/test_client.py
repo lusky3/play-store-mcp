@@ -442,7 +442,6 @@ class TestVitalsMetrics:
         assert "Requires Play Developer Reporting API" in str(metrics[0].dimension_value)
 
 
-
 class TestStoreListings:
     """Test store listings methods."""
 
@@ -522,8 +521,8 @@ class TestStoreListings:
         listings = client.list_all_listings("com.example.app")
 
         assert len(listings) == 2
-        assert any(l.language == "en-US" for l in listings)
-        assert any(l.language == "es-ES" for l in listings)
+        assert any(listing.language == "en-US" for listing in listings)
+        assert any(listing.language == "es-ES" for listing in listings)
 
 
 class TestTesters:
@@ -614,7 +613,6 @@ class TestExpansionFiles:
         assert expansion.version_code == 100
         assert expansion.expansion_file_type == "main"
         assert expansion.file_size == 104857600
-
 
 
 class TestValidation:

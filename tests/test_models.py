@@ -168,7 +168,6 @@ class TestVitalsOverview:
         assert vitals.excessive_wakeups is None
 
 
-
 class TestInAppProduct:
     """Test InAppProduct model."""
 
@@ -211,7 +210,6 @@ class TestVitalsMetric:
         assert metric.metric_type == "crashRate"
         assert metric.value == 0.5
         assert metric.is_below_threshold is True
-
 
 
 class TestListing:

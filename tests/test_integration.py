@@ -16,11 +16,11 @@ IMPORTANT: These tests require:
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 
 from play_store_mcp.client import PlayStoreClient, PlayStoreClientError
-
 
 # Skip all tests if credentials are not available
 pytestmark = pytest.mark.skipif(
@@ -38,7 +38,7 @@ def real_client() -> PlayStoreClient:
 @pytest.fixture
 def test_package_name() -> str:
     """Package name for testing.
-    
+
     Override this with an actual package name from your Play Console.
     Set via environment variable: TEST_PACKAGE_NAME=com.example.app
     """
@@ -55,14 +55,14 @@ class TestRealAPIConnection:
         """Test that credentials file exists."""
         creds_path = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
         assert creds_path is not None, "GOOGLE_APPLICATION_CREDENTIALS not set"
-        
+
         # Expand ~ if present
         if creds_path.startswith("$HOME"):
-            creds_path = creds_path.replace("$HOME", os.path.expanduser("~"))
+            creds_path = creds_path.replace("$HOME", str(Path("~").expanduser()))
         elif creds_path.startswith("~"):
-            creds_path = os.path.expanduser(creds_path)
-        
-        assert os.path.exists(creds_path), f"Credentials file not found: {creds_path}"
+            creds_path = str(Path(creds_path).expanduser())
+
+        assert Path(creds_path).exists(), f"Credentials file not found: {creds_path}"
         print(f"✓ Credentials file found: {creds_path}")
 
     def test_can_initialize_client(self, real_client: PlayStoreClient) -> None:
@@ -101,7 +101,7 @@ class TestReadOnlyOperations:
             tracks = real_client.get_releases(test_package_name)
             assert isinstance(tracks, list)
             print(f"✓ get_releases() returned {len(tracks)} tracks")
-            
+
             for track in tracks:
                 print(f"  - Track: {track.track}")
                 for release in track.releases:
@@ -121,7 +121,7 @@ class TestReadOnlyOperations:
         try:
             details = real_client.get_app_details(test_package_name)
             assert details.package_name == test_package_name
-            print(f"✓ get_app_details() succeeded")
+            print("✓ get_app_details() succeeded")
             print(f"  Title: {details.title}")
             print(f"  Default language: {details.default_language}")
         except PlayStoreClientError as e:
@@ -137,7 +137,7 @@ class TestReadOnlyOperations:
             reviews = real_client.get_reviews(test_package_name, max_results=5)
             assert isinstance(reviews, list)
             print(f"✓ get_reviews() returned {len(reviews)} reviews")
-            
+
             for review in reviews[:3]:  # Show first 3
                 print(f"  - {review.star_rating}★ by {review.author_name}")
                 print(f"    {review.comment[:50]}...")
@@ -155,7 +155,7 @@ class TestReadOnlyOperations:
             subscriptions = real_client.list_subscriptions(test_package_name)
             assert isinstance(subscriptions, list)
             print(f"✓ list_subscriptions() returned {len(subscriptions)} subscriptions")
-            
+
             for sub in subscriptions:
                 print(f"  - {sub.product_id}")
         except PlayStoreClientError as e:
@@ -172,7 +172,7 @@ class TestReadOnlyOperations:
             products = real_client.list_in_app_products(test_package_name)
             assert isinstance(products, list)
             print(f"✓ list_in_app_products() returned {len(products)} products")
-            
+
             for product in products:
                 print(f"  - {product.sku}: {product.title}")
         except PlayStoreClientError as e:
@@ -188,9 +188,11 @@ class TestReadOnlyOperations:
         try:
             listing = real_client.get_listing(test_package_name, "en-US")
             assert listing.language == "en-US"
-            print(f"✓ get_listing() succeeded")
+            print("✓ get_listing() succeeded")
             print(f"  Title: {listing.title}")
-            print(f"  Short description: {listing.short_description[:50] if listing.short_description else 'None'}...")
+            print(
+                f"  Short description: {listing.short_description[:50] if listing.short_description else 'None'}..."
+            )
         except PlayStoreClientError as e:
             pytest.fail(f"Failed to get listing: {e}")
 
@@ -204,7 +206,7 @@ class TestReadOnlyOperations:
             listings = real_client.list_all_listings(test_package_name)
             assert isinstance(listings, list)
             print(f"✓ list_all_listings() returned {len(listings)} listings")
-            
+
             for listing in listings:
                 print(f"  - {listing.language}: {listing.title}")
         except PlayStoreClientError as e:
@@ -232,7 +234,7 @@ class TestReadOnlyOperations:
         """Test getting vitals overview."""
         vitals = real_client.get_vitals_overview(test_package_name)
         assert vitals.package_name == test_package_name
-        print(f"✓ get_vitals_overview() succeeded")
+        print("✓ get_vitals_overview() succeeded")
         print(f"  Note: {vitals.freshness_info}")
 
 
@@ -276,7 +278,7 @@ class TestValidation:
         )
         assert len(errors) == 0
         print("✓ Valid listing text passed validation")
-        
+
         # Invalid text (too long)
         errors = real_client.validate_listing_text(title="A" * 51)
         assert len(errors) > 0
