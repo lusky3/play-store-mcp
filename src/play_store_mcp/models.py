@@ -204,7 +204,9 @@ class TesterInfo(BaseModel):
     """Information about testers for a track."""
 
     track: str = Field(..., description="Track name")
-    tester_emails: list[str] = Field(default_factory=list, description="List of tester email addresses")
+    tester_emails: list[str] = Field(
+        default_factory=list, description="List of tester email addresses"
+    )
 
 
 class Order(BaseModel):
