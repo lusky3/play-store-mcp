@@ -40,23 +40,63 @@ This means:
 
 ## Running Tests
 
-### Using uv (Recommended)
+### Unit Tests (Mocked - Safe)
+
+These tests use mocked API responses and never make real API calls.
 
 ```bash
+# Using uv (Recommended)
 uv run pytest tests/ -v
-```
 
-### Using the test script
-
-```bash
+# Using the test script
 ./run_tests.sh
-```
 
-### With coverage report
-
-```bash
+# With coverage report
 uv run pytest tests/ -v --cov=src/play_store_mcp --cov-report=term-missing
+
+# Run only unit tests (exclude integration)
+uv run pytest tests/ -v --ignore=tests/test_integration.py
 ```
+
+### Integration Tests (Real API - Read-Only)
+
+These tests use real Google Play API credentials but only perform READ operations.
+
+**Prerequisites:**
+1. Valid Google Cloud service account credentials
+2. Service account with Play Console access
+3. At least one app in your Play Console account
+
+**Setup:**
+```bash
+# 1. Ensure .env.local has credentials
+cat .env.local
+# Should contain: export GOOGLE_APPLICATION_CREDENTIALS="..."
+
+# 2. Set test package name (optional but recommended)
+export TEST_PACKAGE_NAME=com.your.app.package
+
+# 3. Run integration tests
+./run_integration_tests.sh
+```
+
+**What Integration Tests Do:**
+- ✅ Verify real API connectivity
+- ✅ Test authentication works
+- ✅ Read app releases and details
+- ✅ Fetch reviews and listings
+- ✅ List subscriptions and products
+- ✅ Test validation functions
+
+**What Integration Tests DON'T Do:**
+- ❌ Deploy apps
+- ❌ Modify releases
+- ❌ Update store listings
+- ❌ Reply to reviews
+- ❌ Make ANY changes to Play Console
+
+**Safety:**
+All integration tests are read-only. They will never modify your Play Console data.
 
 ## Test Coverage
 
