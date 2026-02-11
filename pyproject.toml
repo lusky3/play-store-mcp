@@ -88,11 +88,37 @@ select = [
     "TCH",    # flake8-type-checking
     "PTH",    # flake8-use-pathlib
     "RUF",    # Ruff-specific rules
+    "S",      # flake8-bandit (security)
+    "BLE",    # flake8-blind-except
+    "TRY",    # tryceratops
+    "PERF",   # perflint
+    "PIE",    # flake8-pie
+    "PLC",    # pylint convention
+    "SLF",    # flake8-self
+    "C90",    # mccabe complexity
 ]
 ignore = [
     "E501",   # line too long (handled by formatter)
     "B008",   # do not perform function calls in argument defaults
     "B904",   # raise without from inside except
+    "S101",   # assert in tests (expected for pytest)
+    "TRY003", # long exception messages
+    "TRY300", # return in try block (intentional pattern for API calls)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "SLF001",  # private member access (needed for testing internals)
+    "S105",    # hardcoded passwords in test assertions
+    "S106",    # hardcoded passwords in test fixtures
+    "PLC0415", # imports inside test functions (intentional for test isolation)
+    "BLE001",  # blind except in test scripts
+    "C901",    # complexity in test scripts
+    "PLR0912", # too many branches in test scripts
+    "PLR0915", # too many statements in test scripts
+]
+"src/play_store_mcp/server.py" = [
+    "SLF001",  # accessing _get_service in lifespan is intentional
 ]
 
 [tool.ruff.lint.isort]
