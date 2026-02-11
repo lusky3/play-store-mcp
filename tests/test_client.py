@@ -440,3 +440,177 @@ class TestVitalsMetrics:
         assert metrics[0].metric_type == "crashRate"
         # Note: This is a placeholder implementation
         assert "Requires Play Developer Reporting API" in str(metrics[0].dimension_value)
+
+
+
+class TestStoreListings:
+    """Test store listings methods."""
+
+    def test_get_listing_success(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """Test getting a store listing."""
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.insert.return_value.execute.return_value = {"id": "edit-123"}
+        mock_edits.listings.return_value.get.return_value.execute.return_value = {
+            "title": "My Awesome App",
+            "fullDescription": "This is a great app that does amazing things.",
+            "shortDescription": "A great app",
+            "video": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        }
+        mock_edits.delete.return_value.execute.return_value = None
+
+        listing = client.get_listing("com.example.app", "en-US")
+
+        assert listing.language == "en-US"
+        assert listing.title == "My Awesome App"
+        assert listing.full_description == "This is a great app that does amazing things."
+        assert listing.short_description == "A great app"
+
+    def test_update_listing_success(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """Test updating a store listing."""
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.insert.return_value.execute.return_value = {"id": "edit-123"}
+        mock_edits.listings.return_value.get.return_value.execute.return_value = {
+            "title": "Old Title",
+            "fullDescription": "Old description",
+            "shortDescription": "Old short",
+        }
+        mock_edits.listings.return_value.update.return_value.execute.return_value = {}
+        mock_edits.commit.return_value.execute.return_value = {}
+
+        result = client.update_listing(
+            package_name="com.example.app",
+            language="en-US",
+            title="New Title",
+            short_description="New short description",
+        )
+
+        assert result.success is True
+        assert result.language == "en-US"
+
+    def test_list_all_listings_success(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """Test listing all store listings."""
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.insert.return_value.execute.return_value = {"id": "edit-123"}
+        mock_edits.listings.return_value.list.return_value.execute.return_value = {
+            "listings": {
+                "en-US": {
+                    "title": "My App",
+                    "fullDescription": "English description",
+                    "shortDescription": "English short",
+                },
+                "es-ES": {
+                    "title": "Mi Aplicación",
+                    "fullDescription": "Descripción en español",
+                    "shortDescription": "Corto en español",
+                },
+            }
+        }
+        mock_edits.delete.return_value.execute.return_value = None
+
+        listings = client.list_all_listings("com.example.app")
+
+        assert len(listings) == 2
+        assert any(l.language == "en-US" for l in listings)
+        assert any(l.language == "es-ES" for l in listings)
+
+
+class TestTesters:
+    """Test testers management methods."""
+
+    def test_get_testers_success(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """Test getting testers for a track."""
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.insert.return_value.execute.return_value = {"id": "edit-123"}
+        mock_edits.testers.return_value.get.return_value.execute.return_value = {
+            "googleGroups": ["testers@example.com", "beta-testers@example.com"]
+        }
+        mock_edits.delete.return_value.execute.return_value = None
+
+        testers = client.get_testers("com.example.app", "beta")
+
+        assert testers.track == "beta"
+        assert len(testers.tester_emails) == 2
+        assert "testers@example.com" in testers.tester_emails
+
+    def test_update_testers_success(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """Test updating testers for a track."""
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.insert.return_value.execute.return_value = {"id": "edit-123"}
+        mock_edits.testers.return_value.update.return_value.execute.return_value = {}
+        mock_edits.commit.return_value.execute.return_value = {}
+
+        result = client.update_testers(
+            package_name="com.example.app",
+            track="alpha",
+            tester_emails=["alpha-testers@example.com"],
+        )
+
+        assert result.success is True
+
+
+class TestOrders:
+    """Test orders methods."""
+
+    def test_get_order_success(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """Test getting order details."""
+        _mock_service.orders.return_value.get.return_value.execute.return_value = {
+            "orderId": "GPA.1234-5678-9012-34567",
+            "packageName": "com.example.app",
+            "productId": "premium_upgrade",
+            "purchaseState": 0,
+            "purchaseToken": "token123",
+        }
+
+        order = client.get_order("com.example.app", "GPA.1234-5678-9012-34567")
+
+        assert order.order_id == "GPA.1234-5678-9012-34567"
+        assert order.product_id == "premium_upgrade"
+        assert order.purchase_state == 0
+
+
+class TestExpansionFiles:
+    """Test expansion files methods."""
+
+    def test_get_expansion_file_success(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """Test getting expansion file info."""
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.insert.return_value.execute.return_value = {"id": "edit-123"}
+        mock_edits.expansionfiles.return_value.get.return_value.execute.return_value = {
+            "fileSize": 104857600,  # 100MB
+            "referencesVersion": 100,
+        }
+        mock_edits.delete.return_value.execute.return_value = None
+
+        expansion = client.get_expansion_file("com.example.app", 100, "main")
+
+        assert expansion.version_code == 100
+        assert expansion.expansion_file_type == "main"
+        assert expansion.file_size == 104857600

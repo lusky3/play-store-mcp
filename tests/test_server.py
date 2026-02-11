@@ -47,6 +47,13 @@ class TestServerTools:
             "get_vitals_metrics",
             "list_in_app_products",
             "get_in_app_product",
+            "get_listing",
+            "update_listing",
+            "list_all_listings",
+            "get_testers",
+            "update_testers",
+            "get_order",
+            "get_expansion_file",
         ]
 
         for tool_name in expected_tools:

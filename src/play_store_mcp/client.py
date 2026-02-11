@@ -16,12 +16,17 @@ from play_store_mcp.models import (
     AppDetails,
     AppInfo,
     DeploymentResult,
+    ExpansionFile,
     InAppProduct,
+    Listing,
+    ListingUpdateResult,
+    Order,
     Release,
     Review,
     ReviewReplyResult,
     SubscriptionProduct,
     SubscriptionPurchase,
+    TesterInfo,
     TrackInfo,
     VitalsMetric,
     VitalsOverview,
@@ -1109,3 +1114,358 @@ class PlayStoreClient:
         except HttpError as e:
             self._logger.error("Failed to get in-app product", error=str(e))
             raise PlayStoreClientError(f"Failed to get in-app product: {e.reason}") from e
+
+    # =========================================================================
+    # Store Listings API
+    # =========================================================================
+
+    def get_listing(self, package_name: str, language: str = "en-US") -> Listing:
+        """Get store listing for a specific language.
+
+        Args:
+            package_name: App package name.
+            language: Language code (e.g., en-US, es-ES).
+
+        Returns:
+            Store listing information.
+        """
+        self._logger.info("Getting store listing", package_name=package_name, language=language)
+        service = self._get_service()
+        edit_id = self._create_edit(package_name)
+
+        try:
+            listing_data = (
+                service.edits()
+                .listings()
+                .get(packageName=package_name, editId=edit_id, language=language)
+                .execute()
+            )
+
+            return Listing(
+                language=language,
+                title=listing_data.get("title"),
+                full_description=listing_data.get("fullDescription"),
+                short_description=listing_data.get("shortDescription"),
+                video=listing_data.get("video"),
+            )
+        finally:
+            self._delete_edit(package_name, edit_id)
+
+    def update_listing(
+        self,
+        package_name: str,
+        language: str,
+        title: str | None = None,
+        full_description: str | None = None,
+        short_description: str | None = None,
+        video: str | None = None,
+    ) -> ListingUpdateResult:
+        """Update store listing for a specific language.
+
+        Args:
+            package_name: App package name.
+            language: Language code (e.g., en-US, es-ES).
+            title: App title (max 50 characters).
+            full_description: Full description (max 4000 characters).
+            short_description: Short description (max 80 characters).
+            video: YouTube video URL.
+
+        Returns:
+            Update result.
+        """
+        self._logger.info("Updating store listing", package_name=package_name, language=language)
+        service = self._get_service()
+        edit_id = self._create_edit(package_name)
+
+        try:
+            # Get current listing
+            try:
+                current_listing = (
+                    service.edits()
+                    .listings()
+                    .get(packageName=package_name, editId=edit_id, language=language)
+                    .execute()
+                )
+            except HttpError:
+                current_listing = {}
+
+            # Build update body with only provided fields
+            update_body: dict[str, Any] = {}
+            if title is not None:
+                update_body["title"] = title
+            else:
+                update_body["title"] = current_listing.get("title", "")
+
+            if full_description is not None:
+                update_body["fullDescription"] = full_description
+            else:
+                update_body["fullDescription"] = current_listing.get("fullDescription", "")
+
+            if short_description is not None:
+                update_body["shortDescription"] = short_description
+            else:
+                update_body["shortDescription"] = current_listing.get("shortDescription", "")
+
+            if video is not None:
+                update_body["video"] = video
+
+            # Update listing
+            service.edits().listings().update(
+                packageName=package_name,
+                editId=edit_id,
+                language=language,
+                body=update_body,
+            ).execute()
+
+            self._commit_edit(package_name, edit_id)
+
+            return ListingUpdateResult(
+                success=True,
+                package_name=package_name,
+                language=language,
+                message=f"Successfully updated listing for {language}",
+            )
+
+        except HttpError as e:
+            self._logger.error("Failed to update listing", error=str(e))
+            self._delete_edit(package_name, edit_id)
+            return ListingUpdateResult(
+                success=False,
+                package_name=package_name,
+                language=language,
+                message=f"Failed to update listing: {e.reason}",
+                error=str(e),
+            )
+        except Exception as e:
+            self._logger.error("Failed to update listing", error=str(e))
+            self._delete_edit(package_name, edit_id)
+            return ListingUpdateResult(
+                success=False,
+                package_name=package_name,
+                language=language,
+                message=f"Failed to update listing: {e}",
+                error=str(e),
+            )
+
+    def list_all_listings(self, package_name: str) -> list[Listing]:
+        """List all store listings for all languages.
+
+        Args:
+            package_name: App package name.
+
+        Returns:
+            List of store listings.
+        """
+        self._logger.info("Listing all store listings", package_name=package_name)
+        service = self._get_service()
+        edit_id = self._create_edit(package_name)
+
+        try:
+            result = (
+                service.edits()
+                .listings()
+                .list(packageName=package_name, editId=edit_id)
+                .execute()
+            )
+
+            listings: list[Listing] = []
+            for lang, listing_data in result.get("listings", {}).items():
+                listings.append(
+                    Listing(
+                        language=lang,
+                        title=listing_data.get("title"),
+                        full_description=listing_data.get("fullDescription"),
+                        short_description=listing_data.get("shortDescription"),
+                        video=listing_data.get("video"),
+                    )
+                )
+
+            return listings
+        finally:
+            self._delete_edit(package_name, edit_id)
+
+    # =========================================================================
+    # Testers API
+    # =========================================================================
+
+    def get_testers(self, package_name: str, track: str) -> TesterInfo:
+        """Get testers for a specific track.
+
+        Args:
+            package_name: App package name.
+            track: Track name (internal, alpha, beta).
+
+        Returns:
+            Tester information.
+        """
+        self._logger.info("Getting testers", package_name=package_name, track=track)
+        service = self._get_service()
+        edit_id = self._create_edit(package_name)
+
+        try:
+            testers_data = (
+                service.edits()
+                .testers()
+                .get(packageName=package_name, editId=edit_id, track=track)
+                .execute()
+            )
+
+            return TesterInfo(
+                track=track,
+                tester_emails=testers_data.get("googleGroups", []),
+            )
+        except HttpError as e:
+            if e.resp.status == 404:
+                # No testers configured
+                return TesterInfo(track=track, tester_emails=[])
+            raise PlayStoreClientError(f"Failed to get testers: {e.reason}") from e
+        finally:
+            self._delete_edit(package_name, edit_id)
+
+    def update_testers(
+        self,
+        package_name: str,
+        track: str,
+        tester_emails: list[str],
+    ) -> ListingUpdateResult:
+        """Update testers for a specific track.
+
+        Args:
+            package_name: App package name.
+            track: Track name (internal, alpha, beta).
+            tester_emails: List of tester email addresses or Google Group emails.
+
+        Returns:
+            Update result.
+        """
+        self._logger.info(
+            "Updating testers",
+            package_name=package_name,
+            track=track,
+            count=len(tester_emails),
+        )
+        service = self._get_service()
+        edit_id = self._create_edit(package_name)
+
+        try:
+            service.edits().testers().update(
+                packageName=package_name,
+                editId=edit_id,
+                track=track,
+                body={"googleGroups": tester_emails},
+            ).execute()
+
+            self._commit_edit(package_name, edit_id)
+
+            return ListingUpdateResult(
+                success=True,
+                package_name=package_name,
+                language=track,  # Reusing field for track
+                message=f"Successfully updated {len(tester_emails)} testers for {track}",
+            )
+
+        except HttpError as e:
+            self._logger.error("Failed to update testers", error=str(e))
+            self._delete_edit(package_name, edit_id)
+            return ListingUpdateResult(
+                success=False,
+                package_name=package_name,
+                language=track,
+                message=f"Failed to update testers: {e.reason}",
+                error=str(e),
+            )
+
+    # =========================================================================
+    # Orders API
+    # =========================================================================
+
+    def get_order(self, package_name: str, order_id: str) -> Order:
+        """Get order details.
+
+        Args:
+            package_name: App package name.
+            order_id: Order ID.
+
+        Returns:
+            Order information.
+        """
+        self._logger.info("Getting order", package_name=package_name, order_id=order_id)
+        service = self._get_service()
+
+        try:
+            order_data = (
+                service.orders().get(packageName=package_name, orderId=order_id).execute()
+            )
+
+            return Order(
+                order_id=order_id,
+                package_name=package_name,
+                product_id=order_data.get("productId"),
+                purchase_state=order_data.get("purchaseState"),
+                purchase_token=order_data.get("purchaseToken"),
+            )
+
+        except HttpError as e:
+            self._logger.error("Failed to get order", error=str(e))
+            raise PlayStoreClientError(f"Failed to get order: {e.reason}") from e
+
+    # =========================================================================
+    # Expansion Files API
+    # =========================================================================
+
+    def get_expansion_file(
+        self,
+        package_name: str,
+        version_code: int,
+        expansion_file_type: str = "main",
+    ) -> ExpansionFile:
+        """Get expansion file information.
+
+        Args:
+            package_name: App package name.
+            version_code: APK version code.
+            expansion_file_type: Type of expansion file (main or patch).
+
+        Returns:
+            Expansion file information.
+        """
+        self._logger.info(
+            "Getting expansion file",
+            package_name=package_name,
+            version_code=version_code,
+            type=expansion_file_type,
+        )
+        service = self._get_service()
+        edit_id = self._create_edit(package_name)
+
+        try:
+            expansion_data = (
+                service.edits()
+                .expansionfiles()
+                .get(
+                    packageName=package_name,
+                    editId=edit_id,
+                    apkVersionCode=version_code,
+                    expansionFileType=expansion_file_type,
+                )
+                .execute()
+            )
+
+            return ExpansionFile(
+                version_code=version_code,
+                expansion_file_type=expansion_file_type,
+                file_size=expansion_data.get("fileSize"),
+                references_version=expansion_data.get("referencesVersion"),
+            )
+
+        except HttpError as e:
+            if e.resp.status == 404:
+                # No expansion file
+                return ExpansionFile(
+                    version_code=version_code,
+                    expansion_file_type=expansion_file_type,
+                )
+            self._logger.error("Failed to get expansion file", error=str(e))
+            raise PlayStoreClientError(f"Failed to get expansion file: {e.reason}") from e
+        finally:
+            self._delete_edit(package_name, edit_id)

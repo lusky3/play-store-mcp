@@ -211,3 +211,77 @@ class TestVitalsMetric:
         assert metric.metric_type == "crashRate"
         assert metric.value == 0.5
         assert metric.is_below_threshold is True
+
+
+
+class TestListing:
+    """Test Listing model."""
+
+    def test_listing(self) -> None:
+        """Test listing model."""
+        from play_store_mcp.models import Listing
+
+        listing = Listing(
+            language="en-US",
+            title="My Awesome App",
+            full_description="This is a great app",
+            short_description="A great app",
+            video="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        )
+
+        assert listing.language == "en-US"
+        assert listing.title == "My Awesome App"
+
+
+class TestTesterInfo:
+    """Test TesterInfo model."""
+
+    def test_tester_info(self) -> None:
+        """Test tester info model."""
+        from play_store_mcp.models import TesterInfo
+
+        testers = TesterInfo(
+            track="beta",
+            tester_emails=["tester1@example.com", "tester2@example.com"],
+        )
+
+        assert testers.track == "beta"
+        assert len(testers.tester_emails) == 2
+
+
+class TestOrder:
+    """Test Order model."""
+
+    def test_order(self) -> None:
+        """Test order model."""
+        from play_store_mcp.models import Order
+
+        order = Order(
+            order_id="GPA.1234-5678-9012-34567",
+            package_name="com.example.app",
+            product_id="premium_upgrade",
+            purchase_state=0,
+            purchase_token="token123",
+        )
+
+        assert order.order_id == "GPA.1234-5678-9012-34567"
+        assert order.product_id == "premium_upgrade"
+
+
+class TestExpansionFile:
+    """Test ExpansionFile model."""
+
+    def test_expansion_file(self) -> None:
+        """Test expansion file model."""
+        from play_store_mcp.models import ExpansionFile
+
+        expansion = ExpansionFile(
+            version_code=100,
+            expansion_file_type="main",
+            file_size=104857600,
+            references_version=100,
+        )
+
+        assert expansion.version_code == 100
+        assert expansion.expansion_file_type == "main"
+        assert expansion.file_size == 104857600

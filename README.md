@@ -11,11 +11,15 @@ An MCP (Model Context Protocol) server that connects to the Google Play Develope
 
 - **🚀 App Deployment**: Deploy APK/AAB files to any track (internal, alpha, beta, production)
 - **🌍 Multi-Language Support**: Deploy with release notes in multiple languages
+- **📝 Store Listings**: Update app titles, descriptions, and videos for any language
 - **📈 Release Management**: Promote releases between tracks, manage staged rollouts
+- **👥 Tester Management**: Add and manage testers for testing tracks
 - **⭐ Review Management**: Fetch and reply to user reviews
 - **📊 Android Vitals**: Monitor crashes, ANRs, and app health metrics
 - **💳 Subscription Management**: List subscriptions and check purchase status
 - **🛒 In-App Products**: List and manage in-app products
+- **📦 Expansion Files**: Manage APK expansion files for large apps
+- **🧾 Orders**: Retrieve detailed transaction information
 - **🔐 Secure**: Uses Google Cloud service account authentication
 
 ## 🚀 Quick Start
@@ -110,6 +114,14 @@ Add to your `claude_desktop_config.json`:
 | `list_apps` | List all apps in the developer account (limited by API) |
 | `get_app_details` | Get app metadata (title, description, etc.) |
 
+### Store Listings Tools
+
+| Tool | Description |
+|------|-------------|
+| `get_listing` | Get store listing for a specific language |
+| `update_listing` | Update store listing (title, descriptions, video) |
+| `list_all_listings` | List all store listings for all languages |
+
 ### Review Tools
 
 | Tool | Description |
@@ -131,6 +143,25 @@ Add to your `claude_desktop_config.json`:
 |------|-------------|
 | `list_in_app_products` | List all in-app products for an app |
 | `get_in_app_product` | Get details of a specific in-app product |
+
+### Testers Management Tools
+
+| Tool | Description |
+|------|-------------|
+| `get_testers` | Get testers for a specific testing track |
+| `update_testers` | Update testers for a testing track |
+
+### Orders Tools
+
+| Tool | Description |
+|------|-------------|
+| `get_order` | Get detailed order/transaction information |
+
+### Expansion Files Tools
+
+| Tool | Description |
+|------|-------------|
+| `get_expansion_file` | Get APK expansion file information |
 
 ### Vitals Tools
 
@@ -161,6 +192,101 @@ Add to your `claude_desktop_config.json`:
    - **Release apps to production** (for production releases)
    - **Reply to reviews** (for review management)
    - **View app information and download bulk reports** (for vitals)
+
+## 💡 Usage Examples
+
+### Deploy an App
+
+```python
+# Deploy to internal testing
+deploy_app(
+    package_name="com.example.myapp",
+    track="internal",
+    file_path="/path/to/app-release.aab",
+    release_notes="Bug fixes and performance improvements"
+)
+
+# Deploy with multi-language release notes
+deploy_app_multilang(
+    package_name="com.example.myapp",
+    track="production",
+    file_path="/path/to/app-release.aab",
+    release_notes={
+        "en-US": "Bug fixes and improvements",
+        "es-ES": "Corrección de errores y mejoras",
+        "fr-FR": "Corrections de bugs et améliorations"
+    },
+    rollout_percentage=10.0  # Staged rollout to 10%
+)
+```
+
+### Manage Store Listings
+
+```python
+# Update app description
+update_listing(
+    package_name="com.example.myapp",
+    language="en-US",
+    title="My Awesome App",
+    short_description="The best app for productivity",
+    full_description="A comprehensive description of your app..."
+)
+
+# Get all listings
+listings = list_all_listings(package_name="com.example.myapp")
+```
+
+### Manage Testers
+
+```python
+# Add testers to beta track
+update_testers(
+    package_name="com.example.myapp",
+    track="beta",
+    tester_emails=["beta-testers@example.com", "qa-team@example.com"]
+)
+
+# Get current testers
+testers = get_testers(package_name="com.example.myapp", track="alpha")
+```
+
+### Handle Reviews
+
+```python
+# Get recent reviews
+reviews = get_reviews(
+    package_name="com.example.myapp",
+    max_results=50
+)
+
+# Reply to a review
+reply_to_review(
+    package_name="com.example.myapp",
+    review_id="review-123",
+    reply_text="Thank you for your feedback! We've fixed this in the latest update."
+)
+```
+
+### Promote Releases
+
+```python
+# Promote from beta to production
+promote_release(
+    package_name="com.example.myapp",
+    from_track="beta",
+    to_track="production",
+    version_code=100,
+    rollout_percentage=20.0  # Start with 20% rollout
+)
+
+# Increase rollout percentage
+update_rollout(
+    package_name="com.example.myapp",
+    track="production",
+    version_code=100,
+    rollout_percentage=50.0
+)
+```
 
 ## 🔒 Environment Variables
 

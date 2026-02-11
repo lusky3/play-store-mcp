@@ -178,3 +178,51 @@ class InAppProduct(BaseModel):
     title: str | None = Field(None, description="Product title")
     description: str | None = Field(None, description="Product description")
     default_price: dict[str, Any] | None = Field(None, description="Default price information")
+
+
+class Listing(BaseModel):
+    """Store listing for a specific language."""
+
+    language: str = Field(..., description="Language code (e.g., en-US)")
+    title: str | None = Field(None, description="App title")
+    full_description: str | None = Field(None, description="Full description")
+    short_description: str | None = Field(None, description="Short description")
+    video: str | None = Field(None, description="YouTube video URL")
+
+
+class ListingUpdateResult(BaseModel):
+    """Result of updating a store listing."""
+
+    success: bool = Field(..., description="Whether update succeeded")
+    package_name: str = Field(..., description="App package name")
+    language: str = Field(..., description="Language code")
+    message: str = Field(..., description="Status message")
+    error: str | None = Field(None, description="Error details if failed")
+
+
+class TesterInfo(BaseModel):
+    """Information about testers for a track."""
+
+    track: str = Field(..., description="Track name")
+    tester_emails: list[str] = Field(default_factory=list, description="List of tester email addresses")
+
+
+class Order(BaseModel):
+    """Order/transaction information."""
+
+    order_id: str = Field(..., description="Order ID")
+    package_name: str = Field(..., description="App package name")
+    product_id: str | None = Field(None, description="Product ID")
+    purchase_time: datetime | None = Field(None, description="Purchase timestamp")
+    purchase_state: int | None = Field(None, description="Purchase state")
+    purchase_token: str | None = Field(None, description="Purchase token")
+    quantity: int | None = Field(None, description="Quantity purchased")
+
+
+class ExpansionFile(BaseModel):
+    """APK expansion file information."""
+
+    version_code: int = Field(..., description="Version code")
+    expansion_file_type: str = Field(..., description="Expansion file type (main or patch)")
+    file_size: int | None = Field(None, description="File size in bytes")
+    references_version: int | None = Field(None, description="Referenced version code")

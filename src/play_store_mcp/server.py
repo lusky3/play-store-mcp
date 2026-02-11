@@ -486,6 +486,184 @@ def get_in_app_product(
 
 
 # =============================================================================
+# Store Listings Tools
+# =============================================================================
+
+
+@mcp.tool()
+def get_listing(
+    package_name: str,
+    language: str = "en-US",
+) -> dict[str, Any]:
+    """Get store listing for a specific language.
+
+    Args:
+        package_name: App package name
+        language: Language code (e.g., en-US, es-ES, fr-FR)
+
+    Returns:
+        Store listing with title, descriptions, and video
+    """
+    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+
+    listing = client.get_listing(package_name, language)
+    return listing.model_dump()
+
+
+@mcp.tool()
+def update_listing(
+    package_name: str,
+    language: str,
+    title: str | None = None,
+    full_description: str | None = None,
+    short_description: str | None = None,
+    video: str | None = None,
+) -> dict[str, Any]:
+    """Update store listing for a specific language.
+
+    Args:
+        package_name: App package name
+        language: Language code (e.g., en-US, es-ES, fr-FR)
+        title: App title (max 50 characters, optional)
+        full_description: Full description (max 4000 characters, optional)
+        short_description: Short description (max 80 characters, optional)
+        video: YouTube video URL (optional)
+
+    Returns:
+        Update result with success status
+    """
+    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+
+    result = client.update_listing(
+        package_name=package_name,
+        language=language,
+        title=title,
+        full_description=full_description,
+        short_description=short_description,
+        video=video,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def list_all_listings(package_name: str) -> list[dict[str, Any]]:
+    """List all store listings for all languages.
+
+    Args:
+        package_name: App package name
+
+    Returns:
+        List of store listings for all configured languages
+    """
+    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+
+    listings = client.list_all_listings(package_name)
+    return [listing.model_dump() for listing in listings]
+
+
+# =============================================================================
+# Testers Management Tools
+# =============================================================================
+
+
+@mcp.tool()
+def get_testers(
+    package_name: str,
+    track: str,
+) -> dict[str, Any]:
+    """Get testers for a specific testing track.
+
+    Args:
+        package_name: App package name
+        track: Track name (internal, alpha, beta)
+
+    Returns:
+        Tester information with list of email addresses
+    """
+    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+
+    testers = client.get_testers(package_name, track)
+    return testers.model_dump()
+
+
+@mcp.tool()
+def update_testers(
+    package_name: str,
+    track: str,
+    tester_emails: list[str],
+) -> dict[str, Any]:
+    """Update testers for a specific testing track.
+
+    Args:
+        package_name: App package name
+        track: Track name (internal, alpha, beta)
+        tester_emails: List of tester email addresses or Google Group emails
+
+    Returns:
+        Update result with success status
+    """
+    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+
+    result = client.update_testers(package_name, track, tester_emails)
+    return result.model_dump()
+
+
+# =============================================================================
+# Orders Tools
+# =============================================================================
+
+
+@mcp.tool()
+def get_order(
+    package_name: str,
+    order_id: str,
+) -> dict[str, Any]:
+    """Get detailed order/transaction information.
+
+    Args:
+        package_name: App package name
+        order_id: Order ID to retrieve
+
+    Returns:
+        Order details including product, purchase state, and token
+    """
+    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+
+    order = client.get_order(package_name, order_id)
+    return order.model_dump()
+
+
+# =============================================================================
+# Expansion Files Tools
+# =============================================================================
+
+
+@mcp.tool()
+def get_expansion_file(
+    package_name: str,
+    version_code: int,
+    expansion_file_type: str = "main",
+) -> dict[str, Any]:
+    """Get APK expansion file information.
+
+    Expansion files are used for large apps (especially games) that exceed
+    the 100MB APK size limit.
+
+    Args:
+        package_name: App package name
+        version_code: APK version code
+        expansion_file_type: Type of expansion file (main or patch)
+
+    Returns:
+        Expansion file information including size and references
+    """
+    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+
+    expansion_file = client.get_expansion_file(package_name, version_code, expansion_file_type)
+    return expansion_file.model_dump()
+
+
+# =============================================================================
 # Entry Point
 # =============================================================================
 
