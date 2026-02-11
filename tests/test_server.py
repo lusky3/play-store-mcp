@@ -54,6 +54,10 @@ class TestServerTools:
             "update_testers",
             "get_order",
             "get_expansion_file",
+            "validate_package_name",
+            "validate_track",
+            "validate_listing_text",
+            "batch_deploy",
         ]
 
         for tool_name in expected_tools:

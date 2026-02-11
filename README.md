@@ -10,7 +10,10 @@ An MCP (Model Context Protocol) server that connects to the Google Play Develope
 ## ✨ Features
 
 - **🚀 App Deployment**: Deploy APK/AAB files to any track (internal, alpha, beta, production)
+- **⚡ Batch Operations**: Deploy to multiple tracks simultaneously
 - **🌍 Multi-Language Support**: Deploy with release notes in multiple languages
+- **✅ Input Validation**: Validate package names, tracks, and text before API calls
+- **🔄 Automatic Retries**: Built-in retry logic with exponential backoff for transient failures
 - **📝 Store Listings**: Update app titles, descriptions, and videos for any language
 - **📈 Release Management**: Promote releases between tracks, manage staged rollouts
 - **👥 Tester Management**: Add and manage testers for testing tracks
@@ -163,6 +166,20 @@ Add to your `claude_desktop_config.json`:
 |------|-------------|
 | `get_expansion_file` | Get APK expansion file information |
 
+### Validation Tools
+
+| Tool | Description |
+|------|-------------|
+| `validate_package_name` | Validate package name format |
+| `validate_track` | Validate track name |
+| `validate_listing_text` | Validate store listing text lengths |
+
+### Batch Operations Tools
+
+| Tool | Description |
+|------|-------------|
+| `batch_deploy` | Deploy to multiple tracks simultaneously |
+
 ### Vitals Tools
 
 | Tool | Description |
@@ -285,6 +302,39 @@ update_rollout(
     track="production",
     version_code=100,
     rollout_percentage=50.0
+)
+```
+
+### Batch Operations
+
+```python
+# Deploy to multiple tracks at once
+batch_deploy(
+    package_name="com.example.myapp",
+    file_path="/path/to/app-release.aab",
+    tracks=["internal", "alpha"],
+    release_notes="Testing new features",
+    rollout_percentages={
+        "internal": 100.0,
+        "alpha": 50.0
+    }
+)
+```
+
+### Input Validation
+
+```python
+# Validate before deploying
+validation = validate_package_name("com.example.myapp")
+if validation["valid"]:
+    deploy_app(...)
+else:
+    print("Invalid package name:", validation["errors"])
+
+# Validate listing text
+validation = validate_listing_text(
+    title="My App",
+    short_description="A great app for productivity"
 )
 ```
 

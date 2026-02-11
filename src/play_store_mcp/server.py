@@ -664,6 +664,116 @@ def get_expansion_file(
 
 
 # =============================================================================
+# Validation Tools
+# =============================================================================
+
+
+@mcp.tool()
+def validate_package_name(package_name: str) -> dict[str, Any]:
+    """Validate package name format before using it in other operations.
+
+    Args:
+        package_name: Package name to validate (e.g., com.example.myapp)
+
+    Returns:
+        Validation result with any errors found
+    """
+    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+
+    errors = client.validate_package_name(package_name)
+    return {
+        "valid": len(errors) == 0,
+        "errors": [error.model_dump() for error in errors],
+        "package_name": package_name,
+    }
+
+
+@mcp.tool()
+def validate_track(track: str) -> dict[str, Any]:
+    """Validate track name before using it in deployment operations.
+
+    Args:
+        track: Track name to validate (internal, alpha, beta, production)
+
+    Returns:
+        Validation result with any errors found
+    """
+    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+
+    errors = client.validate_track(track)
+    return {
+        "valid": len(errors) == 0,
+        "errors": [error.model_dump() for error in errors],
+        "track": track,
+    }
+
+
+@mcp.tool()
+def validate_listing_text(
+    title: str | None = None,
+    short_description: str | None = None,
+    full_description: str | None = None,
+) -> dict[str, Any]:
+    """Validate store listing text lengths before updating.
+
+    Args:
+        title: App title (max 50 characters)
+        short_description: Short description (max 80 characters)
+        full_description: Full description (max 4000 characters)
+
+    Returns:
+        Validation result with any errors found
+    """
+    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+
+    errors = client.validate_listing_text(title, short_description, full_description)
+    return {
+        "valid": len(errors) == 0,
+        "errors": [error.model_dump() for error in errors],
+    }
+
+
+# =============================================================================
+# Batch Operations Tools
+# =============================================================================
+
+
+@mcp.tool()
+def batch_deploy(
+    package_name: str,
+    file_path: str,
+    tracks: list[str],
+    release_notes: str | None = None,
+    rollout_percentages: dict[str, float] | None = None,
+) -> dict[str, Any]:
+    """Deploy an app to multiple tracks in a single operation.
+
+    This is useful for deploying to internal and alpha tracks simultaneously,
+    or for promoting to multiple testing tracks at once.
+
+    Args:
+        package_name: App package name
+        file_path: Absolute path to APK or AAB file
+        tracks: List of tracks to deploy to (e.g., ["internal", "alpha"])
+        release_notes: Optional release notes for all tracks
+        rollout_percentages: Optional dict mapping track names to rollout percentages
+
+    Returns:
+        Batch deployment result with individual results for each track
+    """
+    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+
+    result = client.batch_deploy(
+        package_name=package_name,
+        file_path=file_path,
+        tracks=tracks,
+        release_notes=release_notes,
+        rollout_percentages=rollout_percentages,
+    )
+    return result.model_dump()
+
+
+# =============================================================================
 # Entry Point
 # =============================================================================
 

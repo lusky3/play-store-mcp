@@ -614,3 +614,103 @@ class TestExpansionFiles:
         assert expansion.version_code == 100
         assert expansion.expansion_file_type == "main"
         assert expansion.file_size == 104857600
+
+
+
+class TestValidation:
+    """Test validation methods."""
+
+    def test_validate_package_name_valid(
+        self,
+        client: PlayStoreClient,
+    ) -> None:
+        """Test validating a valid package name."""
+        errors = client.validate_package_name("com.example.myapp")
+        assert len(errors) == 0
+
+    def test_validate_package_name_invalid_no_dot(
+        self,
+        client: PlayStoreClient,
+    ) -> None:
+        """Test validating package name without dot."""
+        errors = client.validate_package_name("myapp")
+        assert len(errors) > 0
+        assert any("dot" in e.message.lower() for e in errors)
+
+    def test_validate_package_name_invalid_format(
+        self,
+        client: PlayStoreClient,
+    ) -> None:
+        """Test validating package name with invalid format."""
+        errors = client.validate_package_name("Com.Example.MyApp")
+        assert len(errors) > 0
+
+    def test_validate_track_valid(
+        self,
+        client: PlayStoreClient,
+    ) -> None:
+        """Test validating valid track names."""
+        for track in ["internal", "alpha", "beta", "production"]:
+            errors = client.validate_track(track)
+            assert len(errors) == 0
+
+    def test_validate_track_invalid(
+        self,
+        client: PlayStoreClient,
+    ) -> None:
+        """Test validating invalid track name."""
+        errors = client.validate_track("staging")
+        assert len(errors) > 0
+
+    def test_validate_listing_text_valid(
+        self,
+        client: PlayStoreClient,
+    ) -> None:
+        """Test validating valid listing text."""
+        errors = client.validate_listing_text(
+            title="My App",
+            short_description="A great app",
+            full_description="This is a comprehensive description.",
+        )
+        assert len(errors) == 0
+
+    def test_validate_listing_text_title_too_long(
+        self,
+        client: PlayStoreClient,
+    ) -> None:
+        """Test validating title that's too long."""
+        errors = client.validate_listing_text(title="A" * 51)
+        assert len(errors) > 0
+        assert any("title" in e.field.lower() for e in errors)
+
+
+class TestBatchOperations:
+    """Test batch operations."""
+
+    def test_batch_deploy_success(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+        tmp_path: Any,
+    ) -> None:
+        """Test batch deployment to multiple tracks."""
+        apk_file = tmp_path / "app.apk"
+        apk_file.write_bytes(b"content")
+
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.insert.return_value.execute.return_value = {"id": "edit-123"}
+        mock_edits.apks.return_value.upload.return_value.execute.return_value = {"versionCode": 100}
+        mock_edits.tracks.return_value.update.return_value.execute.return_value = {}
+        mock_edits.commit.return_value.execute.return_value = {}
+
+        result = client.batch_deploy(
+            package_name="com.example.app",
+            file_path=str(apk_file),
+            tracks=["internal", "alpha"],
+            release_notes="Test release",
+        )
+
+        assert result.success is True
+        assert result.successful_count == 2
+        assert result.failed_count == 0
+        assert len(result.results) == 2

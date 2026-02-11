@@ -226,3 +226,23 @@ class ExpansionFile(BaseModel):
     expansion_file_type: str = Field(..., description="Expansion file type (main or patch)")
     file_size: int | None = Field(None, description="File size in bytes")
     references_version: int | None = Field(None, description="Referenced version code")
+
+
+class BatchDeploymentResult(BaseModel):
+    """Result of batch deployment to multiple tracks."""
+
+    success: bool = Field(..., description="Whether all deployments succeeded")
+    results: list[DeploymentResult] = Field(
+        default_factory=list, description="Individual deployment results"
+    )
+    successful_count: int = Field(0, description="Number of successful deployments")
+    failed_count: int = Field(0, description="Number of failed deployments")
+    message: str = Field(..., description="Overall status message")
+
+
+class ValidationError(BaseModel):
+    """Validation error details."""
+
+    field: str = Field(..., description="Field that failed validation")
+    message: str = Field(..., description="Error message")
+    value: Any | None = Field(None, description="Invalid value")

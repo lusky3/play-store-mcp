@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -15,6 +16,7 @@ from googleapiclient.http import MediaFileUpload
 from play_store_mcp.models import (
     AppDetails,
     AppInfo,
+    BatchDeploymentResult,
     DeploymentResult,
     ExpansionFile,
     InAppProduct,
@@ -28,6 +30,7 @@ from play_store_mcp.models import (
     SubscriptionPurchase,
     TesterInfo,
     TrackInfo,
+    ValidationError,
     VitalsMetric,
     VitalsOverview,
     VoidedPurchase,
@@ -41,11 +44,58 @@ logger = structlog.get_logger(__name__)
 # API scopes required for Play Developer API
 SCOPES = ["https://www.googleapis.com/auth/androidpublisher"]
 
+# Retry configuration
+MAX_RETRIES = 3
+INITIAL_BACKOFF = 1.0  # seconds
+MAX_BACKOFF = 32.0  # seconds
+
 
 class PlayStoreClientError(Exception):
     """Base exception for Play Store client errors."""
 
     pass
+
+
+def retry_with_backoff(func):  # type: ignore[no-untyped-def]
+    """Decorator to retry API calls with exponential backoff.
+
+    Retries on transient errors (500, 503) and rate limit errors (429).
+    """
+
+    def wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
+        retries = 0
+        backoff = INITIAL_BACKOFF
+
+        while retries < MAX_RETRIES:
+            try:
+                return func(*args, **kwargs)
+            except HttpError as e:
+                # Retry on server errors and rate limits
+                if e.resp.status in (429, 500, 503):
+                    retries += 1
+                    if retries >= MAX_RETRIES:
+                        raise
+
+                    # Add jitter to prevent thundering herd
+                    import random
+
+                    sleep_time = backoff * (0.5 + random.random())
+                    logger.warning(
+                        "API error, retrying",
+                        status=e.resp.status,
+                        retry=retries,
+                        sleep=sleep_time,
+                    )
+                    time.sleep(sleep_time)
+                    backoff = min(backoff * 2, MAX_BACKOFF)
+                else:
+                    raise
+            except Exception:
+                raise
+
+        return func(*args, **kwargs)
+
+    return wrapper
 
 
 class PlayStoreClient:
@@ -70,6 +120,126 @@ class PlayStoreClient:
         self._service: AndroidPublisherResource | None = None
         self._logger = logger.bind(component="PlayStoreClient")
 
+    # =========================================================================
+    # Validation Helpers
+    # =========================================================================
+
+    def validate_package_name(self, package_name: str) -> list[ValidationError]:
+        """Validate package name format.
+
+        Args:
+            package_name: Package name to validate.
+
+        Returns:
+            List of validation errors (empty if valid).
+        """
+        errors: list[ValidationError] = []
+
+        if not package_name:
+            errors.append(
+                ValidationError(
+                    field="package_name",
+                    message="Package name cannot be empty",
+                    value=package_name,
+                )
+            )
+            return errors
+
+        # Check format: must contain at least one dot
+        if "." not in package_name:
+            errors.append(
+                ValidationError(
+                    field="package_name",
+                    message="Package name must contain at least one dot (e.g., com.example.app)",
+                    value=package_name,
+                )
+            )
+
+        # Check for invalid characters
+        import re
+
+        if not re.match(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$", package_name):
+            errors.append(
+                ValidationError(
+                    field="package_name",
+                    message="Package name must start with lowercase letter and contain only lowercase letters, numbers, underscores, and dots",
+                    value=package_name,
+                )
+            )
+
+        return errors
+
+    def validate_track(self, track: str) -> list[ValidationError]:
+        """Validate track name.
+
+        Args:
+            track: Track name to validate.
+
+        Returns:
+            List of validation errors (empty if valid).
+        """
+        errors: list[ValidationError] = []
+        valid_tracks = ["internal", "alpha", "beta", "production"]
+
+        if track not in valid_tracks:
+            errors.append(
+                ValidationError(
+                    field="track",
+                    message=f"Track must be one of: {', '.join(valid_tracks)}",
+                    value=track,
+                )
+            )
+
+        return errors
+
+    def validate_listing_text(
+        self,
+        title: str | None = None,
+        short_description: str | None = None,
+        full_description: str | None = None,
+    ) -> list[ValidationError]:
+        """Validate store listing text lengths.
+
+        Args:
+            title: App title (max 50 chars).
+            short_description: Short description (max 80 chars).
+            full_description: Full description (max 4000 chars).
+
+        Returns:
+            List of validation errors (empty if valid).
+        """
+        errors: list[ValidationError] = []
+
+        if title and len(title) > 50:
+            errors.append(
+                ValidationError(
+                    field="title",
+                    message="Title must be 50 characters or less",
+                    value=f"{len(title)} characters",
+                )
+            )
+
+        if short_description and len(short_description) > 80:
+            errors.append(
+                ValidationError(
+                    field="short_description",
+                    message="Short description must be 80 characters or less",
+                    value=f"{len(short_description)} characters",
+                )
+            )
+
+        if full_description and len(full_description) > 4000:
+            errors.append(
+                ValidationError(
+                    field="full_description",
+                    message="Full description must be 4000 characters or less",
+                    value=f"{len(full_description)} characters",
+                )
+            )
+
+        return errors
+
+    @retry_with_backoff
     def _get_service(self) -> AndroidPublisherResource:
         """Get or create the API service instance."""
         if self._service is not None:
@@ -958,6 +1128,72 @@ class PlayStoreClient:
         except HttpError as e:
             self._logger.error("Failed to list voided purchases", error=str(e))
             raise PlayStoreClientError(f"Failed to list voided purchases: {e.reason}") from e
+
+    # =========================================================================
+    # Batch Operations
+    # =========================================================================
+
+    def batch_deploy(
+        self,
+        package_name: str,
+        file_path: str,
+        tracks: list[str],
+        release_notes: str | dict[str, str] | None = None,
+        rollout_percentages: dict[str, float] | None = None,
+    ) -> BatchDeploymentResult:
+        """Deploy to multiple tracks in a single operation.
+
+        Args:
+            package_name: App package name.
+            file_path: Path to APK or AAB file.
+            tracks: List of tracks to deploy to (e.g., ["internal", "alpha"]).
+            release_notes: Release notes (string or dict for multi-language).
+            rollout_percentages: Optional dict mapping track to rollout percentage.
+
+        Returns:
+            Batch deployment result with individual results.
+        """
+        self._logger.info(
+            "Starting batch deployment",
+            package_name=package_name,
+            tracks=tracks,
+        )
+
+        results: list[DeploymentResult] = []
+        successful = 0
+        failed = 0
+
+        for track in tracks:
+            rollout = 100.0
+            if rollout_percentages and track in rollout_percentages:
+                rollout = rollout_percentages[track]
+
+            result = self.deploy_app(
+                package_name=package_name,
+                track=track,
+                file_path=file_path,
+                release_notes=release_notes,
+                rollout_percentage=rollout,
+            )
+
+            results.append(result)
+            if result.success:
+                successful += 1
+            else:
+                failed += 1
+
+        all_success = failed == 0
+        message = f"Deployed to {successful}/{len(tracks)} tracks successfully"
+        if failed > 0:
+            message += f" ({failed} failed)"
+
+        return BatchDeploymentResult(
+            success=all_success,
+            results=results,
+            successful_count=successful,
+            failed_count=failed,
+            message=message,
+        )
 
     # =========================================================================
     # Vitals API
