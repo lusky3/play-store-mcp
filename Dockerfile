@@ -1,5 +1,5 @@
 # Build stage
-FROM python:3.13-slim-bookworm AS builder
+FROM python:3.13-alpine AS builder
 
 WORKDIR /build
 
@@ -16,7 +16,7 @@ RUN uv build --wheel --out-dir /build/dist && \
     uv pip install --no-cache /build/dist/*.whl --python /app/.venv/bin/python
 
 # Runtime stage
-FROM python:3.13-slim-bookworm
+FROM python:3.13-alpine
 
 LABEL org.opencontainers.image.source="https://github.com/lusky3/play-store-mcp"
 LABEL org.opencontainers.image.url="https://github.com/lusky3/play-store-mcp"
@@ -25,14 +25,9 @@ LABEL org.opencontainers.image.description="MCP server for Google Play Developer
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.title="play-store-mcp"
 
-# Security hardening
-RUN apt-get update && \
-    apt-get upgrade -y && \
-    apt-get install -y --no-install-recommends ca-certificates && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/* && \
-    groupadd -r mcp && \
-    useradd -r -g mcp -d /app -s /sbin/nologin mcp
+# Security hardening: non-root user, no shell
+RUN addgroup -S mcp && \
+    adduser -S -G mcp -h /app -s /sbin/nologin mcp
 
 WORKDIR /app
 
