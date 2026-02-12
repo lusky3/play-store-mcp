@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import logging
 import os
 import sys
@@ -777,10 +778,8 @@ def batch_deploy(
 # =============================================================================
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     """Run the Play Store MCP Server."""
-    import argparse
-
     parser = argparse.ArgumentParser(description="Play Store MCP Server")
     parser.add_argument(
         "--transport",
@@ -790,7 +789,7 @@ def main() -> None:
     )
     parser.add_argument(
         "--host",
-        default=os.environ.get("MCP_HOST", "0.0.0.0"),
+        default=os.environ.get("MCP_HOST", "0.0.0.0"),  # noqa: S104
         help="Host to bind to for network transports (default: 0.0.0.0)",
     )
     parser.add_argument(
@@ -799,7 +798,7 @@ def main() -> None:
         default=int(os.environ.get("MCP_PORT", "8000")),
         help="Port to bind to for network transports (default: 8000)",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     logger.info(
         "Starting Play Store MCP Server",

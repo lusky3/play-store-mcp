@@ -19,8 +19,11 @@ RUN uv build --wheel --out-dir /build/dist && \
 FROM python:3.13-slim-bookworm
 
 LABEL org.opencontainers.image.source="https://github.com/lusky3/play-store-mcp"
-LABEL org.opencontainers.image.description="Play Store MCP Server"
+LABEL org.opencontainers.image.url="https://github.com/lusky3/play-store-mcp"
+LABEL org.opencontainers.image.documentation="https://lusky3.github.io/play-store-mcp"
+LABEL org.opencontainers.image.description="MCP server for Google Play Developer API — deploy apps, manage releases, reviews, and more"
 LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.title="play-store-mcp"
 
 # Security hardening
 RUN apt-get update && \

@@ -649,7 +649,7 @@ class TestServerMain:
         from play_store_mcp.server import main
 
         with patch.object(mcp, "run") as mock_run:
-            main()
+            main([])
             mock_run.assert_called_once()
 
     def test_get_subscription_status_tool(self, mock_client: MagicMock) -> None:

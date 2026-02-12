@@ -76,7 +76,7 @@ jobs:
       # --- Security Scanning ---
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@0.33.1
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
           format: sarif
@@ -91,7 +91,7 @@ jobs:
           category: trivy-container
 
       - name: Run Grype vulnerability scanner
-        uses: anchore/scan-action@v6
+        uses: anchore/scan-action@v7
         id: grype
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
@@ -124,7 +124,7 @@ jobs:
 
       - name: Attest build provenance
         if: github.event_name != 'pull_request'
-        uses: actions/attest-build-provenance@v2
+        uses: actions/attest-build-provenance@v3
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build.outputs.digest }}
@@ -132,7 +132,7 @@ jobs:
 
       - name: Attest SBOM
         if: github.event_name != 'pull_request'
-        uses: actions/attest-sbom@v2
+        uses: actions/attest-sbom@v3
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build.outputs.digest }}
