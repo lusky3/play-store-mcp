@@ -107,4 +107,3 @@ credentials*.json
 
 # uv
 .uv/
-uv.lock
