@@ -779,8 +779,40 @@ def batch_deploy(
 
 def main() -> None:
     """Run the Play Store MCP Server."""
-    logger.info("Starting Play Store MCP Server")
-    mcp.run()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Play Store MCP Server")
+    parser.add_argument(
+        "--transport",
+        choices=["stdio", "sse", "streamable-http"],
+        default=os.environ.get("MCP_TRANSPORT", "stdio"),
+        help="Transport protocol (default: stdio, or set MCP_TRANSPORT env var)",
+    )
+    parser.add_argument(
+        "--host",
+        default=os.environ.get("MCP_HOST", "0.0.0.0"),
+        help="Host to bind to for network transports (default: 0.0.0.0)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.environ.get("MCP_PORT", "8000")),
+        help="Port to bind to for network transports (default: 8000)",
+    )
+    args = parser.parse_args()
+
+    logger.info(
+        "Starting Play Store MCP Server",
+        transport=args.transport,
+        host=args.host if args.transport != "stdio" else None,
+        port=args.port if args.transport != "stdio" else None,
+    )
+
+    if args.transport != "stdio":
+        mcp.settings.host = args.host
+        mcp.settings.port = args.port
+
+    mcp.run(transport=args.transport)
 
 
 if __name__ == "__main__":
