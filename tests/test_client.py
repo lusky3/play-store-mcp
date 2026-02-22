@@ -19,7 +19,7 @@ class TestPlayStoreClientInit:
         """Test that missing credentials raises an error."""
         client = PlayStoreClient(credentials_path="/nonexistent/path.json")
 
-        with pytest.raises(PlayStoreClientError, match="Credentials file not found"):
+        with pytest.raises(PlayStoreClientError, match="No valid credentials found"):
             client._get_service()
 
     def test_no_credentials_env_var_raises_error(self, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -28,7 +28,7 @@ class TestPlayStoreClientInit:
 
         client = PlayStoreClient()
 
-        with pytest.raises(PlayStoreClientError, match="No credentials provided"):
+        with pytest.raises(PlayStoreClientError, match="No valid credentials found"):
             client._get_service()
 
 
