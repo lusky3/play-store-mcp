@@ -104,6 +104,8 @@ ignore = [
     "S101",   # assert in tests (expected for pytest)
     "TRY003", # long exception messages
     "TRY300", # return in try block (intentional pattern for API calls)
+    "TRY301", # abstract raise to inner function
+    "TC002",  # move third-party imports into type-checking block
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -116,9 +118,14 @@ ignore = [
     "C901",    # complexity in test scripts
     "PLR0912", # too many branches in test scripts
     "PLR0915", # too many statements in test scripts
+    "S607",    # partial executable path (test scripts)
 ]
 "src/play_store_mcp/server.py" = [
     "SLF001",  # accessing _get_service in lifespan is intentional
+    "C901",    # complexity in update_credentials is acceptable
+]
+"src/play_store_mcp/client.py" = [
+    "C901",    # complexity in _get_service is acceptable for credential handling
 ]
 
 [tool.ruff.lint.isort]
