@@ -130,6 +130,18 @@ mcp = FastMCP(
     lifespan=lifespan,
 )
 
+# Wrap streamable_http_app to add TrustedHostMiddleware
+_original_streamable_http_app = mcp.streamable_http_app
+
+
+def _patched_streamable_http_app():  # type: ignore[no-untyped-def]
+    app = _original_streamable_http_app()
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
+    return app
+
+
+mcp.streamable_http_app = _patched_streamable_http_app  # type: ignore[method-assign]
+
 
 # =============================================================================
 # Publishing Tools
@@ -1006,11 +1018,6 @@ def main(argv: list[str] | None = None) -> None:
     if args.transport != "stdio":
         mcp.settings.host = args.host
         mcp.settings.port = args.port
-
-        # Add TrustedHostMiddleware for streamable-http transport
-        if args.transport == "streamable-http":
-            app = mcp.streamable_http_app()
-            app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
 
     mcp.run(transport=args.transport)
 
