@@ -14,6 +14,7 @@ from typing import Any
 
 import structlog
 from mcp.server.fastmcp import FastMCP
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -1005,6 +1006,11 @@ def main(argv: list[str] | None = None) -> None:
     if args.transport != "stdio":
         mcp.settings.host = args.host
         mcp.settings.port = args.port
+
+        # Add TrustedHostMiddleware for streamable-http transport
+        if args.transport == "streamable-http":
+            app = mcp.streamable_http_app()
+            app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
 
     mcp.run(transport=args.transport)
 
