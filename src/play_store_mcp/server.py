@@ -19,6 +19,11 @@ from starlette.responses import JSONResponse
 
 from play_store_mcp.client import PlayStoreClient, PlayStoreClientError
 
+# Set allowed hosts before FastMCP initialization
+# Default to * (all hosts) if not explicitly set
+if "STARLETTE_ALLOWED_HOSTS" not in os.environ:
+    os.environ["STARLETTE_ALLOWED_HOSTS"] = "*"
+
 # Configure structured logging to stderr (stdout is reserved for MCP JSON-RPC)
 log_level = os.environ.get("PLAY_STORE_MCP_LOG_LEVEL", "INFO")
 numeric_level = getattr(logging, log_level.upper(), logging.INFO)
@@ -1000,9 +1005,6 @@ def main(argv: list[str] | None = None) -> None:
     if args.transport != "stdio":
         mcp.settings.host = args.host
         mcp.settings.port = args.port
-
-    # Disable host validation for public deployments
-    os.environ["STARLETTE_ALLOWED_HOSTS"] = "*"
 
     mcp.run(transport=args.transport)
 
