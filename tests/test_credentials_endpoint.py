@@ -81,7 +81,7 @@ async def test_update_credentials_with_base64(mock_credentials):
         mock_service.return_value = MagicMock()
 
         credentials_str = json.dumps(mock_credentials)
-        credentials_b64 = base64.b64encode(credentials_str.encode('utf-8')).decode('utf-8')
+        credentials_b64 = base64.b64encode(credentials_str.encode("utf-8")).decode("utf-8")
 
         mock_request = MagicMock(spec=Request)
         mock_request.json = AsyncMock(return_value={"credentials_base64": credentials_b64})
@@ -103,10 +103,14 @@ async def test_update_credentials_with_path(tmp_path):
     from play_store_mcp.server import mcp, update_credentials
 
     creds_file = tmp_path / "credentials.json"
-    creds_file.write_text(json.dumps({
-        "type": "service_account",
-        "project_id": "test",
-    }))
+    creds_file.write_text(
+        json.dumps(
+            {
+                "type": "service_account",
+                "project_id": "test",
+            }
+        )
+    )
 
     with patch("play_store_mcp.client.PlayStoreClient._get_service") as mock_service:
         mock_service.return_value = MagicMock()
@@ -192,6 +196,7 @@ async def test_update_credentials_invalid_credentials(mock_credentials):
 
     with patch("play_store_mcp.client.PlayStoreClient._get_service") as mock_service:
         from play_store_mcp.client import PlayStoreClientError
+
         mock_service.side_effect = PlayStoreClientError("Invalid credentials")
 
         mock_request = MagicMock(spec=Request)

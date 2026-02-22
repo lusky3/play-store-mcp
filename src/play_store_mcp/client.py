@@ -118,9 +118,7 @@ class PlayStoreClient:
         self._credentials_path = credentials_path or os.environ.get(
             "GOOGLE_APPLICATION_CREDENTIALS"
         )
-        self._credentials_json = credentials_json or os.environ.get(
-            "GOOGLE_PLAY_STORE_CREDENTIALS"
-        )
+        self._credentials_json = credentials_json or os.environ.get("GOOGLE_PLAY_STORE_CREDENTIALS")
         self._application_name = application_name
         self._service: AndroidPublisherResource | None = None
         self._logger = logger.bind(component="PlayStoreClient")

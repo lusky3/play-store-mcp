@@ -815,7 +815,10 @@ async def update_credentials(request: Request) -> JSONResponse:
 
         if not credentials and not credentials_base64 and not credentials_path:
             return JSONResponse(
-                {"success": False, "error": "Missing 'credentials', 'credentials_base64', or 'credentials_path' in request body"},
+                {
+                    "success": False,
+                    "error": "Missing 'credentials', 'credentials_base64', or 'credentials_path' in request body",
+                },
                 status_code=400,
             )
 
@@ -823,7 +826,7 @@ async def update_credentials(request: Request) -> JSONResponse:
         if credentials_base64:
             # Decode base64 credentials
             try:
-                decoded = base64.b64decode(credentials_base64).decode('utf-8')
+                decoded = base64.b64decode(credentials_base64).decode("utf-8")
                 credentials_dict = json.loads(decoded)
                 new_client = PlayStoreClient(credentials_json=credentials_dict)
             except (binascii.Error, UnicodeDecodeError) as e:
