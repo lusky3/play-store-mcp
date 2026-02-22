@@ -75,57 +75,46 @@ export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
 
 ### Running with HTTP Transport
 
-For remote access, you can run the server with streamable-http transport:
+For remote access or public deployments, run the server with streamable-http transport:
 
 ```bash
 play-store-mcp --transport streamable-http --host 0.0.0.0 --port 8000
 ```
 
-#### Providing Credentials Remotely
+#### Per-Request Credentials (Recommended for Public Instances)
 
-When using streamable-http transport, you can provide credentials via HTTP POST to the `/credentials` endpoint:
+For public deployments where users bring their own credentials, pass credentials in request headers:
 
 ```bash
-# Using credentials file path
-curl -X POST http://localhost:8000/credentials \
+# Using X-Google-Credentials header (JSON string)
+curl -X POST https://your-server.com/mcp/v1/tools/call \
   -H "Content-Type: application/json" \
-  -d '{"credentials_path": "/path/to/service-account.json"}'
+  -H "X-Google-Credentials: $(cat service-account.json)" \
+  -d '{"name": "get_app_details", "arguments": {"package_name": "com.example.app"}}'
 
-# Using credentials JSON directly
-curl -X POST http://localhost:8000/credentials \
+# Using X-Google-Credentials-Base64 header (base64-encoded JSON)
+CREDS_B64=$(base64 -w 0 < service-account.json)
+curl -X POST https://your-server.com/mcp/v1/tools/call \
   -H "Content-Type: application/json" \
-  -d '{
-    "credentials": {
-      "type": "service_account",
-      "project_id": "your-project",
-      "private_key_id": "...",
-      "private_key": "...",
-      "client_email": "...",
-      "client_id": "...",
-      "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-      "token_uri": "https://oauth2.googleapis.com/token",
-      "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-      "client_x509_cert_url": "..."
-    }
-  }'
-
-# Using credentials JSON as string
-curl -X POST http://localhost:8000/credentials \
-  -H "Content-Type: application/json" \
-  -d '{"credentials": "{\"type\":\"service_account\",\"project_id\":\"...\"}"}'
-
-# Using base64-encoded credentials (useful for environment variables)
-CREDS_B64=$(cat /path/to/service-account.json | base64 -w 0)
-curl -X POST http://localhost:8000/credentials \
-  -H "Content-Type: application/json" \
-  -d "{\"credentials_base64\": \"$CREDS_B64\"}"
+  -H "X-Google-Credentials-Base64: $CREDS_B64" \
+  -d '{"name": "get_app_details", "arguments": {"package_name": "com.example.app"}}'
 ```
 
-The endpoint returns:
-- `200 OK` with `{"success": true, "message": "Credentials updated successfully"}` on success
-- `400 Bad Request` if the request is malformed
-- `401 Unauthorized` if the credentials are invalid
-- `500 Internal Server Error` for other errors
+**Security Note**: Per-request credentials are isolated - each request uses only the credentials provided in its headers. No credentials are stored server-side or shared between requests.
+
+#### Server-Side Credentials (For Private/Trusted Deployments)
+
+For private deployments, set credentials via environment variable at server startup:
+
+```bash
+export GOOGLE_PLAY_STORE_CREDENTIALS='{"type":"service_account",...}'
+# or
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+
+play-store-mcp --transport streamable-http --host 0.0.0.0 --port 8000
+```
+
+All requests will use these shared credentials. This is suitable for single-user or trusted network deployments only.
 
 ## 🔧 MCP Client Configuration
 

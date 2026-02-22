@@ -34,6 +34,60 @@ structlog.configure(
 logger = structlog.get_logger(__name__)
 
 
+def get_client_from_context() -> PlayStoreClient:
+    """Get PlayStoreClient from request context.
+
+    Checks for credentials in request headers first (X-Google-Credentials or
+    X-Google-Credentials-Base64), then falls back to the shared client from
+    lifespan context.
+
+    Returns:
+        PlayStoreClient instance
+
+    Raises:
+        PlayStoreClientError: If credentials are invalid or client cannot be created
+    """
+    ctx = mcp.get_context()
+
+    # Check for per-request credentials in headers
+    if hasattr(ctx, "request_context") and hasattr(ctx.request_context, "request"):
+        request = ctx.request_context.request
+        headers = request.headers if hasattr(request, "headers") else {}
+
+        # Try X-Google-Credentials header (JSON string or object)
+        if "x-google-credentials" in headers:
+            creds_str = headers["x-google-credentials"]
+            try:
+                creds_json = json.loads(creds_str)
+                return PlayStoreClient(credentials_json=creds_json)
+            except json.JSONDecodeError as e:
+                raise PlayStoreClientError(f"Invalid JSON in X-Google-Credentials header: {e}")
+
+        # Try X-Google-Credentials-Base64 header
+        if "x-google-credentials-base64" in headers:
+            creds_b64 = headers["x-google-credentials-base64"]
+            try:
+                creds_bytes = base64.b64decode(creds_b64)
+                creds_str = creds_bytes.decode("utf-8")
+                creds_json = json.loads(creds_str)
+                return PlayStoreClient(credentials_json=creds_json)
+            except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as e:
+                raise PlayStoreClientError(
+                    f"Invalid base64 or JSON in X-Google-Credentials-Base64 header: {e}"
+                )
+
+    # Fall back to shared client from lifespan
+    if hasattr(ctx, "request_context") and hasattr(ctx.request_context, "lifespan_context"):
+        client = ctx.request_context.lifespan_context.get("client")
+        if client:
+            return client
+
+    raise PlayStoreClientError(
+        "No credentials provided. Set X-Google-Credentials or X-Google-Credentials-Base64 header, "
+        "or configure server with GOOGLE_PLAY_STORE_CREDENTIALS environment variable."
+    )
+
+
 @asynccontextmanager
 async def lifespan(_server: FastMCP):  # type: ignore[no-untyped-def]
     """Lifespan context manager for the MCP server.
@@ -98,7 +152,7 @@ def deploy_app(
     Returns:
         Deployment result with success status and details
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     result = client.deploy_app(
         package_name=package_name,
@@ -133,7 +187,7 @@ def deploy_app_multilang(
     Returns:
         Deployment result with success status and details
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     result = client.deploy_app(
         package_name=package_name,
@@ -166,7 +220,7 @@ def promote_release(
     Returns:
         Promotion result with success status and details
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     result = client.promote_release(
         package_name=package_name,
@@ -189,7 +243,7 @@ def get_releases(package_name: str) -> list[dict[str, Any]]:
     Returns:
         List of tracks with their releases and version information
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     tracks = client.get_releases(package_name)
     return [track.model_dump() for track in tracks]
@@ -214,7 +268,7 @@ def halt_release(
     Returns:
         Result with success status and details
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     result = client.halt_release(
         package_name=package_name,
@@ -246,7 +300,7 @@ def update_rollout(
     Returns:
         Result with success status and details
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     result = client.update_rollout(
         package_name=package_name,
@@ -272,7 +326,7 @@ def get_app_details(
     Returns:
         App details including title, descriptions, and developer information
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     details = client.get_app_details(package_name, language)
     return details.model_dump()
@@ -299,7 +353,7 @@ def get_reviews(
     Returns:
         List of reviews with ratings, comments, and author info
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     reviews = client.get_reviews(
         package_name=package_name,
@@ -326,7 +380,7 @@ def reply_to_review(
     Returns:
         Result with success status
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     result = client.reply_to_review(
         package_name=package_name,
@@ -352,7 +406,7 @@ def list_subscriptions(package_name: str) -> list[dict[str, Any]]:
     Returns:
         List of subscription products with their base plans
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     subscriptions = client.list_subscriptions(package_name)
     return [sub.model_dump() for sub in subscriptions]
@@ -374,7 +428,7 @@ def get_subscription_status(
     Returns:
         Subscription purchase status including expiry and renewal info
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     status = client.get_subscription_purchase(
         package_name=package_name,
@@ -399,7 +453,7 @@ def list_voided_purchases(
     Returns:
         List of voided purchases with reason and timing
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     voided = client.list_voided_purchases(
         package_name=package_name,
@@ -427,7 +481,7 @@ def get_vitals_overview(package_name: str) -> dict[str, Any]:
     Returns:
         Vitals overview with crash and ANR rates
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     vitals = client.get_vitals_overview(package_name)
     return vitals.model_dump()
@@ -450,7 +504,7 @@ def get_vitals_metrics(
     Returns:
         List of vitals metrics with values and benchmarks
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     metrics = client.get_vitals_metrics(package_name, metric_type)
     return [metric.model_dump() for metric in metrics]
@@ -471,7 +525,7 @@ def list_in_app_products(package_name: str) -> list[dict[str, Any]]:
     Returns:
         List of in-app products with SKU, title, description, and pricing
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     products = client.list_in_app_products(package_name)
     return [product.model_dump() for product in products]
@@ -491,7 +545,7 @@ def get_in_app_product(
     Returns:
         In-app product details including title, description, and pricing
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     product = client.get_in_app_product(package_name, sku)
     return product.model_dump()
@@ -516,7 +570,7 @@ def get_listing(
     Returns:
         Store listing with title, descriptions, and video
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     listing = client.get_listing(package_name, language)
     return listing.model_dump()
@@ -544,7 +598,7 @@ def update_listing(
     Returns:
         Update result with success status
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     result = client.update_listing(
         package_name=package_name,
@@ -567,7 +621,7 @@ def list_all_listings(package_name: str) -> list[dict[str, Any]]:
     Returns:
         List of store listings for all configured languages
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     listings = client.list_all_listings(package_name)
     return [listing.model_dump() for listing in listings]
@@ -592,7 +646,7 @@ def get_testers(
     Returns:
         Tester information with list of email addresses
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     testers = client.get_testers(package_name, track)
     return testers.model_dump()
@@ -614,7 +668,7 @@ def update_testers(
     Returns:
         Update result with success status
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     result = client.update_testers(package_name, track, tester_emails)
     return result.model_dump()
@@ -639,7 +693,7 @@ def get_order(
     Returns:
         Order details including product, purchase state, and token
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     order = client.get_order(package_name, order_id)
     return order.model_dump()
@@ -669,7 +723,7 @@ def get_expansion_file(
     Returns:
         Expansion file information including size and references
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     expansion_file = client.get_expansion_file(package_name, version_code, expansion_file_type)
     return expansion_file.model_dump()
@@ -690,7 +744,7 @@ def validate_package_name(package_name: str) -> dict[str, Any]:
     Returns:
         Validation result with any errors found
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     errors = client.validate_package_name(package_name)
     return {
@@ -710,7 +764,7 @@ def validate_track(track: str) -> dict[str, Any]:
     Returns:
         Validation result with any errors found
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     errors = client.validate_track(track)
     return {
@@ -736,7 +790,7 @@ def validate_listing_text(
     Returns:
         Validation result with any errors found
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     errors = client.validate_listing_text(title, short_description, full_description)
     return {
@@ -773,7 +827,7 @@ def batch_deploy(
     Returns:
         Batch deployment result with individual results for each track
     """
-    client: PlayStoreClient = mcp.get_context().request_context.lifespan_context["client"]
+    client = get_client_from_context()
 
     result = client.batch_deploy(
         package_name=package_name,
