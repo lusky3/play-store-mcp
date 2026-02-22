@@ -52,33 +52,34 @@ def get_client_from_context() -> PlayStoreClient:
     # Check for per-request credentials in headers
     if hasattr(ctx, "request_context") and hasattr(ctx.request_context, "request"):
         request = ctx.request_context.request
-        headers = request.headers if hasattr(request, "headers") else {}
+        if request is not None and hasattr(request, "headers"):
+            headers = request.headers
 
-        # Try X-Google-Credentials header (JSON string or object)
-        if "x-google-credentials" in headers:
-            creds_str = headers["x-google-credentials"]
-            try:
-                creds_json = json.loads(creds_str)
-                return PlayStoreClient(credentials_json=creds_json)
-            except json.JSONDecodeError as e:
-                raise PlayStoreClientError(f"Invalid JSON in X-Google-Credentials header: {e}")
+            # Try X-Google-Credentials header (JSON string or object)
+            if "x-google-credentials" in headers:
+                creds_str = headers["x-google-credentials"]
+                try:
+                    creds_json = json.loads(creds_str)
+                    return PlayStoreClient(credentials_json=creds_json)
+                except json.JSONDecodeError as e:
+                    raise PlayStoreClientError(f"Invalid JSON in X-Google-Credentials header: {e}")
 
-        # Try X-Google-Credentials-Base64 header
-        if "x-google-credentials-base64" in headers:
-            creds_b64 = headers["x-google-credentials-base64"]
-            try:
-                creds_bytes = base64.b64decode(creds_b64)
-                creds_str = creds_bytes.decode("utf-8")
-                creds_json = json.loads(creds_str)
-                return PlayStoreClient(credentials_json=creds_json)
-            except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as e:
-                raise PlayStoreClientError(
-                    f"Invalid base64 or JSON in X-Google-Credentials-Base64 header: {e}"
-                )
+            # Try X-Google-Credentials-Base64 header
+            if "x-google-credentials-base64" in headers:
+                creds_b64 = headers["x-google-credentials-base64"]
+                try:
+                    creds_bytes = base64.b64decode(creds_b64)
+                    creds_str = creds_bytes.decode("utf-8")
+                    creds_json = json.loads(creds_str)
+                    return PlayStoreClient(credentials_json=creds_json)
+                except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as e:
+                    raise PlayStoreClientError(
+                        f"Invalid base64 or JSON in X-Google-Credentials-Base64 header: {e}"
+                    )
 
     # Fall back to shared client from lifespan
     if hasattr(ctx, "request_context") and hasattr(ctx.request_context, "lifespan_context"):
-        client = ctx.request_context.lifespan_context.get("client")
+        client: PlayStoreClient | None = ctx.request_context.lifespan_context.get("client")
         if client:
             return client
 
