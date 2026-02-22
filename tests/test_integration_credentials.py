@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Integration test for the remote credentials feature."""
 
-import json
 import subprocess
 import sys
 import time
@@ -18,10 +17,10 @@ def test_credentials_endpoint():
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     )
-    
+
     # Wait for server to start
     time.sleep(2)
-    
+
     try:
         # Test 1: Missing credentials
         print("\nTest 1: Missing credentials (should fail)")
@@ -33,7 +32,7 @@ def test_credentials_endpoint():
         assert response.status_code == 400
         assert not response.json()["success"]
         print("✓ Test 1 passed")
-        
+
         # Test 2: Invalid JSON string
         print("\nTest 2: Invalid JSON string (should fail)")
         response = requests.post(
@@ -44,7 +43,7 @@ def test_credentials_endpoint():
         assert response.status_code == 400
         assert not response.json()["success"]
         print("✓ Test 2 passed")
-        
+
         # Test 3: Invalid type
         print("\nTest 3: Invalid type (should fail)")
         response = requests.post(
@@ -55,9 +54,9 @@ def test_credentials_endpoint():
         assert response.status_code == 400
         assert not response.json()["success"]
         print("✓ Test 3 passed")
-        
+
         print("\n✓ All integration tests passed!")
-        
+
     finally:
         # Stop the server
         print("\nStopping server...")

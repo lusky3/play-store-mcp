@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import binascii
 import json
 import logging
 import os
@@ -42,7 +43,7 @@ async def lifespan(_server: FastMCP):  # type: ignore[no-untyped-def]
     logger.info("Initializing Play Store MCP Server")
 
     # Create a shared state dict that will be accessible from custom routes
-    shared_state = {"client": None, "credentials_updated": False}
+    shared_state: dict[str, Any] = {"client": None, "credentials_updated": False}
 
     try:
         client = PlayStoreClient()
@@ -807,17 +808,17 @@ async def update_credentials(request: Request) -> JSONResponse:
     """
     try:
         body = await request.json()
-        
+
         credentials = body.get("credentials")
         credentials_base64 = body.get("credentials_base64")
         credentials_path = body.get("credentials_path")
-        
+
         if not credentials and not credentials_base64 and not credentials_path:
             return JSONResponse(
                 {"success": False, "error": "Missing 'credentials', 'credentials_base64', or 'credentials_path' in request body"},
                 status_code=400,
             )
-        
+
         # Create new client with provided credentials
         if credentials_base64:
             # Decode base64 credentials
@@ -825,7 +826,7 @@ async def update_credentials(request: Request) -> JSONResponse:
                 decoded = base64.b64decode(credentials_base64).decode('utf-8')
                 credentials_dict = json.loads(decoded)
                 new_client = PlayStoreClient(credentials_json=credentials_dict)
-            except (base64.binascii.Error, UnicodeDecodeError) as e:
+            except (binascii.Error, UnicodeDecodeError) as e:
                 return JSONResponse(
                     {"success": False, "error": f"Invalid base64 encoding: {e}"},
                     status_code=400,
@@ -855,7 +856,7 @@ async def update_credentials(request: Request) -> JSONResponse:
                 )
         else:
             new_client = PlayStoreClient(credentials_path=credentials_path)
-        
+
         # Validate credentials by attempting to get service
         try:
             _ = new_client._get_service()
@@ -864,19 +865,19 @@ async def update_credentials(request: Request) -> JSONResponse:
                 {"success": False, "error": f"Invalid credentials: {e}"},
                 status_code=401,
             )
-        
+
         # Update the client in the shared state
         if hasattr(mcp, "_shared_state"):
             mcp._shared_state["client"] = new_client  # type: ignore[attr-defined]
             mcp._shared_state["credentials_updated"] = True  # type: ignore[attr-defined]
-        
+
         logger.info("Credentials updated successfully via HTTP endpoint")
-        
+
         return JSONResponse(
             {"success": True, "message": "Credentials updated successfully"},
             status_code=200,
         )
-        
+
     except json.JSONDecodeError:
         return JSONResponse(
             {"success": False, "error": "Invalid JSON in request body"},
