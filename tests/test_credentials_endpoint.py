@@ -1,5 +1,6 @@
 """Tests for the credentials HTTP endpoint."""
 
+import base64
 import json
 from unittest.mock import MagicMock, patch, AsyncMock
 
@@ -57,6 +58,30 @@ async def test_update_credentials_with_json_string(mock_credentials):
         credentials_str = json.dumps(mock_credentials)
         mock_request = MagicMock(spec=Request)
         mock_request.json = AsyncMock(return_value={"credentials": credentials_str})
+        
+        mcp._shared_state = {"client": None, "credentials_updated": False}
+        
+        response = await update_credentials(mock_request)
+        
+        assert response.status_code == 200
+        data = json.loads(response.body)
+        assert data["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_update_credentials_with_base64(mock_credentials):
+    """Test updating credentials with base64-encoded JSON."""
+    from starlette.requests import Request
+    from play_store_mcp.server import update_credentials, mcp
+    
+    with patch("play_store_mcp.client.PlayStoreClient._get_service") as mock_service:
+        mock_service.return_value = MagicMock()
+        
+        credentials_str = json.dumps(mock_credentials)
+        credentials_b64 = base64.b64encode(credentials_str.encode('utf-8')).decode('utf-8')
+        
+        mock_request = MagicMock(spec=Request)
+        mock_request.json = AsyncMock(return_value={"credentials_base64": credentials_b64})
         
         mcp._shared_state = {"client": None, "credentials_updated": False}
         
@@ -190,3 +215,22 @@ async def test_update_credentials_malformed_request():
     assert response.status_code == 400
     data = json.loads(response.body)
     assert data["success"] is False
+
+
+@pytest.mark.asyncio
+async def test_update_credentials_invalid_base64():
+    """Test error with invalid base64 encoding."""
+    from starlette.requests import Request
+    from play_store_mcp.server import update_credentials, mcp
+    
+    mock_request = MagicMock(spec=Request)
+    mock_request.json = AsyncMock(return_value={"credentials_base64": "not-valid-base64!!!"})
+    
+    mcp._shared_state = {"client": None, "credentials_updated": False}
+    
+    response = await update_credentials(mock_request)
+    
+    assert response.status_code == 400
+    data = json.loads(response.body)
+    assert data["success"] is False
+    assert "base64" in data["error"].lower()

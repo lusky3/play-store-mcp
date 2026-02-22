@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import logging
 import os
@@ -798,6 +799,7 @@ async def update_credentials(request: Request) -> JSONResponse:
     Request body should be one of:
     - {"credentials": {...}} - Service account JSON object
     - {"credentials": "..."} - Service account JSON string
+    - {"credentials_base64": "..."} - Base64-encoded service account JSON
     - {"credentials_path": "..."} - Path to credentials file
 
     Returns:
@@ -807,16 +809,33 @@ async def update_credentials(request: Request) -> JSONResponse:
         body = await request.json()
         
         credentials = body.get("credentials")
+        credentials_base64 = body.get("credentials_base64")
         credentials_path = body.get("credentials_path")
         
-        if not credentials and not credentials_path:
+        if not credentials and not credentials_base64 and not credentials_path:
             return JSONResponse(
-                {"success": False, "error": "Missing 'credentials' or 'credentials_path' in request body"},
+                {"success": False, "error": "Missing 'credentials', 'credentials_base64', or 'credentials_path' in request body"},
                 status_code=400,
             )
         
         # Create new client with provided credentials
-        if credentials:
+        if credentials_base64:
+            # Decode base64 credentials
+            try:
+                decoded = base64.b64decode(credentials_base64).decode('utf-8')
+                credentials_dict = json.loads(decoded)
+                new_client = PlayStoreClient(credentials_json=credentials_dict)
+            except (base64.binascii.Error, UnicodeDecodeError) as e:
+                return JSONResponse(
+                    {"success": False, "error": f"Invalid base64 encoding: {e}"},
+                    status_code=400,
+                )
+            except json.JSONDecodeError:
+                return JSONResponse(
+                    {"success": False, "error": "Invalid JSON in base64-decoded credentials"},
+                    status_code=400,
+                )
+        elif credentials:
             if isinstance(credentials, str):
                 # Validate it's valid JSON
                 try:

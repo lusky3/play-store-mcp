@@ -62,7 +62,18 @@ curl -X POST http://localhost:8000/credentials \
   -d "{\"credentials\": \"$CREDS\"}"
 ```
 
-#### Method 3: Send File Path
+#### Method 3: Send Base64-Encoded Credentials
+
+Send the credentials as a base64-encoded string (useful for environment variables):
+
+```bash
+CREDS_B64=$(cat /path/to/service-account.json | base64 -w 0)
+curl -X POST http://localhost:8000/credentials \
+  -H "Content-Type: application/json" \
+  -d "{\"credentials_base64\": \"$CREDS_B64\"}"
+```
+
+#### Method 4: Send File Path
 
 If the server has access to the credentials file, you can send just the path:
 

@@ -113,6 +113,12 @@ curl -X POST http://localhost:8000/credentials \
 curl -X POST http://localhost:8000/credentials \
   -H "Content-Type: application/json" \
   -d '{"credentials": "{\"type\":\"service_account\",\"project_id\":\"...\"}"}'
+
+# Using base64-encoded credentials (useful for environment variables)
+CREDS_B64=$(cat /path/to/service-account.json | base64 -w 0)
+curl -X POST http://localhost:8000/credentials \
+  -H "Content-Type: application/json" \
+  -d "{\"credentials_base64\": \"$CREDS_B64\"}"
 ```
 
 The endpoint returns:
