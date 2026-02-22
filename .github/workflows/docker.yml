@@ -76,7 +76,7 @@ jobs:
       # --- Security Scanning ---
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.33.1
+        uses: aquasecurity/trivy-action@0.34.1
         with:
           image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
           format: sarif
@@ -91,7 +91,7 @@ jobs:
           category: trivy-container
 
       - name: Run Grype vulnerability scanner
-        uses: anchore/scan-action@v7
+        uses: anchore/scan-action@v7.3.2
         id: grype
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
@@ -108,14 +108,14 @@ jobs:
       # --- SBOM Generation ---
 
       - name: Generate SBOM with Syft
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@v0.22.2
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
           format: spdx-json
           output-file: sbom.spdx.json
 
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v6.0.0
         with:
           name: sbom
           path: sbom.spdx.json
@@ -124,7 +124,7 @@ jobs:
 
       - name: Attest build provenance
         if: github.event_name != 'pull_request'
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v3.2.0
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build.outputs.digest }}
@@ -132,7 +132,7 @@ jobs:
 
       - name: Attest SBOM
         if: github.event_name != 'pull_request'
-        uses: actions/attest-sbom@v3
+        uses: actions/attest-sbom@v3.0.0
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build.outputs.digest }}
