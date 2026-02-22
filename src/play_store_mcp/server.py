@@ -845,6 +845,12 @@ def batch_deploy(
 # =============================================================================
 
 
+@mcp.custom_route("/health", methods=["GET"])
+async def health_check(request: Request) -> JSONResponse:  # noqa: ARG001
+    """Health check endpoint for monitoring and load balancers."""
+    return JSONResponse({"status": "healthy", "service": "play-store-mcp"})
+
+
 @mcp.custom_route("/credentials", methods=["POST"])
 async def update_credentials(request: Request) -> JSONResponse:
     """Update Google Play Store credentials via HTTP POST.
