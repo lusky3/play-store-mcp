@@ -83,21 +83,44 @@ play-store-mcp --transport streamable-http --host 0.0.0.0 --port 8000
 
 #### Per-Request Credentials (Recommended for Public Instances)
 
-For public deployments where users bring their own credentials, pass credentials in request headers:
+For public deployments where users bring their own credentials, configure your MCP client to pass credentials in headers:
+
+**Claude Desktop / MCP Client Configuration:**
+
+```json
+{
+  "mcpServers": {
+    "play-store": {
+      "url": "https://your-server.com/mcp",
+      "transport": "http",
+      "headers": {
+        "X-Google-Credentials-Base64": "YOUR_BASE64_ENCODED_CREDENTIALS"
+      }
+    }
+  }
+}
+```
+
+To get your base64-encoded credentials:
 
 ```bash
-# Using X-Google-Credentials header (JSON string)
-curl -X POST https://your-server.com/mcp/v1/tools/call \
-  -H "Content-Type: application/json" \
-  -H "X-Google-Credentials: $(cat service-account.json)" \
-  -d '{"name": "get_app_details", "arguments": {"package_name": "com.example.app"}}'
+base64 -w 0 < service-account.json
+```
 
-# Using X-Google-Credentials-Base64 header (base64-encoded JSON)
-CREDS_B64=$(base64 -w 0 < service-account.json)
-curl -X POST https://your-server.com/mcp/v1/tools/call \
-  -H "Content-Type: application/json" \
-  -H "X-Google-Credentials-Base64: $CREDS_B64" \
-  -d '{"name": "get_app_details", "arguments": {"package_name": "com.example.app"}}'
+**Alternative: Using JSON directly (if your client supports it):**
+
+```json
+{
+  "mcpServers": {
+    "play-store": {
+      "url": "https://your-server.com/mcp",
+      "transport": "http",
+      "headers": {
+        "X-Google-Credentials": "{\"type\":\"service_account\",\"project_id\":\"...\"}"
+      }
+    }
+  }
+}
 ```
 
 **Security Note**: Per-request credentials are isolated - each request uses only the credentials provided in its headers. No credentials are stored server-side or shared between requests.
