@@ -14,6 +14,7 @@ from typing import Any
 
 import structlog
 from mcp.server.fastmcp import FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -128,6 +129,9 @@ async def lifespan(_server: FastMCP):  # type: ignore[no-untyped-def]
 mcp = FastMCP(
     "Play Store MCP Server",
     lifespan=lifespan,
+    transport_security=TransportSecuritySettings(
+        enable_dns_rebinding_protection=False  # Disable for public deployments
+    ),
 )
 
 # Wrap streamable_http_app to add TrustedHostMiddleware
@@ -135,8 +139,10 @@ _original_streamable_http_app = mcp.streamable_http_app
 
 
 def _patched_streamable_http_app():  # type: ignore[no-untyped-def]
+    logger.info("Creating streamable HTTP app with TrustedHostMiddleware")
     app = _original_streamable_http_app()
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=["*"])
+    logger.info("TrustedHostMiddleware added with allowed_hosts=['*']")
     return app
 
 
