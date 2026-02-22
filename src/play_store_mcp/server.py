@@ -994,6 +994,9 @@ def main(argv: list[str] | None = None) -> None:
         mcp.settings.host = args.host
         mcp.settings.port = args.port
 
+    # Disable host validation for public deployments
+    os.environ["STARLETTE_ALLOWED_HOSTS"] = "*"
+
     mcp.run(transport=args.transport)
 
 
