@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import sys
@@ -11,6 +12,8 @@ from typing import Any
 
 import structlog
 from mcp.server.fastmcp import FastMCP
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from play_store_mcp.client import PlayStoreClient, PlayStoreClientError
 
@@ -37,16 +40,23 @@ async def lifespan(_server: FastMCP):  # type: ignore[no-untyped-def]
     """
     logger.info("Initializing Play Store MCP Server")
 
+    # Create a shared state dict that will be accessible from custom routes
+    shared_state = {"client": None, "credentials_updated": False}
+
     try:
         client = PlayStoreClient()
         # Validate credentials on startup
         _ = client._get_service()
         logger.info("Play Store client initialized successfully")
+        shared_state["client"] = client
     except PlayStoreClientError as e:
         logger.warning("Play Store client initialization failed", error=str(e))
-        client = PlayStoreClient()  # Create anyway, will error on use
+        shared_state["client"] = PlayStoreClient()  # Create anyway, will error on use
 
-    yield {"client": client}
+    # Store shared state in the server instance for access from custom routes
+    _server._shared_state = shared_state  # type: ignore[attr-defined]
+
+    yield shared_state
 
     logger.info("Shutting down Play Store MCP Server")
 
@@ -774,6 +784,94 @@ def batch_deploy(
 
 
 # =============================================================================
+# HTTP Endpoints for Streamable Transport
+# =============================================================================
+
+
+@mcp.custom_route("/credentials", methods=["POST"])
+async def update_credentials(request: Request) -> JSONResponse:
+    """Update Google Play Store credentials via HTTP POST.
+
+    This endpoint allows remote clients to provide credentials when using
+    streamable-http transport. Accepts JSON credentials in the request body.
+
+    Request body should be one of:
+    - {"credentials": {...}} - Service account JSON object
+    - {"credentials": "..."} - Service account JSON string
+    - {"credentials_path": "..."} - Path to credentials file
+
+    Returns:
+        JSON response with success status
+    """
+    try:
+        body = await request.json()
+        
+        credentials = body.get("credentials")
+        credentials_path = body.get("credentials_path")
+        
+        if not credentials and not credentials_path:
+            return JSONResponse(
+                {"success": False, "error": "Missing 'credentials' or 'credentials_path' in request body"},
+                status_code=400,
+            )
+        
+        # Create new client with provided credentials
+        if credentials:
+            if isinstance(credentials, str):
+                # Validate it's valid JSON
+                try:
+                    json.loads(credentials)
+                except json.JSONDecodeError:
+                    return JSONResponse(
+                        {"success": False, "error": "Invalid JSON in credentials string"},
+                        status_code=400,
+                    )
+                new_client = PlayStoreClient(credentials_json=credentials)
+            elif isinstance(credentials, dict):
+                new_client = PlayStoreClient(credentials_json=credentials)
+            else:
+                return JSONResponse(
+                    {"success": False, "error": "credentials must be a string or object"},
+                    status_code=400,
+                )
+        else:
+            new_client = PlayStoreClient(credentials_path=credentials_path)
+        
+        # Validate credentials by attempting to get service
+        try:
+            _ = new_client._get_service()
+        except PlayStoreClientError as e:
+            return JSONResponse(
+                {"success": False, "error": f"Invalid credentials: {e}"},
+                status_code=401,
+            )
+        
+        # Update the client in the shared state
+        if hasattr(mcp, "_shared_state"):
+            mcp._shared_state["client"] = new_client  # type: ignore[attr-defined]
+            mcp._shared_state["credentials_updated"] = True  # type: ignore[attr-defined]
+        
+        logger.info("Credentials updated successfully via HTTP endpoint")
+        
+        return JSONResponse(
+            {"success": True, "message": "Credentials updated successfully"},
+            status_code=200,
+        )
+        
+    except json.JSONDecodeError:
+        return JSONResponse(
+            {"success": False, "error": "Invalid JSON in request body"},
+            status_code=400,
+        )
+    except Exception as e:
+        logger.exception("Error updating credentials", error=str(e))
+        return JSONResponse(
+            {"success": False, "error": f"Internal error: {e}"},
+            status_code=500,
+        )
+
+
+# =============================================================================
 # Entry Point
 # =============================================================================
 
@@ -798,7 +896,15 @@ def main(argv: list[str] | None = None) -> None:
         default=int(os.environ.get("MCP_PORT", "8000")),
         help="Port to bind to for network transports (default: 8000)",
     )
+    parser.add_argument(
+        "--credentials",
+        default=os.environ.get("GOOGLE_PLAY_STORE_CREDENTIALS"),
+        help="Path to service account JSON key or JSON content (default: GOOGLE_PLAY_STORE_CREDENTIALS env var)",
+    )
     args = parser.parse_args(argv)
+
+    if args.credentials:
+        os.environ["GOOGLE_PLAY_STORE_CREDENTIALS"] = args.credentials
 
     logger.info(
         "Starting Play Store MCP Server",

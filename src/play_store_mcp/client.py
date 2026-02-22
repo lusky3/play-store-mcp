@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import random
 import re
@@ -102,6 +103,7 @@ class PlayStoreClient:
     def __init__(
         self,
         credentials_path: str | None = None,
+        credentials_json: str | dict[str, Any] | None = None,
         application_name: str = "Play Store MCP Server",
     ) -> None:
         """Initialize the Play Store client.
@@ -109,10 +111,15 @@ class PlayStoreClient:
         Args:
             credentials_path: Path to service account JSON key.
                              Defaults to GOOGLE_APPLICATION_CREDENTIALS env var.
+            credentials_json: JSON string or dictionary with service account credentials.
+                             Defaults to GOOGLE_PLAY_STORE_CREDENTIALS env var.
             application_name: Application name for API requests.
         """
         self._credentials_path = credentials_path or os.environ.get(
             "GOOGLE_APPLICATION_CREDENTIALS"
+        )
+        self._credentials_json = credentials_json or os.environ.get(
+            "GOOGLE_PLAY_STORE_CREDENTIALS"
         )
         self._application_name = application_name
         self._service: AndroidPublisherResource | None = None
@@ -241,22 +248,48 @@ class PlayStoreClient:
         if self._service is not None:
             return self._service
 
-        if not self._credentials_path:
-            raise PlayStoreClientError(
-                "No credentials provided. Set GOOGLE_APPLICATION_CREDENTIALS "
-                "environment variable or pass credentials_path."
-            )
-
-        creds_path = Path(self._credentials_path)
-        if not creds_path.exists():
-            raise PlayStoreClientError(f"Credentials file not found: {self._credentials_path}")
-
         self._logger.info("Initializing Google Play Developer API client")
 
         try:
-            credentials = service_account.Credentials.from_service_account_file(
-                str(creds_path), scopes=SCOPES
-            )
+            credentials = None
+
+            # Try credentials_json first (from string or dict)
+            if self._credentials_json:
+                if isinstance(self._credentials_json, str):
+                    try:
+                        # Check if it's actually JSON or a path to a file
+                        if self._credentials_json.strip().startswith("{"):
+                            creds_info = json.loads(self._credentials_json)
+                            credentials = service_account.Credentials.from_service_account_info(
+                                creds_info, scopes=SCOPES
+                            )
+                        elif Path(self._credentials_json).exists():
+                            credentials = service_account.Credentials.from_service_account_file(
+                                self._credentials_json, scopes=SCOPES
+                            )
+                    except json.JSONDecodeError:
+                        # If it's not JSON, maybe it's a path that doesn't exist?
+                        pass
+
+                elif isinstance(self._credentials_json, dict):
+                    credentials = service_account.Credentials.from_service_account_info(
+                        self._credentials_json, scopes=SCOPES
+                    )
+
+            # Fall back to credentials_path
+            if not credentials and self._credentials_path:
+                creds_path = Path(self._credentials_path)
+                if creds_path.exists():
+                    credentials = service_account.Credentials.from_service_account_file(
+                        str(creds_path), scopes=SCOPES
+                    )
+
+            if not credentials:
+                raise PlayStoreClientError(
+                    "No valid credentials found. Set GOOGLE_APPLICATION_CREDENTIALS (path) "
+                    "or GOOGLE_PLAY_STORE_CREDENTIALS (JSON or path)."
+                )
+
             self._service = build(
                 "androidpublisher",
                 "v3",
@@ -266,6 +299,8 @@ class PlayStoreClient:
             self._logger.info("API client initialized successfully")
             return self._service  # type: ignore[return-value]
         except Exception as e:
+            if isinstance(e, PlayStoreClientError):
+                raise
             self._logger.exception("Failed to initialize API client", error=str(e))
             raise PlayStoreClientError(f"Failed to initialize API client: {e}") from e
 

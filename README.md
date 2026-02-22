@@ -73,6 +73,54 @@ Set the path to your service account key:
 export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
 ```
 
+### Running with HTTP Transport
+
+For remote access, you can run the server with streamable-http transport:
+
+```bash
+play-store-mcp --transport streamable-http --host 0.0.0.0 --port 8000
+```
+
+#### Providing Credentials Remotely
+
+When using streamable-http transport, you can provide credentials via HTTP POST to the `/credentials` endpoint:
+
+```bash
+# Using credentials file path
+curl -X POST http://localhost:8000/credentials \
+  -H "Content-Type: application/json" \
+  -d '{"credentials_path": "/path/to/service-account.json"}'
+
+# Using credentials JSON directly
+curl -X POST http://localhost:8000/credentials \
+  -H "Content-Type: application/json" \
+  -d '{
+    "credentials": {
+      "type": "service_account",
+      "project_id": "your-project",
+      "private_key_id": "...",
+      "private_key": "...",
+      "client_email": "...",
+      "client_id": "...",
+      "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+      "token_uri": "https://oauth2.googleapis.com/token",
+      "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+      "client_x509_cert_url": "..."
+    }
+  }'
+
+# Using credentials JSON as string
+curl -X POST http://localhost:8000/credentials \
+  -H "Content-Type: application/json" \
+  -d '{"credentials": "{\"type\":\"service_account\",\"project_id\":\"...\"}"}'
+```
+
+The endpoint returns:
+- `200 OK` with `{"success": true, "message": "Credentials updated successfully"}` on success
+- `400 Bad Request` if the request is malformed
+- `401 Unauthorized` if the credentials are invalid
+- `500 Internal Server Error` for other errors
+
 ## 🔧 MCP Client Configuration
 
 ### Claude Desktop
