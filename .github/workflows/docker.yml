@@ -108,7 +108,7 @@ jobs:
       # --- SBOM Generation ---
 
       - name: Generate SBOM with Syft
-        uses: anchore/sbom-action@v0.22.2
+        uses: anchore/sbom-action@v0.23.0
         with:
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
           format: spdx-json
