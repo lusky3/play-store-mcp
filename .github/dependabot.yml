@@ -19,3 +19,8 @@ updates:
     labels:
       - "ci"
     open-pull-requests-limit: 5
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: daily
