@@ -200,7 +200,6 @@ Add to `.kiro/settings/mcp.json`:
 | `get_releases` | Get release status for all tracks |
 | `halt_release` | Halt a staged rollout |
 | `update_rollout` | Update rollout percentage for a staged release |
-| `list_apps` | List all apps in the developer account (limited by API) |
 | `get_app_details` | Get app metadata (title, description, etc.) |
 
 ### Store Listings Tools

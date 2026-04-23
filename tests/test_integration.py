@@ -83,14 +83,6 @@ class TestRealAPIConnection:
 class TestReadOnlyOperations:
     """Test read-only operations that don't modify anything."""
 
-    def test_list_apps(self, real_client: PlayStoreClient) -> None:
-        """Test listing apps (returns empty due to API limitation)."""
-        apps = real_client.list_apps()
-        # This will return empty list due to API limitation, but shouldn't error
-        assert isinstance(apps, list)
-        print(f"✓ list_apps() returned: {len(apps)} apps")
-        print("  Note: Play API requires package names upfront, so this returns empty")
-
     def test_get_releases(
         self,
         real_client: PlayStoreClient,

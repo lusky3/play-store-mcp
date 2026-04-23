@@ -240,11 +240,11 @@ class TestTesterInfo:
 
         testers = TesterInfo(
             track="beta",
-            tester_emails=["tester1@example.com", "tester2@example.com"],
+            google_groups=["tester1@example.com", "tester2@example.com"],
         )
 
         assert testers.track == "beta"
-        assert len(testers.tester_emails) == 2
+        assert len(testers.google_groups) == 2
 
 
 class TestOrder:

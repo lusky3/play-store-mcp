@@ -35,6 +35,7 @@ async def test_update_credentials_with_json_object(mock_credentials):
         mock_service.return_value = MagicMock()
 
         mock_request = MagicMock(spec=Request)
+        mock_request.client.host = "127.0.0.1"
         mock_request.json = AsyncMock(return_value={"credentials": mock_credentials})
 
         mcp._shared_state = {"client": None, "credentials_updated": False}
@@ -59,6 +60,7 @@ async def test_update_credentials_with_json_string(mock_credentials):
 
         credentials_str = json.dumps(mock_credentials)
         mock_request = MagicMock(spec=Request)
+        mock_request.client.host = "127.0.0.1"
         mock_request.json = AsyncMock(return_value={"credentials": credentials_str})
 
         mcp._shared_state = {"client": None, "credentials_updated": False}
@@ -84,6 +86,7 @@ async def test_update_credentials_with_base64(mock_credentials):
         credentials_b64 = base64.b64encode(credentials_str.encode("utf-8")).decode("utf-8")
 
         mock_request = MagicMock(spec=Request)
+        mock_request.client.host = "127.0.0.1"
         mock_request.json = AsyncMock(return_value={"credentials_base64": credentials_b64})
 
         mcp._shared_state = {"client": None, "credentials_updated": False}
@@ -116,15 +119,16 @@ async def test_update_credentials_with_path(tmp_path):
         mock_service.return_value = MagicMock()
 
         mock_request = MagicMock(spec=Request)
+        mock_request.client.host = "127.0.0.1"
         mock_request.json = AsyncMock(return_value={"credentials_path": str(creds_file)})
 
         mcp._shared_state = {"client": None, "credentials_updated": False}
 
         response = await update_credentials(mock_request)
 
-        assert response.status_code == 200
+        assert response.status_code == 400
         data = json.loads(response.body)
-        assert data["success"] is True
+        assert data["success"] is False
 
 
 @pytest.mark.asyncio
@@ -135,6 +139,7 @@ async def test_update_credentials_missing_data():
     from play_store_mcp.server import mcp, update_credentials
 
     mock_request = MagicMock(spec=Request)
+    mock_request.client.host = "127.0.0.1"
     mock_request.json = AsyncMock(return_value={})
 
     mcp._shared_state = {"client": None, "credentials_updated": False}
@@ -155,6 +160,7 @@ async def test_update_credentials_invalid_json_string():
     from play_store_mcp.server import mcp, update_credentials
 
     mock_request = MagicMock(spec=Request)
+    mock_request.client.host = "127.0.0.1"
     mock_request.json = AsyncMock(return_value={"credentials": "not valid json"})
 
     mcp._shared_state = {"client": None, "credentials_updated": False}
@@ -175,6 +181,7 @@ async def test_update_credentials_invalid_type():
     from play_store_mcp.server import mcp, update_credentials
 
     mock_request = MagicMock(spec=Request)
+    mock_request.client.host = "127.0.0.1"
     mock_request.json = AsyncMock(return_value={"credentials": 123})
 
     mcp._shared_state = {"client": None, "credentials_updated": False}
@@ -200,6 +207,7 @@ async def test_update_credentials_invalid_credentials(mock_credentials):
         mock_service.side_effect = PlayStoreClientError("Invalid credentials")
 
         mock_request = MagicMock(spec=Request)
+        mock_request.client.host = "127.0.0.1"
         mock_request.json = AsyncMock(return_value={"credentials": mock_credentials})
 
         mcp._shared_state = {"client": None, "credentials_updated": False}
@@ -220,6 +228,7 @@ async def test_update_credentials_malformed_request():
     from play_store_mcp.server import mcp, update_credentials
 
     mock_request = MagicMock(spec=Request)
+    mock_request.client.host = "127.0.0.1"
     mock_request.json = AsyncMock(side_effect=json.JSONDecodeError("test", "test", 0))
 
     mcp._shared_state = {"client": None, "credentials_updated": False}
@@ -239,6 +248,7 @@ async def test_update_credentials_invalid_base64():
     from play_store_mcp.server import mcp, update_credentials
 
     mock_request = MagicMock(spec=Request)
+    mock_request.client.host = "127.0.0.1"
     mock_request.json = AsyncMock(return_value={"credentials_base64": "not-valid-base64!!!"})
 
     mcp._shared_state = {"client": None, "credentials_updated": False}

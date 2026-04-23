@@ -45,4 +45,6 @@ EXPOSE 8000
 
 USER mcp
 
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 CMD wget -qO- http://localhost:8000/health || exit 1
+
 ENTRYPOINT ["play-store-mcp"]

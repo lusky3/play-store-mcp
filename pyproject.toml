@@ -54,7 +54,7 @@ play-store-mcp = "play_store_mcp:main"
 
 [project.urls]
 Homepage = "https://github.com/lusky3/play-store-mcp"
-Documentation = "https://github.com/lusky3/play-store-mcp#readme"
+Documentation = "https://lusky3.github.io/play-store-mcp"
 Repository = "https://github.com/lusky3/play-store-mcp"
 Issues = "https://github.com/lusky3/play-store-mcp/issues"
 
@@ -138,7 +138,7 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.13"
 plugins = ["pydantic.mypy"]
 strict = false
 warn_return_any = true

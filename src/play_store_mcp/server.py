@@ -10,6 +10,7 @@ import logging
 import os
 import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 import structlog
@@ -81,7 +82,7 @@ def get_client_from_context() -> PlayStoreClient:
     # Fall back to shared client from lifespan
     if hasattr(ctx, "request_context") and hasattr(ctx.request_context, "lifespan_context"):
         client: PlayStoreClient | None = ctx.request_context.lifespan_context.get("client")
-        if client:
+        if client is not None:
             return client
 
     raise PlayStoreClientError(
@@ -109,7 +110,7 @@ async def lifespan(_server: FastMCP):  # type: ignore[no-untyped-def]
         shared_state["client"] = client
     except PlayStoreClientError as e:
         logger.warning("Play Store client initialization failed", error=str(e))
-        shared_state["client"] = PlayStoreClient()  # Create anyway, will error on use
+        shared_state["client"] = None
 
     # Store shared state in the server instance for access from custom routes
     _server._shared_state = shared_state  # type: ignore[attr-defined]
@@ -123,9 +124,7 @@ async def lifespan(_server: FastMCP):  # type: ignore[no-untyped-def]
 mcp = FastMCP(
     "Play Store MCP Server",
     lifespan=lifespan,
-    transport_security=TransportSecuritySettings(
-        enable_dns_rebinding_protection=False  # Disable for public deployments
-    ),
+    transport_security=TransportSecuritySettings(),
 )
 
 
@@ -157,6 +156,16 @@ def deploy_app(
     Returns:
         Deployment result with success status and details
     """
+    # Validate file_path
+    resolved = os.path.realpath(file_path)
+    if ".." in file_path or not resolved.lower().endswith((".apk", ".aab")):
+        return {"error": "file_path must be a valid .apk or .aab file without path traversal"}
+    if not Path(resolved).is_file():
+        return {"error": f"File not found: {resolved}"}
+
+    if not (0.0 <= rollout_percentage <= 100.0):
+        return {"error": "rollout_percentage must be between 0.0 and 100.0"}
+
     client = get_client_from_context()
 
     result = client.deploy_app(
@@ -192,6 +201,16 @@ def deploy_app_multilang(
     Returns:
         Deployment result with success status and details
     """
+    # Validate file_path
+    resolved = os.path.realpath(file_path)
+    if ".." in file_path or not resolved.lower().endswith((".apk", ".aab")):
+        return {"error": "file_path must be a valid .apk or .aab file without path traversal"}
+    if not Path(resolved).is_file():
+        return {"error": f"File not found: {resolved}"}
+
+    if not (0.0 <= rollout_percentage <= 100.0):
+        return {"error": "rollout_percentage must be between 0.0 and 100.0"}
+
     client = get_client_from_context()
 
     result = client.deploy_app(
@@ -225,6 +244,9 @@ def promote_release(
     Returns:
         Promotion result with success status and details
     """
+    if not (0.0 <= rollout_percentage <= 100.0):
+        return {"error": "rollout_percentage must be between 0.0 and 100.0"}
+
     client = get_client_from_context()
 
     result = client.promote_release(
@@ -305,6 +327,9 @@ def update_rollout(
     Returns:
         Result with success status and details
     """
+    if not (0.0 <= rollout_percentage <= 100.0):
+        return {"error": "rollout_percentage must be between 0.0 and 100.0"}
+
     client = get_client_from_context()
 
     result = client.update_rollout(
@@ -475,16 +500,16 @@ def list_voided_purchases(
 
 @mcp.tool()
 def get_vitals_overview(package_name: str) -> dict[str, Any]:
-    """Get Android Vitals overview for an app.
+    """Get Android Vitals overview for an app (placeholder - requires Play Developer Reporting API).
 
-    Shows crash rate, ANR rate, and other health metrics.
-    Note: Full Vitals API access may require additional setup.
+    Returns placeholder data. Full implementation requires the separate
+    Play Developer Reporting API, not the Play Developer API.
 
     Args:
         package_name: App package name
 
     Returns:
-        Vitals overview with crash and ANR rates
+        Vitals overview placeholder
     """
     client = get_client_from_context()
 
@@ -497,17 +522,17 @@ def get_vitals_metrics(
     package_name: str,
     metric_type: str = "crashRate",
 ) -> list[dict[str, Any]]:
-    """Get specific Android Vitals metrics for an app.
+    """Get specific Android Vitals metrics (placeholder - requires Play Developer Reporting API).
 
-    Retrieve detailed metrics like crash rates, ANR rates, etc.
-    Note: Full implementation requires Play Developer Reporting API setup.
+    Returns placeholder data. Full implementation requires the separate
+    Play Developer Reporting API, not the Play Developer API.
 
     Args:
         package_name: App package name
         metric_type: Type of metric to retrieve (crashRate, anrRate, etc.)
 
     Returns:
-        List of vitals metrics with values and benchmarks
+        List of vitals metrics placeholders
     """
     client = get_client_from_context()
 
@@ -676,7 +701,7 @@ def update_testers(
     client = get_client_from_context()
 
     result = client.update_testers(package_name, track, tester_emails)
-    return result.model_dump()
+    return result
 
 
 # =============================================================================
@@ -832,6 +857,20 @@ def batch_deploy(
     Returns:
         Batch deployment result with individual results for each track
     """
+    # Validate file_path
+    resolved = os.path.realpath(file_path)
+    if ".." in file_path or not resolved.lower().endswith((".apk", ".aab")):
+        return {"error": "file_path must be a valid .apk or .aab file without path traversal"}
+    if not Path(resolved).is_file():
+        return {"error": f"File not found: {resolved}"}
+
+    if rollout_percentages:
+        for track_name, pct in rollout_percentages.items():
+            if not (0.0 <= pct <= 100.0):
+                return {
+                    "error": f"rollout_percentage for track '{track_name}' must be between 0.0 and 100.0"
+                }
+
     client = get_client_from_context()
 
     result = client.batch_deploy(
@@ -859,30 +898,38 @@ async def health_check(request: Request) -> JSONResponse:  # noqa: ARG001
 async def update_credentials(request: Request) -> JSONResponse:
     """Update Google Play Store credentials via HTTP POST.
 
-    This endpoint allows remote clients to provide credentials when using
+    Management endpoint - restricted to localhost only.
+
+    This endpoint allows local clients to provide credentials when using
     streamable-http transport. Accepts JSON credentials in the request body.
 
     Request body should be one of:
     - {"credentials": {...}} - Service account JSON object
     - {"credentials": "..."} - Service account JSON string
     - {"credentials_base64": "..."} - Base64-encoded service account JSON
-    - {"credentials_path": "..."} - Path to credentials file
 
     Returns:
         JSON response with success status
     """
+    # Management endpoint: only allow requests from localhost
+    client_host = request.client.host if request.client else None
+    if client_host not in ("127.0.0.1", "::1"):
+        return JSONResponse(
+            {"success": False, "error": "This endpoint is only accessible from localhost"},
+            status_code=403,
+        )
+
     try:
         body = await request.json()
 
         credentials = body.get("credentials")
         credentials_base64 = body.get("credentials_base64")
-        credentials_path = body.get("credentials_path")
 
-        if not credentials and not credentials_base64 and not credentials_path:
+        if not credentials and not credentials_base64:
             return JSONResponse(
                 {
                     "success": False,
-                    "error": "Missing 'credentials', 'credentials_base64', or 'credentials_path' in request body",
+                    "error": "Missing 'credentials' or 'credentials_base64' in request body",
                 },
                 status_code=400,
             )
@@ -922,8 +969,6 @@ async def update_credentials(request: Request) -> JSONResponse:
                     {"success": False, "error": "credentials must be a string or object"},
                     status_code=400,
                 )
-        else:
-            new_client = PlayStoreClient(credentials_path=credentials_path)
 
         # Validate credentials by attempting to get service
         try:
@@ -975,8 +1020,8 @@ def main(argv: list[str] | None = None) -> None:
     )
     parser.add_argument(
         "--host",
-        default=os.environ.get("MCP_HOST", "0.0.0.0"),  # noqa: S104
-        help="Host to bind to for network transports (default: 0.0.0.0)",
+        default=os.environ.get("MCP_HOST", "127.0.0.1"),
+        help="Host to bind to for network transports (default: 127.0.0.1)",
     )
     parser.add_argument(
         "--port",

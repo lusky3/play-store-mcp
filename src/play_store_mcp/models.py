@@ -204,8 +204,8 @@ class TesterInfo(BaseModel):
     """Information about testers for a track."""
 
     track: str = Field(..., description="Track name")
-    tester_emails: list[str] = Field(
-        default_factory=list, description="List of tester email addresses"
+    google_groups: list[str] = Field(
+        default_factory=list, description="List of Google Group email addresses"
     )
 
 
@@ -242,8 +242,8 @@ class BatchDeploymentResult(BaseModel):
     message: str = Field(..., description="Overall status message")
 
 
-class ValidationError(BaseModel):
-    """Validation error details."""
+class ValidationResult(BaseModel):
+    """Validation result details."""
 
     field: str = Field(..., description="Field that failed validation")
     message: str = Field(..., description="Error message")

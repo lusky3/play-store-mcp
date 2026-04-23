@@ -501,15 +501,6 @@ class TestUpdateRollout:
 # =========================================================================
 
 
-class TestListApps:
-    """Test list_apps method."""
-
-    def test_list_apps_returns_empty(self, client: PlayStoreClient) -> None:
-        """Test that list_apps returns empty list."""
-        apps = client.list_apps()
-        assert apps == []
-
-
 class TestGetAppDetails:
     """Test get_app_details method."""
 
@@ -558,7 +549,14 @@ class TestReviewsExtended:
                     "reviewId": "r1",
                     "authorName": "User",
                     "comments": [
-                        {"userComment": {"starRating": 4, "text": "Good", "reviewerLanguage": "es"}}
+                        {
+                            "userComment": {
+                                "starRating": 4,
+                                "text": "Good",
+                                "reviewerLanguage": "es",
+                                "lastModified": {"seconds": "1700000000", "nanos": 0},
+                            }
+                        }
                     ],
                 }
             ]
@@ -628,6 +626,12 @@ class TestSubscriptionsExtended:
         _mock_service.purchases.return_value.subscriptionsv2.return_value.get.return_value.execute.return_value = {
             "latestOrderId": "order-123",
             "subscriptionState": "SUBSCRIPTION_STATE_ACTIVE",
+            "lineItems": [
+                {
+                    "productId": "premium",
+                    "autoRenewingPlan": {"autoRenewEnabled": True},
+                }
+            ],
         }
 
         result = client.get_subscription_purchase("com.example.app", "premium", "token123")
@@ -645,6 +649,12 @@ class TestSubscriptionsExtended:
         _mock_service.purchases.return_value.subscriptionsv2.return_value.get.return_value.execute.return_value = {
             "latestOrderId": "order-456",
             "subscriptionState": "SUBSCRIPTION_STATE_EXPIRED",
+            "lineItems": [
+                {
+                    "productId": "premium",
+                    "autoRenewingPlan": {"autoRenewEnabled": False},
+                }
+            ],
         }
 
         result = client.get_subscription_purchase("com.example.app", "premium", "token456")
@@ -686,10 +696,12 @@ class TestVoidedPurchases:
                     "orderId": "order1",
                     "voidedReason": 1,
                     "voidedSource": 0,
+                    "voidedTimeMillis": "1700000000000",
                 },
                 {
                     "purchaseToken": "tok2",
                     "orderId": "order2",
+                    "voidedTimeMillis": "1700000100000",
                 },
             ]
         }
@@ -844,7 +856,7 @@ class TestTestersExtended:
         testers = client.get_testers("com.example.app", "internal")
 
         assert testers.track == "internal"
-        assert testers.tester_emails == []
+        assert testers.google_groups == []
 
     def test_get_testers_other_error(
         self,
@@ -875,8 +887,8 @@ class TestTestersExtended:
 
         result = client.update_testers("com.example.app", "beta", ["test@example.com"])
 
-        assert result.success is False
-        assert "Failed to update testers" in result.message
+        assert result["success"] is False
+        assert result["error"]
 
 
 # =========================================================================
@@ -1080,3 +1092,175 @@ class TestDeleteEdit:
 
         # Should not raise
         client._delete_edit("com.example.app", "edit-123")
+
+
+# =========================================================================
+# Empty responses edge cases (#40)
+# =========================================================================
+
+
+class TestEmptyResponses:
+    """Test handling of empty API responses."""
+
+    def test_get_reviews_empty(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """Test get_reviews with empty response."""
+        _mock_service.reviews.return_value.list.return_value.execute.return_value = {}
+
+        reviews = client.get_reviews("com.example.app")
+
+        assert reviews == []
+
+    def test_get_releases_empty_tracks(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """Test get_releases with empty tracks."""
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.insert.return_value.execute.return_value = {"id": "edit-123"}
+        mock_edits.tracks.return_value.list.return_value.execute.return_value = {"tracks": []}
+        mock_edits.delete.return_value.execute.return_value = None
+
+        tracks = client.get_releases("com.example.app")
+
+        assert tracks == []
+
+    def test_batch_deploy_empty_tracks(
+        self,
+        client: PlayStoreClient,
+        tmp_path: Any,
+    ) -> None:
+        """Test batch_deploy with empty tracks list."""
+        apk_file = tmp_path / "app.apk"
+        apk_file.write_bytes(b"content")
+
+        result = client.batch_deploy(
+            package_name="com.example.app",
+            file_path=str(apk_file),
+            tracks=[],
+        )
+
+        assert result.success is True
+        assert result.successful_count == 0
+        assert result.failed_count == 0
+
+
+# =========================================================================
+# Boundary values (#40)
+# =========================================================================
+
+
+class TestBoundaryValues:
+    """Test boundary value conditions."""
+
+    def test_rollout_percentage_zero(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+        tmp_path: Any,
+    ) -> None:
+        """Test deployment with rollout_percentage=0.0."""
+        apk_file = tmp_path / "app.apk"
+        apk_file.write_bytes(b"content")
+
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.insert.return_value.execute.return_value = {"id": "edit-123"}
+        mock_edits.apks.return_value.upload.return_value.execute.return_value = {"versionCode": 100}
+        mock_edits.tracks.return_value.update.return_value.execute.return_value = {}
+        mock_edits.commit.return_value.execute.return_value = {}
+
+        result = client.deploy_app(
+            package_name="com.example.app",
+            track="production",
+            file_path=str(apk_file),
+            rollout_percentage=0.0,
+        )
+
+        assert result.success is True
+        update_call = mock_edits.tracks.return_value.update.call_args
+        body = update_call.kwargs["body"]
+        assert body["releases"][0]["status"] == "inProgress"
+        assert body["releases"][0]["userFraction"] == 0.0
+
+    def test_rollout_percentage_100(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+        tmp_path: Any,
+    ) -> None:
+        """Test deployment with rollout_percentage=100.0."""
+        apk_file = tmp_path / "app.apk"
+        apk_file.write_bytes(b"content")
+
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.insert.return_value.execute.return_value = {"id": "edit-123"}
+        mock_edits.apks.return_value.upload.return_value.execute.return_value = {"versionCode": 100}
+        mock_edits.tracks.return_value.update.return_value.execute.return_value = {}
+        mock_edits.commit.return_value.execute.return_value = {}
+
+        result = client.deploy_app(
+            package_name="com.example.app",
+            track="production",
+            file_path=str(apk_file),
+            rollout_percentage=100.0,
+        )
+
+        assert result.success is True
+        update_call = mock_edits.tracks.return_value.update.call_args
+        body = update_call.kwargs["body"]
+        assert body["releases"][0]["status"] == "completed"
+
+    def test_validate_listing_text_exactly_50_chars(self, client: PlayStoreClient) -> None:
+        """Test title at exactly 50 characters (valid)."""
+        errors = client.validate_listing_text(title="A" * 50)
+        assert len(errors) == 0
+
+    def test_validate_listing_text_exactly_80_chars(self, client: PlayStoreClient) -> None:
+        """Test short_description at exactly 80 characters (valid)."""
+        errors = client.validate_listing_text(short_description="B" * 80)
+        assert len(errors) == 0
+
+    def test_validate_listing_text_exactly_4000_chars(self, client: PlayStoreClient) -> None:
+        """Test full_description at exactly 4000 characters (valid)."""
+        errors = client.validate_listing_text(full_description="C" * 4000)
+        assert len(errors) == 0
+
+
+# =========================================================================
+# Edit failures (#40)
+# =========================================================================
+
+
+class TestEditFailures:
+    """Test _create_edit and _commit_edit failure handling."""
+
+    def test_create_edit_failure(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """Test _create_edit failure propagates."""
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.insert.return_value.execute.side_effect = _make_http_error(403, "forbidden")
+
+        with pytest.raises(HttpError):
+            client._create_edit("com.example.app")
+
+    def test_commit_edit_failure(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """Test _commit_edit failure propagates."""
+        # Initialize service first
+        client._get_service()
+
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.commit.return_value.execute.side_effect = _make_http_error(500, "server error")
+
+        with pytest.raises(HttpError):
+            client._commit_edit("com.example.app", "edit-123")

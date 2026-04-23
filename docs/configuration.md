@@ -94,6 +94,39 @@ The server exposes a `/health` endpoint for monitoring.
 
 See [Remote Credentials](remote-credentials.md) for per-request credential configuration.
 
+## Per-Request Credentials
+
+For multi-tenant deployments, clients can pass their own Google service account credentials on each request via HTTP headers. This is the primary mechanism for public instances where each user brings their own credentials.
+
+| Header | Description |
+|---|---|
+| `X-Google-Credentials-Base64` | Base64-encoded service account JSON key (recommended) |
+| `X-Google-Credentials` | Raw JSON service account key string |
+
+To encode your credentials:
+
+```bash
+base64 -w 0 < service-account.json
+```
+
+Configure your MCP client to send the header:
+
+```json
+{
+  "mcpServers": {
+    "play-store": {
+      "url": "https://your-server.com/mcp",
+      "transport": "http",
+      "headers": {
+        "X-Google-Credentials-Base64": "YOUR_BASE64_ENCODED_CREDENTIALS"
+      }
+    }
+  }
+}
+```
+
+Per-request credentials are isolated — each request uses only the credentials provided in its headers. No credentials are stored server-side or shared between requests.
+
 ## Logging
 
 Logs are written to stderr (stdout is reserved for MCP JSON-RPC communication). The server uses `structlog` for structured logging.
@@ -129,3 +162,13 @@ The client automatically retries failed API calls with exponential backoff:
 - Maximum 3 retries per request
 - Backoff starts at 1 second, doubles each retry (max 32 seconds)
 - Random jitter is added to prevent thundering herd
+
+## Docker Environment Variables
+
+When running in Docker, the following additional environment variables control the MCP transport:
+
+| Variable | Description | Default |
+|---|---|---|
+| `MCP_TRANSPORT` | Transport mode: `stdio` or `streamable-http` | `stdio` |
+| `MCP_HOST` | Host address to bind to | `0.0.0.0` |
+| `MCP_PORT` | Port to listen on | `8000` |
