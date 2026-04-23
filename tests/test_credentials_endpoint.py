@@ -129,6 +129,7 @@ async def test_update_credentials_with_path(tmp_path):
         assert response.status_code == 400
         data = json.loads(response.body)
         assert data["success"] is False
+        assert "Missing" in data["error"]
 
 
 @pytest.mark.asyncio

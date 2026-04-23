@@ -169,6 +169,8 @@ When running in Docker, the following additional environment variables control t
 
 | Variable | Description | Default |
 |---|---|---|
-| `MCP_TRANSPORT` | Transport mode: `stdio` or `streamable-http` | `stdio` |
+| `MCP_TRANSPORT` | Transport mode: `stdio`, `sse`, or `streamable-http` | `stdio` |
 | `MCP_HOST` | Host address to bind to | `0.0.0.0` |
 | `MCP_PORT` | Port to listen on | `8000` |
+
+Note: `MCP_HOST` and `MCP_PORT` only apply when using a network transport (`streamable-http` or `sse`). The Dockerfile defaults to `stdio`.

@@ -58,6 +58,20 @@ class PlayStoreClientError(Exception):
     """Base exception for Play Store client errors."""
 
 
+def _parse_timestamp(value: dict[str, Any] | None) -> datetime | None:
+    """Parse a protobuf Timestamp {seconds, nanos} to datetime, or None."""
+    if not value:
+        return None
+    seconds = value.get("seconds")
+    if seconds is None:
+        return None
+    try:
+        nanos = int(value.get("nanos", 0) or 0)
+        return datetime.fromtimestamp(int(seconds) + nanos / 1_000_000_000, tz=UTC)
+    except (TypeError, ValueError, OSError):
+        return None
+
+
 def retry_with_backoff(func):  # type: ignore[no-untyped-def]
     """Decorator to retry API calls with exponential backoff.
 
@@ -940,20 +954,11 @@ class PlayStoreClient:
                         dev_comment = comment["developerComment"]
 
                 if user_comment:
-                    # Parse lastModified timestamp
-                    lm = user_comment.get("lastModified")
-                    if lm:
-                        last_modified = datetime.fromtimestamp(int(lm.get("seconds", 0)), tz=UTC)
-                    else:
-                        last_modified = None
+                    last_modified = _parse_timestamp(user_comment.get("lastModified"))
 
-                    dev_reply_time = None
-                    if dev_comment:
-                        dev_lm = dev_comment.get("lastModified")
-                        if dev_lm:
-                            dev_reply_time = datetime.fromtimestamp(
-                                int(dev_lm.get("seconds", 0)), tz=UTC
-                            )
+                    dev_reply_time = (
+                        _parse_timestamp(dev_comment.get("lastModified")) if dev_comment else None
+                    )
 
                     reviews.append(
                         Review(
@@ -1091,7 +1096,8 @@ class PlayStoreClient:
 
             line_items = result.get("lineItems", [])
             auto_renewing = any(
-                item.get("autoRenewingPlan", {}).get("autoRenewEnabled", False)
+                item.get("productId") == subscription_id
+                and item.get("autoRenewingPlan", {}).get("autoRenewEnabled", False)
                 for item in line_items
             )
 
@@ -1589,7 +1595,7 @@ class PlayStoreClient:
         Args:
             package_name: App package name.
             track: Track name (internal, alpha, beta).
-            google_groups: List of tester email addresses or Google Group emails.
+            google_groups: List of Google Group email addresses.
 
         Returns:
             Update result dict.

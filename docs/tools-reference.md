@@ -98,9 +98,10 @@ Get information about APK expansion files (main or patch) for a specific APK ver
 
 **Parameters:**
 
-| Parameter | Type | Required | Description |
-|---|---|---|---|
-| `package_name` | string | Yes | App package name (e.g., `com.example.app`) |
-| `edit_id` | string | Yes | The edit ID from an active edit session |
-| `apk_version_code` | integer | Yes | The APK version code |
-| `expansion_file_type` | string | Yes | Type of expansion file: `main` or `patch` |
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `package_name` | string | Yes | — | App package name |
+| `version_code` | integer | Yes | — | The APK version code |
+| `expansion_file_type` | string | No | `main` | Type: `main` or `patch` |
+
+> **Note:** The client manages edit sessions internally — you do not need to supply an `edit_id`.

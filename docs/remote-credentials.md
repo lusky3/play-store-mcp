@@ -12,14 +12,14 @@ When running the Play Store MCP server with `streamable-http` transport, you can
 Start the server with HTTP transport:
 
 ```bash
-play-store-mcp --transport streamable-http --host 0.0.0.0 --port 8000
+play-store-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 ```
 
 Or with environment variables:
 
 ```bash
 export MCP_TRANSPORT=streamable-http
-export MCP_HOST=0.0.0.0
+export MCP_HOST=127.0.0.1
 export MCP_PORT=8000
 play-store-mcp
 ```
@@ -27,6 +27,8 @@ play-store-mcp
 ### Updating Credentials
 
 The server exposes a `/credentials` endpoint that accepts POST requests with credentials in various formats.
+
+> **Note:** The `/credentials` endpoint only accepts requests from localhost (loopback addresses).
 
 #### Method 1: Send Credentials JSON Object
 

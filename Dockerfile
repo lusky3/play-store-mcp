@@ -45,7 +45,7 @@ EXPOSE 8000
 
 USER mcp
 
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --retries=3 --start-period=10s \
   CMD if [ "$MCP_TRANSPORT" = "streamable-http" ]; then wget -qO- http://localhost:${MCP_PORT:-8000}/health || exit 1; else exit 0; fi
 
 ENTRYPOINT ["play-store-mcp"]

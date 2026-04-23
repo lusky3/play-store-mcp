@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import base64
 import binascii
+import ipaddress
 import json
 import logging
 import os
@@ -120,6 +121,23 @@ async def lifespan(_server: FastMCP):  # type: ignore[no-untyped-def]
     logger.info("Shutting down Play Store MCP Server")
 
 
+def _validate_deploy_file(file_path: str) -> str | None:
+    """Return error message if file_path is invalid, None if valid."""
+    resolved = os.path.realpath(file_path)
+    if not resolved.lower().endswith((".apk", ".aab")):
+        return "file_path must be a .apk or .aab file"
+    if not Path(resolved).is_file():
+        return f"File not found: {resolved}"
+    return None
+
+
+def _validate_rollout(pct: float) -> str | None:
+    """Return error message if rollout percentage is invalid, None if valid."""
+    if not (0.0 <= pct <= 100.0):
+        return "rollout_percentage must be between 0.0 and 100.0"
+    return None
+
+
 # Initialize the MCP server
 mcp = FastMCP(
     "Play Store MCP Server",
@@ -156,15 +174,10 @@ def deploy_app(
     Returns:
         Deployment result with success status and details
     """
-    # Validate file_path
-    resolved = os.path.realpath(file_path)
-    if ".." in file_path or not resolved.lower().endswith((".apk", ".aab")):
-        return {"error": "file_path must be a valid .apk or .aab file without path traversal"}
-    if not Path(resolved).is_file():
-        return {"error": f"File not found: {resolved}"}
-
-    if not (0.0 <= rollout_percentage <= 100.0):
-        return {"error": "rollout_percentage must be between 0.0 and 100.0"}
+    if err := _validate_deploy_file(file_path):
+        return {"error": err}
+    if err := _validate_rollout(rollout_percentage):
+        return {"error": err}
 
     client = get_client_from_context()
 
@@ -201,15 +214,10 @@ def deploy_app_multilang(
     Returns:
         Deployment result with success status and details
     """
-    # Validate file_path
-    resolved = os.path.realpath(file_path)
-    if ".." in file_path or not resolved.lower().endswith((".apk", ".aab")):
-        return {"error": "file_path must be a valid .apk or .aab file without path traversal"}
-    if not Path(resolved).is_file():
-        return {"error": f"File not found: {resolved}"}
-
-    if not (0.0 <= rollout_percentage <= 100.0):
-        return {"error": "rollout_percentage must be between 0.0 and 100.0"}
+    if err := _validate_deploy_file(file_path):
+        return {"error": err}
+    if err := _validate_rollout(rollout_percentage):
+        return {"error": err}
 
     client = get_client_from_context()
 
@@ -244,8 +252,8 @@ def promote_release(
     Returns:
         Promotion result with success status and details
     """
-    if not (0.0 <= rollout_percentage <= 100.0):
-        return {"error": "rollout_percentage must be between 0.0 and 100.0"}
+    if err := _validate_rollout(rollout_percentage):
+        return {"error": err}
 
     client = get_client_from_context()
 
@@ -327,8 +335,8 @@ def update_rollout(
     Returns:
         Result with success status and details
     """
-    if not (0.0 <= rollout_percentage <= 100.0):
-        return {"error": "rollout_percentage must be between 0.0 and 100.0"}
+    if err := _validate_rollout(rollout_percentage):
+        return {"error": err}
 
     client = get_client_from_context()
 
@@ -693,7 +701,7 @@ def update_testers(
     Args:
         package_name: App package name
         track: Track name (internal, alpha, beta)
-        google_groups: List of tester email addresses or Google Group emails
+        google_groups: List of Google Group email addresses
 
     Returns:
         Update result with success status
@@ -857,12 +865,8 @@ def batch_deploy(
     Returns:
         Batch deployment result with individual results for each track
     """
-    # Validate file_path
-    resolved = os.path.realpath(file_path)
-    if ".." in file_path or not resolved.lower().endswith((".apk", ".aab")):
-        return {"error": "file_path must be a valid .apk or .aab file without path traversal"}
-    if not Path(resolved).is_file():
-        return {"error": f"File not found: {resolved}"}
+    if err := _validate_deploy_file(file_path):
+        return {"error": err}
 
     if rollout_percentages:
         for track_name, pct in rollout_percentages.items():
@@ -913,7 +917,11 @@ async def update_credentials(request: Request) -> JSONResponse:
     """
     # Management endpoint: only allow requests from localhost
     client_host = request.client.host if request.client else None
-    if client_host not in ("127.0.0.1", "::1"):
+    try:
+        is_loopback = client_host is not None and ipaddress.ip_address(client_host).is_loopback
+    except ValueError:
+        is_loopback = False
+    if not is_loopback:
         return JSONResponse(
             {"success": False, "error": "This endpoint is only accessible from localhost"},
             status_code=403,

@@ -138,7 +138,7 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.mypy]
-python_version = "3.13"
+python_version = "3.11"
 plugins = ["pydantic.mypy"]
 strict = false
 warn_return_any = true
