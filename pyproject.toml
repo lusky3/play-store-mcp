@@ -188,3 +188,8 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "if __name__ == .__main__.:",
 ]
+
+[tool.uv]
+constraint-dependencies = [
+    "pyjwt>=2.12.0",  # CVE-2026-32597: Insufficient Verification of Data Authenticity
+]
