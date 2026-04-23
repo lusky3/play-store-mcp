@@ -1523,17 +1523,16 @@ class PlayStoreClient:
                 service.edits().listings().list(packageName=package_name, editId=edit_id).execute()
             )
 
-            listings: list[Listing] = []
-            for listing_data in result.get("listings", []):
-                listings.append(
-                    Listing(
-                        language=listing_data.get("language", ""),
-                        title=listing_data.get("title"),
-                        full_description=listing_data.get("fullDescription"),
-                        short_description=listing_data.get("shortDescription"),
-                        video=listing_data.get("video"),
-                    )
+            listings: list[Listing] = [
+                Listing(
+                    language=listing_data.get("language", ""),
+                    title=listing_data.get("title"),
+                    full_description=listing_data.get("fullDescription"),
+                    short_description=listing_data.get("shortDescription"),
+                    video=listing_data.get("video"),
                 )
+                for listing_data in result.get("listings", [])
+            ]
 
             return listings
         finally:
