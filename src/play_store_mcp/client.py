@@ -947,6 +947,14 @@ class PlayStoreClient:
                     else:
                         last_modified = None
 
+                    dev_reply_time = None
+                    if dev_comment:
+                        dev_lm = dev_comment.get("lastModified")
+                        if dev_lm:
+                            dev_reply_time = datetime.fromtimestamp(
+                                int(dev_lm.get("seconds", 0)), tz=UTC
+                            )
+
                     reviews.append(
                         Review(
                             review_id=review_data.get("reviewId", ""),
@@ -960,6 +968,7 @@ class PlayStoreClient:
                             app_version_name=user_comment.get("appVersionName"),
                             last_modified=last_modified,
                             developer_reply=dev_comment.get("text") if dev_comment else None,
+                            developer_reply_time=dev_reply_time,
                         )
                     )
 
@@ -1130,6 +1139,11 @@ class PlayStoreClient:
                     order_id=purchase.get("orderId"),
                     voided_reason=purchase.get("voidedReason"),
                     voided_source=purchase.get("voidedSource"),
+                    voided_time=datetime.fromtimestamp(
+                        int(purchase.get("voidedTimeMillis")) / 1000, tz=UTC
+                    )
+                    if purchase.get("voidedTimeMillis")
+                    else None,
                 )
                 for purchase in result.get("voidedPurchases", [])
             ]
@@ -1568,14 +1582,14 @@ class PlayStoreClient:
         self,
         package_name: str,
         track: str,
-        tester_emails: list[str],
+        google_groups: list[str],
     ) -> dict[str, Any]:
         """Update testers for a specific track.
 
         Args:
             package_name: App package name.
             track: Track name (internal, alpha, beta).
-            tester_emails: List of tester email addresses or Google Group emails.
+            google_groups: List of tester email addresses or Google Group emails.
 
         Returns:
             Update result dict.
@@ -1584,7 +1598,7 @@ class PlayStoreClient:
             "Updating testers",
             package_name=package_name,
             track=track,
-            count=len(tester_emails),
+            count=len(google_groups),
         )
         service = self._get_service()
         edit_id = self._create_edit(package_name)
@@ -1594,12 +1608,12 @@ class PlayStoreClient:
                 packageName=package_name,
                 editId=edit_id,
                 track=track,
-                body={"googleGroups": tester_emails},
+                body={"googleGroups": google_groups},
             ).execute()
 
             self._commit_edit(package_name, edit_id)
 
-            return {"success": True, "track": track, "google_groups": tester_emails}
+            return {"success": True, "track": track, "google_groups": google_groups}
 
         except HttpError as e:
             self._logger.exception("Failed to update testers", error=str(e))

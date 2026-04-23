@@ -15,7 +15,7 @@ Get the current list of testers for a specific testing track.
 | `package_name` | string | Yes | App package name |
 | `track` | string | Yes | Track name: `internal`, `alpha`, or `beta` |
 
-Returns: `track`, `tester_emails`
+Returns: `track`, `google_groups`
 
 ```python
 get_testers("com.example.myapp", track="alpha")
@@ -31,13 +31,13 @@ Update the tester list for a testing track.
 |---|---|---|---|
 | `package_name` | string | Yes | App package name |
 | `track` | string | Yes | Track name: `internal`, `alpha`, or `beta` |
-| `tester_emails` | list[string] | Yes | Email addresses or Google Group emails |
+| `google_groups` | list[string] | Yes | Email addresses or Google Group emails |
 
 ```python
 update_testers(
     package_name="com.example.myapp",
     track="beta",
-    tester_emails=[
+    google_groups=[
         "tester1@example.com",
         "tester2@example.com",
         "beta-testers@googlegroups.com"

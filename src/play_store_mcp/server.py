@@ -686,21 +686,21 @@ def get_testers(
 def update_testers(
     package_name: str,
     track: str,
-    tester_emails: list[str],
+    google_groups: list[str],
 ) -> dict[str, Any]:
     """Update testers for a specific testing track.
 
     Args:
         package_name: App package name
         track: Track name (internal, alpha, beta)
-        tester_emails: List of tester email addresses or Google Group emails
+        google_groups: List of tester email addresses or Google Group emails
 
     Returns:
         Update result with success status
     """
     client = get_client_from_context()
 
-    result = client.update_testers(package_name, track, tester_emails)
+    result = client.update_testers(package_name, track, google_groups)
     return result
 
 

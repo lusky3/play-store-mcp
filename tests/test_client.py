@@ -563,7 +563,7 @@ class TestTesters:
         result = client.update_testers(
             package_name="com.example.app",
             track="alpha",
-            tester_emails=["alpha-testers@example.com"],
+            google_groups=["alpha-testers@example.com"],
         )
 
         assert result["success"] is True

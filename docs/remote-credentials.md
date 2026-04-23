@@ -73,16 +73,6 @@ curl -X POST http://localhost:8000/credentials \
   -d "{\"credentials_base64\": \"$CREDS_B64\"}"
 ```
 
-#### Method 4: Send File Path
-
-If the server has access to the credentials file, you can send just the path:
-
-```bash
-curl -X POST http://localhost:8000/credentials \
-  -H "Content-Type: application/json" \
-  -d '{"credentials_path": "/path/to/service-account.json"}'
-```
-
 ### Response Codes
 
 - `200 OK`: Credentials updated successfully
@@ -161,8 +151,8 @@ curl -X POST https://your-server.com/credentials \
 
 ### Troubleshooting
 
-**Error: "Missing 'credentials' or 'credentials_path' in request body"**
-- Ensure your request includes either `credentials` or `credentials_path` field
+**Error: "Missing 'credentials' or 'credentials_base64' in request body"**
+- Ensure your request includes either `credentials` or `credentials_base64` field
 
 **Error: "Invalid JSON in credentials string"**
 - Verify the credentials JSON is properly formatted

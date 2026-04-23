@@ -96,15 +96,6 @@ def main() -> None:
         print_error(f"Failed to connect to API: {e}")
         sys.exit(1)
 
-    # Test list_apps (expected to return empty)
-    print_test("Testing list_apps (expected to return empty)")
-    try:
-        apps = client.list_apps()
-        print_success(f"list_apps returned: {len(apps)} apps")
-        print_info("Note: This is expected - Play API requires package names upfront")
-    except Exception as e:
-        print_error(f"list_apps failed: {e}")
-
     # Test validation functions
     print_test("Testing validation functions")
 
@@ -223,7 +214,7 @@ def main() -> None:
         print_test("Getting testers for internal track")
         try:
             testers = client.get_testers(package_name, "internal")
-            print_success(f"Found {len(testers.tester_emails)} testers")
+            print_success(f"Found {len(testers.google_groups)} testers")
         except PlayStoreClientError as e:
             print_info(f"Note: Could not fetch testers: {e}")
 

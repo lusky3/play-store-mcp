@@ -212,8 +212,8 @@ class TestReadOnlyOperations:
         """Test getting testers for internal track."""
         try:
             testers = real_client.get_testers(test_package_name, "internal")
-            assert isinstance(testers.tester_emails, list)
-            print(f"✓ get_testers() returned {len(testers.tester_emails)} testers")
+            assert isinstance(testers.google_groups, list)
+            print(f"✓ get_testers() returned {len(testers.google_groups)} testers")
         except PlayStoreClientError as e:
             # Testers might not be configured
             print(f"  Note: Could not fetch testers: {e}")

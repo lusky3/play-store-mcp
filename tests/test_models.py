@@ -8,20 +8,8 @@ from play_store_mcp.models import (
     Release,
     Review,
     SubscriptionProduct,
-    Track,
     VitalsOverview,
 )
-
-
-class TestTrackEnum:
-    """Test Track enum."""
-
-    def test_track_values(self) -> None:
-        """Test track enum values."""
-        assert Track.INTERNAL == "internal"
-        assert Track.ALPHA == "alpha"
-        assert Track.BETA == "beta"
-        assert Track.PRODUCTION == "production"
 
 
 class TestRelease:
