@@ -503,18 +503,20 @@ class TestStoreListings:
         mock_edits = _mock_service.edits.return_value
         mock_edits.insert.return_value.execute.return_value = {"id": "edit-123"}
         mock_edits.listings.return_value.list.return_value.execute.return_value = {
-            "listings": {
-                "en-US": {
+            "listings": [
+                {
+                    "language": "en-US",
                     "title": "My App",
                     "fullDescription": "English description",
                     "shortDescription": "English short",
                 },
-                "es-ES": {
+                {
+                    "language": "es-ES",
                     "title": "Mi Aplicación",
                     "fullDescription": "Descripción en español",
                     "shortDescription": "Corto en español",
                 },
-            }
+            ]
         }
         mock_edits.delete.return_value.execute.return_value = None
 

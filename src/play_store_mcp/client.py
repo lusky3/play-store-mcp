@@ -1524,10 +1524,10 @@ class PlayStoreClient:
             )
 
             listings: list[Listing] = []
-            for lang, listing_data in result.get("listings", {}).items():
+            for listing_data in result.get("listings", []):
                 listings.append(
                     Listing(
-                        language=lang,
+                        language=listing_data.get("language", ""),
                         title=listing_data.get("title"),
                         full_description=listing_data.get("fullDescription"),
                         short_description=listing_data.get("shortDescription"),
