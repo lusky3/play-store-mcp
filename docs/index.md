@@ -4,19 +4,23 @@ An MCP (Model Context Protocol) server that connects to the Google Play Develope
 
 ## Features
 
-- :rocket: **App Deployment** — Deploy APK/AAB files to any track with staged rollouts
-- :zap: **Batch Operations** — Deploy to multiple tracks simultaneously
-- :globe_with_meridians: **Multi-Language Support** — Release notes and listings in multiple languages
-- :white_check_mark: **Input Validation** — Validate inputs before making API calls
-- :arrows_counterclockwise: **Automatic Retries** — Exponential backoff for transient failures
-- :memo: **Store Listings** — Update titles, descriptions, and videos
-- :chart_with_upwards_trend: **Release Management** — Promote releases, manage staged rollouts
-- :busts_in_silhouette: **Tester Management** — Add and manage testers for testing tracks
-- :star: **Review Management** — Fetch and reply to user reviews
-- :bar_chart: **Android Vitals** — Monitor crashes, ANRs, and app health
-- :credit_card: **Subscriptions** — List subscriptions and check purchase status
-- :shopping_cart: **In-App Products** — List and manage in-app products
-- :lock: **Secure** — Google Cloud service account authentication
+- 🚀 **App Deployment** — Deploy APK/AAB files to any track with staged rollouts
+- ⚡ **Batch Operations** — Deploy to multiple tracks simultaneously
+- 🌐 **Multi-Language Support** — Release notes and listings in multiple languages
+- ✅ **Input Validation** — Validate inputs before making API calls
+- 🔄 **Automatic Retries** — Exponential backoff for transient failures
+- 📝 **Store Listings** — Update titles, descriptions, and videos
+- 📈 **Release Management** — Promote releases, manage staged rollouts
+- 👥 **Tester Management** — Add and manage testers for testing tracks
+- ⭐ **Review Management** — Fetch and reply to user reviews
+- 📊 **Android Vitals** — Monitor crashes, ANRs, and app health
+- 💳 **Subscriptions** — List subscriptions and check purchase status
+- 🛒 **In-App Products** — List and manage in-app products
+- 📦 **Expansion Files** — Manage APK expansion files for large apps
+- 🧾 **Orders** — Retrieve detailed transaction information
+- 🐳 **Docker Support** — Run as a container with health checks
+- 🔑 **Per-Request Credentials** — Bring-your-own-credentials for multi-tenant deployments
+- 🔒 **Secure** — Google Cloud service account authentication
 
 ## Requirements
 

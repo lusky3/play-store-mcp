@@ -4,7 +4,7 @@
 
 1. **Google Cloud Project** with the Google Play Developer API enabled
 2. **Service Account** with access to your Play Console
-3. **Python 3.11+** or `uvx` installed
+3. **Python 3.11+**, `uvx`, or **Docker** installed
 
 ## Installation
 
@@ -21,6 +21,14 @@
     ```bash
     pip install play-store-mcp
     play-store-mcp
+    ```
+
+=== "Docker"
+
+    ```bash
+    docker run -e GOOGLE_APPLICATION_CREDENTIALS=/creds/key.json \
+      -v /path/to/service-account.json:/creds/key.json:ro \
+      ghcr.io/lusky3/play-store-mcp:latest
     ```
 
 === "From Source"

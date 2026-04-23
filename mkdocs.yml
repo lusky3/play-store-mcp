@@ -57,4 +57,5 @@ nav:
       - Android Vitals: tools/vitals.md
       - Batch Operations: tools/batch.md
       - Validation: tools/validation.md
+  - Remote Credentials: remote-credentials.md
   - Troubleshooting: troubleshooting.md

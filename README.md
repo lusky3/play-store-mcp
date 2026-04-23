@@ -8,29 +8,34 @@
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=lusky3_play-store-mcp&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=lusky3_play-store-mcp)
 
 [![PyPI version](https://badge.fury.io/py/play-store-mcp.svg)](https://badge.fury.io/py/play-store-mcp)
+[![Docker](https://img.shields.io/badge/ghcr.io-play--store--mcp-blue?logo=docker)](https://github.com/lusky3/play-store-mcp/pkgs/container/play-store-mcp)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=lusky3_play-store-mcp&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=lusky3_play-store-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-An MCP (Model Context Protocol) server that connects to the Google Play Developer API. Deploy apps, manage releases, respond to reviews, and monitor app health - all through your AI assistant.
+An MCP (Model Context Protocol) server that connects to the Google Play Developer API. Deploy apps, manage releases, respond to reviews, and monitor app health — all through your AI assistant.
+
+📖 **[Full Documentation](https://lusky3.github.io/play-store-mcp)**
 
 ## ✨ Features
 
-- **🚀 App Deployment**: Deploy APK/AAB files to any track (internal, alpha, beta, production)
-- **Batch Operations**: Deploy to multiple tracks simultaneously
-- **Multi-Language Support**: Deploy with release notes in multiple languages
-- **Input Validation**: Validate package names, tracks, and text before API calls
-- **Automatic Retries**: Built-in retry logic with exponential backoff for transient failures
-- **Store Listings**: Update app titles, descriptions, and videos for any language
-- **Release Management**: Promote releases between tracks, manage staged rollouts
-- **Tester Management**: Add and manage testers for testing tracks
-- **Review Management**: Fetch and reply to user reviews
-- **Android Vitals**: Monitor crashes, ANRs, and app health metrics
-- **Subscription Management**: List subscriptions and check purchase status
-- **In-App Products**: List and manage in-app products
-- **Expansion Files**: Manage APK expansion files for large apps
-- **Orders**: Retrieve detailed transaction information
-- **Secure**: Uses Google Cloud service account authentication
+- 🚀 **App Deployment** — Deploy APK/AAB files to any track (internal, alpha, beta, production)
+- ⚡ **Batch Operations** — Deploy to multiple tracks simultaneously
+- 🌐 **Multi-Language Support** — Deploy with release notes in multiple languages
+- ✅ **Input Validation** — Validate package names, tracks, and text before API calls
+- 🔄 **Automatic Retries** — Built-in retry logic with exponential backoff for transient failures
+- 📝 **Store Listings** — Update app titles, descriptions, and videos for any language
+- 📈 **Release Management** — Promote releases between tracks, manage staged rollouts
+- 👥 **Tester Management** — Add and manage testers for testing tracks
+- ⭐ **Review Management** — Fetch and reply to user reviews
+- 📊 **Android Vitals** — Monitor crashes, ANRs, and app health metrics
+- 💳 **Subscription Management** — List subscriptions and check purchase status
+- 🛒 **In-App Products** — List and manage in-app products
+- 📦 **Expansion Files** — Manage APK expansion files for large apps
+- 🧾 **Orders** — Retrieve detailed transaction information
+- 🐳 **Docker Support** — Run as a container with health checks
+- 🔑 **Per-Request Credentials** — Bring-your-own-credentials for multi-tenant deployments
+- 🔒 **Secure** — Google Cloud service account authentication
 
 ## 🚀 Quick Start
 
@@ -38,7 +43,7 @@ An MCP (Model Context Protocol) server that connects to the Google Play Develope
 
 1. **Google Cloud Project** with the Google Play Developer API enabled
 2. **Service Account** with access to your Play Console
-3. **Python 3.11+** or `uvx` installed
+3. **Python 3.11+**, `uvx`, or **Docker** installed
 
 ### Installation
 
@@ -54,6 +59,14 @@ uvx play-store-mcp
 ```bash
 pip install play-store-mcp
 play-store-mcp
+```
+
+#### Using Docker
+
+```bash
+docker run -e GOOGLE_APPLICATION_CREDENTIALS=/creds/key.json \
+  -v /path/to/service-account.json:/creds/key.json:ro \
+  ghcr.io/lusky3/play-store-mcp:latest
 ```
 
 #### From source
@@ -81,11 +94,11 @@ For remote access or public deployments, run the server with streamable-http tra
 play-store-mcp --transport streamable-http --host 0.0.0.0 --port 8000
 ```
 
+The server exposes a `/health` endpoint for monitoring.
+
 #### Per-Request Credentials (Recommended for Public Instances)
 
 For public deployments where users bring their own credentials, configure your MCP client to pass credentials in headers:
-
-**Claude Desktop / MCP Client Configuration:**
 
 ```json
 {
@@ -107,23 +120,7 @@ To get your base64-encoded credentials:
 base64 -w 0 < service-account.json
 ```
 
-**Alternative: Using JSON directly (if your client supports it):**
-
-```json
-{
-  "mcpServers": {
-    "play-store": {
-      "url": "https://your-server.com/mcp",
-      "transport": "http",
-      "headers": {
-        "X-Google-Credentials": "{\"type\":\"service_account\",\"project_id\":\"...\"}"
-      }
-    }
-  }
-}
-```
-
-**Security Note**: Per-request credentials are isolated - each request uses only the credentials provided in its headers. No credentials are stored server-side or shared between requests.
+Per-request credentials are isolated — each request uses only the credentials provided in its headers. No credentials are stored server-side or shared between requests.
 
 #### Server-Side Credentials (For Private/Trusted Deployments)
 
@@ -136,8 +133,6 @@ export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
 
 play-store-mcp --transport streamable-http --host 0.0.0.0 --port 8000
 ```
-
-All requests will use these shared credentials. This is suitable for single-user or trusted network deployments only.
 
 ## 🔧 MCP Client Configuration
 
@@ -159,7 +154,25 @@ Add to your `claude_desktop_config.json`:
 }
 ```
 
-### Gemini / Other MCP Clients
+### Kiro
+
+Add to `.kiro/settings/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "play-store": {
+      "command": "uvx",
+      "args": ["play-store-mcp"],
+      "env": {
+        "GOOGLE_APPLICATION_CREDENTIALS": "/path/to/service-account.json"
+      }
+    }
+  }
+}
+```
+
+### Gemini CLI / Other MCP Clients
 
 ```json
 {
@@ -283,139 +296,12 @@ Add to your `claude_desktop_config.json`:
    - **Reply to reviews** (for review management)
    - **View app information and download bulk reports** (for vitals)
 
-## 💡 Usage Examples
-
-### Deploy an App
-
-```python
-# Deploy to internal testing
-deploy_app(
-    package_name="com.example.myapp",
-    track="internal",
-    file_path="/path/to/app-release.aab",
-    release_notes="Bug fixes and performance improvements"
-)
-
-# Deploy with multi-language release notes
-deploy_app_multilang(
-    package_name="com.example.myapp",
-    track="production",
-    file_path="/path/to/app-release.aab",
-    release_notes={
-        "en-US": "Bug fixes and improvements",
-        "es-ES": "Corrección de errores y mejoras",
-        "fr-FR": "Corrections de bugs et améliorations"
-    },
-    rollout_percentage=10.0  # Staged rollout to 10%
-)
-```
-
-### Manage Store Listings
-
-```python
-# Update app description
-update_listing(
-    package_name="com.example.myapp",
-    language="en-US",
-    title="My Awesome App",
-    short_description="The best app for productivity",
-    full_description="A comprehensive description of your app..."
-)
-
-# Get all listings
-listings = list_all_listings(package_name="com.example.myapp")
-```
-
-### Manage Testers
-
-```python
-# Add testers to beta track
-update_testers(
-    package_name="com.example.myapp",
-    track="beta",
-    tester_emails=["beta-testers@example.com", "qa-team@example.com"]
-)
-
-# Get current testers
-testers = get_testers(package_name="com.example.myapp", track="alpha")
-```
-
-### Handle Reviews
-
-```python
-# Get recent reviews
-reviews = get_reviews(
-    package_name="com.example.myapp",
-    max_results=50
-)
-
-# Reply to a review
-reply_to_review(
-    package_name="com.example.myapp",
-    review_id="review-123",
-    reply_text="Thank you for your feedback! We've fixed this in the latest update."
-)
-```
-
-### Promote Releases
-
-```python
-# Promote from beta to production
-promote_release(
-    package_name="com.example.myapp",
-    from_track="beta",
-    to_track="production",
-    version_code=100,
-    rollout_percentage=20.0  # Start with 20% rollout
-)
-
-# Increase rollout percentage
-update_rollout(
-    package_name="com.example.myapp",
-    track="production",
-    version_code=100,
-    rollout_percentage=50.0
-)
-```
-
-### Batch Operations
-
-```python
-# Deploy to multiple tracks at once
-batch_deploy(
-    package_name="com.example.myapp",
-    file_path="/path/to/app-release.aab",
-    tracks=["internal", "alpha"],
-    release_notes="Testing new features",
-    rollout_percentages={
-        "internal": 100.0,
-        "alpha": 50.0
-    }
-)
-```
-
-### Input Validation
-
-```python
-# Validate before deploying
-validation = validate_package_name("com.example.myapp")
-if validation["valid"]:
-    deploy_app(...)
-else:
-    print("Invalid package name:", validation["errors"])
-
-# Validate listing text
-validation = validate_listing_text(
-    title="My App",
-    short_description="A great app for productivity"
-)
-```
-
 ## 🔒 Environment Variables
 
 | Variable | Description | Required |
 | --- | --- | --- |
-| `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON key | Yes |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON key | Yes (or use per-request credentials) |
+| `GOOGLE_PLAY_STORE_CREDENTIALS` | Inline JSON credentials string | Alternative to file path |
 | `PLAY_STORE_MCP_LOG_LEVEL` | Log level (DEBUG, INFO, WARNING, ERROR) | No (default: INFO) |
 
 ## 🧪 Development
@@ -425,13 +311,13 @@ validation = validate_listing_text(
 ```bash
 git clone https://github.com/lusky3/play-store-mcp.git
 cd play-store-mcp
-pip install -e ".[dev]"
+uv sync --dev
 ```
 
 ### Running Tests
 
 ```bash
-pytest -v --cov=src/play_store_mcp
+uv run pytest -v --cov=src/play_store_mcp
 ```
 
 ### Linting
@@ -467,7 +353,7 @@ Ensure the app exists in Play Console and the service account has access to it.
 
 ## 📄 License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License — see [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
