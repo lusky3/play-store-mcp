@@ -96,6 +96,7 @@ def sample_reviews_response() -> dict[str, Any]:
                             "androidOsVersion": "13",
                             "appVersionCode": 100,
                             "appVersionName": "1.0.0",
+                            "lastModified": {"seconds": "1700000000", "nanos": 0},
                         }
                     }
                 ],
@@ -109,6 +110,7 @@ def sample_reviews_response() -> dict[str, Any]:
                             "starRating": 3,
                             "text": "Needs improvement",
                             "reviewerLanguage": "en",
+                            "lastModified": {"seconds": "1700000100", "nanos": 0},
                         }
                     },
                     {

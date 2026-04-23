@@ -546,8 +546,8 @@ class TestTesters:
         testers = client.get_testers("com.example.app", "beta")
 
         assert testers.track == "beta"
-        assert len(testers.tester_emails) == 2
-        assert "testers@example.com" in testers.tester_emails
+        assert len(testers.google_groups) == 2
+        assert "testers@example.com" in testers.google_groups
 
     def test_update_testers_success(
         self,
@@ -563,10 +563,10 @@ class TestTesters:
         result = client.update_testers(
             package_name="com.example.app",
             track="alpha",
-            tester_emails=["alpha-testers@example.com"],
+            google_groups=["alpha-testers@example.com"],
         )
 
-        assert result.success is True
+        assert result["success"] is True
 
 
 class TestOrders:

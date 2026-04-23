@@ -3,28 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime  # noqa: TC003 - Pydantic needs this at runtime
-from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, Field
-
-
-class Track(StrEnum):
-    """Release track options."""
-
-    INTERNAL = "internal"
-    ALPHA = "alpha"
-    BETA = "beta"
-    PRODUCTION = "production"
-
-
-class ReleaseStatus(StrEnum):
-    """Release status options."""
-
-    DRAFT = "draft"
-    IN_PROGRESS = "inProgress"
-    HALTED = "halted"
-    COMPLETED = "completed"
 
 
 class Release(BaseModel):
@@ -58,14 +39,6 @@ class DeploymentResult(BaseModel):
     version_code: int | None = Field(None, description="Deployed version code")
     message: str = Field(..., description="Status message")
     error: str | None = Field(None, description="Error details if failed")
-
-
-class AppInfo(BaseModel):
-    """Basic app information."""
-
-    package_name: str = Field(..., description="App package name")
-    title: str | None = Field(None, description="App title")
-    default_language: str | None = Field(None, description="Default language")
 
 
 class AppDetails(BaseModel):
@@ -204,8 +177,8 @@ class TesterInfo(BaseModel):
     """Information about testers for a track."""
 
     track: str = Field(..., description="Track name")
-    tester_emails: list[str] = Field(
-        default_factory=list, description="List of tester email addresses"
+    google_groups: list[str] = Field(
+        default_factory=list, description="List of Google Group email addresses"
     )
 
 
@@ -242,8 +215,8 @@ class BatchDeploymentResult(BaseModel):
     message: str = Field(..., description="Overall status message")
 
 
-class ValidationError(BaseModel):
-    """Validation error details."""
+class ValidationResult(BaseModel):
+    """Validation result details."""
 
     field: str = Field(..., description="Field that failed validation")
     message: str = Field(..., description="Error message")

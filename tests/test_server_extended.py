@@ -24,7 +24,7 @@ from play_store_mcp.models import (
     SubscriptionPurchase,
     TesterInfo,
     TrackInfo,
-    ValidationError,
+    ValidationResult,
     VitalsMetric,
     VitalsOverview,
     VoidedPurchase,
@@ -71,6 +71,22 @@ def _mock_context(client: MagicMock) -> MagicMock:
 def mock_client() -> MagicMock:
     """Create a mock PlayStoreClient."""
     return MagicMock(spec=PlayStoreClient)
+
+
+@pytest.fixture
+def tmp_apk(tmp_path: Any) -> str:
+    """Create a temporary APK file for deploy tests."""
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"fake apk")
+    return str(apk)
+
+
+@pytest.fixture
+def tmp_aab(tmp_path: Any) -> str:
+    """Create a temporary AAB file for deploy tests."""
+    aab = tmp_path / "app.aab"
+    aab.write_bytes(b"fake aab")
+    return str(aab)
 
 
 @pytest.fixture(autouse=True)
@@ -122,8 +138,9 @@ class TestLifespan:
             instance._get_service.side_effect = PlayStoreClientError("bad creds")
 
             async with lifespan(mock_server) as ctx:
-                # Should still yield a client even on failure
                 assert "client" in ctx
+                # Client should be None on failure
+                assert ctx["client"] is None
 
 
 # =========================================================================
@@ -134,7 +151,7 @@ class TestLifespan:
 class TestDeployAppTool:
     """Test deploy_app server tool."""
 
-    def test_deploy_app(self, mock_client: MagicMock) -> None:
+    def test_deploy_app(self, mock_client: MagicMock, tmp_apk: str) -> None:
         """Test deploy_app tool."""
         mock_client.deploy_app.return_value = DeploymentResult(
             success=True,
@@ -144,12 +161,20 @@ class TestDeployAppTool:
             message="Deployed",
         )
 
-        result = deploy_app("com.example.app", "internal", "/path/to/app.apk")
+        result = deploy_app("com.example.app", "internal", tmp_apk)
 
+        mock_client.deploy_app.assert_called_once_with(
+            package_name="com.example.app",
+            track="internal",
+            file_path=tmp_apk,
+            release_notes=None,
+            release_notes_language="en-US",
+            rollout_percentage=100.0,
+        )
         assert result["success"] is True
         assert result["version_code"] == 100
 
-    def test_deploy_app_multilang(self, mock_client: MagicMock) -> None:
+    def test_deploy_app_multilang(self, mock_client: MagicMock, tmp_aab: str) -> None:
         """Test deploy_app_multilang tool."""
         mock_client.deploy_app.return_value = DeploymentResult(
             success=True,
@@ -159,13 +184,21 @@ class TestDeployAppTool:
             message="Deployed",
         )
 
+        notes = {"en-US": "Notes", "es-ES": "Notas"}
         result = deploy_app_multilang(
             "com.example.app",
             "beta",
-            "/path/to/app.aab",
-            {"en-US": "Notes", "es-ES": "Notas"},
+            tmp_aab,
+            notes,
         )
 
+        mock_client.deploy_app.assert_called_once_with(
+            package_name="com.example.app",
+            track="beta",
+            file_path=tmp_aab,
+            release_notes=notes,
+            rollout_percentage=100.0,
+        )
         assert result["success"] is True
 
 
@@ -184,6 +217,13 @@ class TestPromoteReleaseTool:
 
         result = promote_release("com.example.app", "beta", "production", 100)
 
+        mock_client.promote_release.assert_called_once_with(
+            package_name="com.example.app",
+            from_track="beta",
+            to_track="production",
+            version_code=100,
+            rollout_percentage=100.0,
+        )
         assert result["success"] is True
 
 
@@ -208,6 +248,7 @@ class TestGetReleasesTool:
 
         result = get_releases("com.example.app")
 
+        mock_client.get_releases.assert_called_once_with("com.example.app")
         assert len(result) == 1
         assert result[0]["track"] == "production"
 
@@ -227,6 +268,11 @@ class TestHaltReleaseTool:
 
         result = halt_release("com.example.app", "production", 100)
 
+        mock_client.halt_release.assert_called_once_with(
+            package_name="com.example.app",
+            track="production",
+            version_code=100,
+        )
         assert result["success"] is True
 
 
@@ -245,6 +291,12 @@ class TestUpdateRolloutTool:
 
         result = update_rollout("com.example.app", "production", 100, 50.0)
 
+        mock_client.update_rollout.assert_called_once_with(
+            package_name="com.example.app",
+            track="production",
+            version_code=100,
+            rollout_percentage=50.0,
+        )
         assert result["success"] is True
 
 
@@ -260,6 +312,7 @@ class TestGetAppDetailsTool:
 
         result = get_app_details("com.example.app")
 
+        mock_client.get_app_details.assert_called_once_with("com.example.app", "en-US")
         assert result["title"] == "My App"
 
 
@@ -285,6 +338,11 @@ class TestReviewsTools:
 
         result = get_reviews("com.example.app")
 
+        mock_client.get_reviews.assert_called_once_with(
+            package_name="com.example.app",
+            max_results=50,
+            translation_language=None,
+        )
         assert len(result) == 1
         assert result[0]["star_rating"] == 5
 
@@ -323,6 +381,11 @@ class TestReviewsTools:
 
         result = reply_to_review("com.example.app", "r1", "Thanks!")
 
+        mock_client.reply_to_review.assert_called_once_with(
+            package_name="com.example.app",
+            review_id="r1",
+            reply_text="Thanks!",
+        )
         assert result["success"] is True
 
 
@@ -345,6 +408,7 @@ class TestSubscriptionTools:
 
         result = list_subscriptions("com.example.app")
 
+        mock_client.list_subscriptions.assert_called_once_with("com.example.app")
         assert len(result) == 1
         assert result[0]["product_id"] == "premium"
 
@@ -361,6 +425,11 @@ class TestSubscriptionTools:
 
         result = get_subscription_status("com.example.app", "premium", "tok123")
 
+        mock_client.get_subscription_purchase.assert_called_once_with(
+            package_name="com.example.app",
+            subscription_id="premium",
+            token="tok123",
+        )
         assert result["auto_renewing"] is True
 
     def test_list_voided_purchases(self, mock_client: MagicMock) -> None:
@@ -374,6 +443,10 @@ class TestSubscriptionTools:
 
         result = list_voided_purchases("com.example.app")
 
+        mock_client.list_voided_purchases.assert_called_once_with(
+            package_name="com.example.app",
+            max_results=100,
+        )
         assert len(result) == 1
 
 
@@ -394,6 +467,7 @@ class TestVitalsTools:
 
         result = get_vitals_overview("com.example.app")
 
+        mock_client.get_vitals_overview.assert_called_once_with("com.example.app")
         assert result["crash_rate"] == 0.5
 
     def test_get_vitals_metrics(self, mock_client: MagicMock) -> None:
@@ -404,6 +478,7 @@ class TestVitalsTools:
 
         result = get_vitals_metrics("com.example.app")
 
+        mock_client.get_vitals_metrics.assert_called_once_with("com.example.app", "crashRate")
         assert len(result) == 1
         assert result[0]["metric_type"] == "crashRate"
 
@@ -428,6 +503,7 @@ class TestInAppProductsTools:
 
         result = list_in_app_products("com.example.app")
 
+        mock_client.list_in_app_products.assert_called_once_with("com.example.app")
         assert len(result) == 1
 
     def test_get_in_app_product(self, mock_client: MagicMock) -> None:
@@ -441,6 +517,7 @@ class TestInAppProductsTools:
 
         result = get_in_app_product("com.example.app", "premium")
 
+        mock_client.get_in_app_product.assert_called_once_with("com.example.app", "premium")
         assert result["title"] == "Premium"
 
 
@@ -461,6 +538,7 @@ class TestListingsTools:
 
         result = get_listing("com.example.app")
 
+        mock_client.get_listing.assert_called_once_with("com.example.app", "en-US")
         assert result["title"] == "My App"
 
     def test_update_listing(self, mock_client: MagicMock) -> None:
@@ -474,6 +552,14 @@ class TestListingsTools:
 
         result = update_listing("com.example.app", "en-US", title="New Title")
 
+        mock_client.update_listing.assert_called_once_with(
+            package_name="com.example.app",
+            language="en-US",
+            title="New Title",
+            full_description=None,
+            short_description=None,
+            video=None,
+        )
         assert result["success"] is True
 
     def test_list_all_listings(self, mock_client: MagicMock) -> None:
@@ -485,6 +571,7 @@ class TestListingsTools:
 
         result = list_all_listings("com.example.app")
 
+        mock_client.list_all_listings.assert_called_once_with("com.example.app")
         assert len(result) == 2
 
 
@@ -500,24 +587,28 @@ class TestTestersTools:
         """Test get_testers tool."""
         mock_client.get_testers.return_value = TesterInfo(
             track="beta",
-            tester_emails=["test@example.com"],
+            google_groups=["test@example.com"],
         )
 
         result = get_testers("com.example.app", "beta")
 
-        assert len(result["tester_emails"]) == 1
+        mock_client.get_testers.assert_called_once_with("com.example.app", "beta")
+        assert len(result["google_groups"]) == 1
 
     def test_update_testers(self, mock_client: MagicMock) -> None:
         """Test update_testers tool."""
-        mock_client.update_testers.return_value = ListingUpdateResult(
-            success=True,
-            package_name="com.example.app",
-            language="beta",
-            message="Updated",
-        )
+        mock_client.update_testers.return_value = {
+            "success": True,
+            "package_name": "com.example.app",
+            "track": "beta",
+            "message": "Updated",
+        }
 
         result = update_testers("com.example.app", "beta", ["test@example.com"])
 
+        mock_client.update_testers.assert_called_once_with(
+            "com.example.app", "beta", ["test@example.com"]
+        )
         assert result["success"] is True
 
 
@@ -539,6 +630,7 @@ class TestOrdersTools:
 
         result = get_order("com.example.app", "order-123")
 
+        mock_client.get_order.assert_called_once_with("com.example.app", "order-123")
         assert result["order_id"] == "order-123"
 
 
@@ -560,6 +652,7 @@ class TestExpansionFilesTools:
 
         result = get_expansion_file("com.example.app", 100)
 
+        mock_client.get_expansion_file.assert_called_once_with("com.example.app", 100, "main")
         assert result["file_size"] == 104857600
 
 
@@ -577,17 +670,19 @@ class TestValidationTools:
 
         result = validate_package_name("com.example.app")
 
+        mock_client.validate_package_name.assert_called_once_with("com.example.app")
         assert result["valid"] is True
         assert result["errors"] == []
 
     def test_validate_package_name_invalid(self, mock_client: MagicMock) -> None:
         """Test validate_package_name with invalid name."""
         mock_client.validate_package_name.return_value = [
-            ValidationError(field="package_name", message="Bad name", value="bad")
+            ValidationResult(field="package_name", message="Bad name", value="bad")
         ]
 
         result = validate_package_name("bad")
 
+        mock_client.validate_package_name.assert_called_once_with("bad")
         assert result["valid"] is False
         assert len(result["errors"]) == 1
 
@@ -597,6 +692,7 @@ class TestValidationTools:
 
         result = validate_track("production")
 
+        mock_client.validate_track.assert_called_once_with("production")
         assert result["valid"] is True
 
     def test_validate_listing_text(self, mock_client: MagicMock) -> None:
@@ -605,6 +701,7 @@ class TestValidationTools:
 
         result = validate_listing_text(title="My App")
 
+        mock_client.validate_listing_text.assert_called_once_with("My App", None, None)
         assert result["valid"] is True
 
 
@@ -616,7 +713,7 @@ class TestValidationTools:
 class TestBatchDeployTool:
     """Test batch_deploy server tool."""
 
-    def test_batch_deploy(self, mock_client: MagicMock) -> None:
+    def test_batch_deploy(self, mock_client: MagicMock, tmp_apk: str) -> None:
         """Test batch_deploy tool."""
         mock_client.batch_deploy.return_value = BatchDeploymentResult(
             success=True,
@@ -628,10 +725,17 @@ class TestBatchDeployTool:
 
         result = batch_deploy(
             "com.example.app",
-            "/path/to/app.apk",
+            tmp_apk,
             ["internal", "alpha"],
         )
 
+        mock_client.batch_deploy.assert_called_once_with(
+            package_name="com.example.app",
+            file_path=tmp_apk,
+            tracks=["internal", "alpha"],
+            release_notes=None,
+            rollout_percentages=None,
+        )
         assert result["success"] is True
         assert result["successful_count"] == 2
 
@@ -664,4 +768,9 @@ class TestServerMain:
 
         result = get_subscription_status("com.example.app", "sub1", "tok")
 
+        mock_client.get_subscription_purchase.assert_called_once_with(
+            package_name="com.example.app",
+            subscription_id="sub1",
+            token="tok",
+        )
         assert result["subscription_id"] == "sub1"

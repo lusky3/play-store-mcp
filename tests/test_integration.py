@@ -83,14 +83,6 @@ class TestRealAPIConnection:
 class TestReadOnlyOperations:
     """Test read-only operations that don't modify anything."""
 
-    def test_list_apps(self, real_client: PlayStoreClient) -> None:
-        """Test listing apps (returns empty due to API limitation)."""
-        apps = real_client.list_apps()
-        # This will return empty list due to API limitation, but shouldn't error
-        assert isinstance(apps, list)
-        print(f"✓ list_apps() returned: {len(apps)} apps")
-        print("  Note: Play API requires package names upfront, so this returns empty")
-
     def test_get_releases(
         self,
         real_client: PlayStoreClient,
@@ -220,8 +212,8 @@ class TestReadOnlyOperations:
         """Test getting testers for internal track."""
         try:
             testers = real_client.get_testers(test_package_name, "internal")
-            assert isinstance(testers.tester_emails, list)
-            print(f"✓ get_testers() returned {len(testers.tester_emails)} testers")
+            assert isinstance(testers.google_groups, list)
+            print(f"✓ get_testers() returned {len(testers.google_groups)} testers")
         except PlayStoreClientError as e:
             # Testers might not be configured
             print(f"  Note: Could not fetch testers: {e}")

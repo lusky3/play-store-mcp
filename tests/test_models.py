@@ -8,20 +8,8 @@ from play_store_mcp.models import (
     Release,
     Review,
     SubscriptionProduct,
-    Track,
     VitalsOverview,
 )
-
-
-class TestTrackEnum:
-    """Test Track enum."""
-
-    def test_track_values(self) -> None:
-        """Test track enum values."""
-        assert Track.INTERNAL == "internal"
-        assert Track.ALPHA == "alpha"
-        assert Track.BETA == "beta"
-        assert Track.PRODUCTION == "production"
 
 
 class TestRelease:
@@ -240,11 +228,11 @@ class TestTesterInfo:
 
         testers = TesterInfo(
             track="beta",
-            tester_emails=["tester1@example.com", "tester2@example.com"],
+            google_groups=["tester1@example.com", "tester2@example.com"],
         )
 
         assert testers.track == "beta"
-        assert len(testers.tester_emails) == 2
+        assert len(testers.google_groups) == 2
 
 
 class TestOrder:

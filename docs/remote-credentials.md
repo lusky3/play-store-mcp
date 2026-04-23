@@ -12,14 +12,14 @@ When running the Play Store MCP server with `streamable-http` transport, you can
 Start the server with HTTP transport:
 
 ```bash
-play-store-mcp --transport streamable-http --host 0.0.0.0 --port 8000
+play-store-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 ```
 
 Or with environment variables:
 
 ```bash
 export MCP_TRANSPORT=streamable-http
-export MCP_HOST=0.0.0.0
+export MCP_HOST=127.0.0.1
 export MCP_PORT=8000
 play-store-mcp
 ```
@@ -27,6 +27,8 @@ play-store-mcp
 ### Updating Credentials
 
 The server exposes a `/credentials` endpoint that accepts POST requests with credentials in various formats.
+
+> **Note:** The `/credentials` endpoint only accepts requests from localhost (loopback addresses).
 
 #### Method 1: Send Credentials JSON Object
 
@@ -71,16 +73,6 @@ CREDS_B64=$(cat /path/to/service-account.json | base64 -w 0)
 curl -X POST http://localhost:8000/credentials \
   -H "Content-Type: application/json" \
   -d "{\"credentials_base64\": \"$CREDS_B64\"}"
-```
-
-#### Method 4: Send File Path
-
-If the server has access to the credentials file, you can send just the path:
-
-```bash
-curl -X POST http://localhost:8000/credentials \
-  -H "Content-Type: application/json" \
-  -d '{"credentials_path": "/path/to/service-account.json"}'
 ```
 
 ### Response Codes
@@ -161,8 +153,8 @@ curl -X POST https://your-server.com/credentials \
 
 ### Troubleshooting
 
-**Error: "Missing 'credentials' or 'credentials_path' in request body"**
-- Ensure your request includes either `credentials` or `credentials_path` field
+**Error: "Missing 'credentials' or 'credentials_base64' in request body"**
+- Ensure your request includes either `credentials` or `credentials_base64` field
 
 **Error: "Invalid JSON in credentials string"**
 - Verify the credentials JSON is properly formatted

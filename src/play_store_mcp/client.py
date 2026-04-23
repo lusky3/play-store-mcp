@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import random
 import re
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -18,7 +20,6 @@ from googleapiclient.http import MediaFileUpload
 
 from play_store_mcp.models import (
     AppDetails,
-    AppInfo,
     BatchDeploymentResult,
     DeploymentResult,
     ExpansionFile,
@@ -33,7 +34,7 @@ from play_store_mcp.models import (
     SubscriptionPurchase,
     TesterInfo,
     TrackInfo,
-    ValidationError,
+    ValidationResult,
     VitalsMetric,
     VitalsOverview,
     VoidedPurchase,
@@ -57,12 +58,27 @@ class PlayStoreClientError(Exception):
     """Base exception for Play Store client errors."""
 
 
+def _parse_timestamp(value: dict[str, Any] | None) -> datetime | None:
+    """Parse a protobuf Timestamp {seconds, nanos} to datetime, or None."""
+    if not value:
+        return None
+    seconds = value.get("seconds")
+    if seconds is None:
+        return None
+    try:
+        nanos = int(value.get("nanos", 0) or 0)
+        return datetime.fromtimestamp(int(seconds) + nanos / 1_000_000_000, tz=UTC)
+    except (TypeError, ValueError, OSError):
+        return None
+
+
 def retry_with_backoff(func):  # type: ignore[no-untyped-def]
     """Decorator to retry API calls with exponential backoff.
 
     Retries on transient errors (500, 503) and rate limit errors (429).
     """
 
+    @functools.wraps(func)
     def wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
         retries = 0
         backoff = INITIAL_BACKOFF
@@ -91,8 +107,6 @@ def retry_with_backoff(func):  # type: ignore[no-untyped-def]
                     raise
             except Exception:
                 raise
-
-        return func(*args, **kwargs)
 
     return wrapper
 
@@ -127,7 +141,7 @@ class PlayStoreClient:
     # Validation Helpers
     # =========================================================================
 
-    def validate_package_name(self, package_name: str) -> list[ValidationError]:
+    def validate_package_name(self, package_name: str) -> list[ValidationResult]:
         """Validate package name format.
 
         Args:
@@ -136,11 +150,11 @@ class PlayStoreClient:
         Returns:
             List of validation errors (empty if valid).
         """
-        errors: list[ValidationError] = []
+        errors: list[ValidationResult] = []
 
         if not package_name:
             errors.append(
-                ValidationError(
+                ValidationResult(
                     field="package_name",
                     message="Package name cannot be empty",
                     value=package_name,
@@ -151,7 +165,7 @@ class PlayStoreClient:
         # Check format: must contain at least one dot
         if "." not in package_name:
             errors.append(
-                ValidationError(
+                ValidationResult(
                     field="package_name",
                     message="Package name must contain at least one dot (e.g., com.example.app)",
                     value=package_name,
@@ -161,7 +175,7 @@ class PlayStoreClient:
         # Check for invalid characters
         if not re.match(r"^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$", package_name):
             errors.append(
-                ValidationError(
+                ValidationResult(
                     field="package_name",
                     message="Package name must start with lowercase letter and contain only lowercase letters, numbers, underscores, and dots",
                     value=package_name,
@@ -170,7 +184,7 @@ class PlayStoreClient:
 
         return errors
 
-    def validate_track(self, track: str) -> list[ValidationError]:
+    def validate_track(self, track: str) -> list[ValidationResult]:
         """Validate track name.
 
         Args:
@@ -179,12 +193,12 @@ class PlayStoreClient:
         Returns:
             List of validation errors (empty if valid).
         """
-        errors: list[ValidationError] = []
+        errors: list[ValidationResult] = []
         valid_tracks = ["internal", "alpha", "beta", "production"]
 
         if track not in valid_tracks:
             errors.append(
-                ValidationError(
+                ValidationResult(
                     field="track",
                     message=f"Track must be one of: {', '.join(valid_tracks)}",
                     value=track,
@@ -198,7 +212,7 @@ class PlayStoreClient:
         title: str | None = None,
         short_description: str | None = None,
         full_description: str | None = None,
-    ) -> list[ValidationError]:
+    ) -> list[ValidationResult]:
         """Validate store listing text lengths.
 
         Args:
@@ -209,11 +223,11 @@ class PlayStoreClient:
         Returns:
             List of validation errors (empty if valid).
         """
-        errors: list[ValidationError] = []
+        errors: list[ValidationResult] = []
 
         if title and len(title) > 50:
             errors.append(
-                ValidationError(
+                ValidationResult(
                     field="title",
                     message="Title must be 50 characters or less",
                     value=f"{len(title)} characters",
@@ -222,7 +236,7 @@ class PlayStoreClient:
 
         if short_description and len(short_description) > 80:
             errors.append(
-                ValidationError(
+                ValidationResult(
                     field="short_description",
                     message="Short description must be 80 characters or less",
                     value=f"{len(short_description)} characters",
@@ -231,7 +245,7 @@ class PlayStoreClient:
 
         if full_description and len(full_description) > 4000:
             errors.append(
-                ValidationError(
+                ValidationResult(
                     field="full_description",
                     message="Full description must be 4000 characters or less",
                     value=f"{len(full_description)} characters",
@@ -267,7 +281,9 @@ class PlayStoreClient:
                             )
                     except json.JSONDecodeError:
                         # If it's not JSON, maybe it's a path that doesn't exist?
-                        pass
+                        self._logger.warning(
+                            "credentials_json string is not valid JSON and not a valid file path",
+                        )
 
                 elif isinstance(self._credentials_json, dict):
                     credentials = service_account.Credentials.from_service_account_info(
@@ -339,9 +355,9 @@ class PlayStoreClient:
         try:
             service.edits().delete(packageName=package_name, editId=edit_id).execute()
             self._logger.debug("Deleted edit", package_name=package_name, edit_id=edit_id)
-        except HttpError:
+        except HttpError as e:
             # Edit may have already been committed or expired
-            pass
+            self._logger.debug("Edit cleanup failed", error=str(e))
 
     # =========================================================================
     # Publishing API
@@ -845,27 +861,6 @@ class PlayStoreClient:
                 error=str(e),
             )
 
-    def list_apps(self) -> list[AppInfo]:
-        """List all apps in the developer account.
-
-        Note: This attempts to discover apps by checking recent edits.
-        The Play Developer API doesn't have a direct "list all apps" endpoint,
-        so this may not return all apps in the account.
-
-        Returns:
-            List of app info discovered from recent activity.
-        """
-        self._logger.info("Attempting to discover apps from account activity")
-
-        # The Play Developer API doesn't have a list apps endpoint
-        # We can only work with apps we know the package name for
-        # Return empty list with informative message
-        self._logger.warning(
-            "Play Developer API requires package names upfront. "
-            "Use get_app_details with known package names instead."
-        )
-        return []
-
     def get_app_details(self, package_name: str, language: str = "en-US") -> AppDetails:
         """Get app details.
 
@@ -903,7 +898,7 @@ class PlayStoreClient:
                 short_description=listing.get("shortDescription"),
                 full_description=listing.get("fullDescription"),
                 default_language=details.get("defaultLanguage"),
-                developer_name=details.get("contactWebsite"),
+                developer_name=None,  # edits.details API has no developer name field
                 developer_email=details.get("contactEmail"),
                 developer_website=details.get("contactWebsite"),
             )
@@ -918,7 +913,6 @@ class PlayStoreClient:
         self,
         package_name: str,
         max_results: int = 100,
-        start_index: int = 0,
         translation_language: str | None = None,
     ) -> list[Review]:
         """Get app reviews.
@@ -926,7 +920,6 @@ class PlayStoreClient:
         Args:
             package_name: App package name.
             max_results: Maximum number of reviews to return.
-            start_index: Starting index for pagination.
             translation_language: Language to translate reviews to.
 
         Returns:
@@ -940,18 +933,10 @@ class PlayStoreClient:
         service = self._get_service()
 
         try:
-            request = service.reviews().list(
-                packageName=package_name,
-                maxResults=max_results,
-                startIndex=start_index,
-            )
+            kwargs: dict[str, Any] = {"packageName": package_name, "maxResults": max_results}
             if translation_language:
-                request = service.reviews().list(
-                    packageName=package_name,
-                    maxResults=max_results,
-                    startIndex=start_index,
-                    translationLanguage=translation_language,
-                )
+                kwargs["translationLanguage"] = translation_language
+            request = service.reviews().list(**kwargs)
 
             result = request.execute()
 
@@ -969,6 +954,12 @@ class PlayStoreClient:
                         dev_comment = comment["developerComment"]
 
                 if user_comment:
+                    last_modified = _parse_timestamp(user_comment.get("lastModified"))
+
+                    dev_reply_time = (
+                        _parse_timestamp(dev_comment.get("lastModified")) if dev_comment else None
+                    )
+
                     reviews.append(
                         Review(
                             review_id=review_data.get("reviewId", ""),
@@ -980,7 +971,9 @@ class PlayStoreClient:
                             android_version=user_comment.get("androidOsVersion"),
                             app_version_code=user_comment.get("appVersionCode"),
                             app_version_name=user_comment.get("appVersionName"),
+                            last_modified=last_modified,
                             developer_reply=dev_comment.get("text") if dev_comment else None,
+                            developer_reply_time=dev_reply_time,
                         )
                     )
 
@@ -1101,12 +1094,19 @@ class PlayStoreClient:
                 .execute()
             )
 
+            line_items = result.get("lineItems", [])
+            auto_renewing = any(
+                item.get("productId") == subscription_id
+                and item.get("autoRenewingPlan", {}).get("autoRenewEnabled", False)
+                for item in line_items
+            )
+
             return SubscriptionPurchase(
                 package_name=package_name,
                 subscription_id=subscription_id,
                 purchase_token=token,
                 order_id=result.get("latestOrderId"),
-                auto_renewing=result.get("subscriptionState") == "SUBSCRIPTION_STATE_ACTIVE",
+                auto_renewing=auto_renewing,
             )
 
         except HttpError as e:
@@ -1145,6 +1145,11 @@ class PlayStoreClient:
                     order_id=purchase.get("orderId"),
                     voided_reason=purchase.get("voidedReason"),
                     voided_source=purchase.get("voidedSource"),
+                    voided_time=datetime.fromtimestamp(
+                        int(purchase.get("voidedTimeMillis")) / 1000, tz=UTC
+                    )
+                    if purchase.get("voidedTimeMillis")
+                    else None,
                 )
                 for purchase in result.get("voidedPurchases", [])
             ]
@@ -1228,15 +1233,16 @@ class PlayStoreClient:
     def get_vitals_overview(self, package_name: str) -> VitalsOverview:
         """Get Android Vitals overview.
 
-        Note: The full Vitals API requires additional setup.
-        This provides a basic overview structure.
+        Placeholder implementation. The Vitals API is part of the Play Developer
+        Reporting API, which is a separate API requiring its own setup and credentials.
 
         Args:
             package_name: App package name.
 
         Returns:
-            Vitals overview (may be partial without full API access).
+            Vitals overview placeholder.
         """
+        # TODO: Implement with Play Developer Reporting API
         self._logger.info("Getting vitals overview", package_name=package_name)
 
         # The Vitals API is part of the Play Developer Reporting API
@@ -1255,16 +1261,17 @@ class PlayStoreClient:
     ) -> list[VitalsMetric]:
         """Get specific Android Vitals metrics.
 
-        Note: Full implementation requires Play Developer Reporting API setup.
-        This is a placeholder implementation.
+        Placeholder implementation. The Vitals API is part of the Play Developer
+        Reporting API, which is a separate API requiring its own setup and credentials.
 
         Args:
             package_name: App package name.
             metric_type: Type of metric (crashRate, anrRate, etc.).
 
         Returns:
-            List of vitals metrics (placeholder).
+            List of vitals metrics placeholders.
         """
+        # TODO: Implement with Play Developer Reporting API
         self._logger.info(
             "Getting vitals metrics",
             package_name=package_name,
@@ -1566,12 +1573,13 @@ class PlayStoreClient:
 
             return TesterInfo(
                 track=track,
-                tester_emails=testers_data.get("googleGroups", []),
+                # API limitation: only returns googleGroups[], not individual tester emails
+                google_groups=testers_data.get("googleGroups", []),
             )
         except HttpError as e:
             if e.resp.status == 404:
                 # No testers configured
-                return TesterInfo(track=track, tester_emails=[])
+                return TesterInfo(track=track, google_groups=[])
             raise PlayStoreClientError(f"Failed to get testers: {e.reason}") from e
         finally:
             self._delete_edit(package_name, edit_id)
@@ -1580,23 +1588,23 @@ class PlayStoreClient:
         self,
         package_name: str,
         track: str,
-        tester_emails: list[str],
-    ) -> ListingUpdateResult:
+        google_groups: list[str],
+    ) -> dict[str, Any]:
         """Update testers for a specific track.
 
         Args:
             package_name: App package name.
             track: Track name (internal, alpha, beta).
-            tester_emails: List of tester email addresses or Google Group emails.
+            google_groups: List of Google Group email addresses.
 
         Returns:
-            Update result.
+            Update result dict.
         """
         self._logger.info(
             "Updating testers",
             package_name=package_name,
             track=track,
-            count=len(tester_emails),
+            count=len(google_groups),
         )
         service = self._get_service()
         edit_id = self._create_edit(package_name)
@@ -1606,28 +1614,17 @@ class PlayStoreClient:
                 packageName=package_name,
                 editId=edit_id,
                 track=track,
-                body={"googleGroups": tester_emails},
+                body={"googleGroups": google_groups},
             ).execute()
 
             self._commit_edit(package_name, edit_id)
 
-            return ListingUpdateResult(
-                success=True,
-                package_name=package_name,
-                language=track,  # Reusing field for track
-                message=f"Successfully updated {len(tester_emails)} testers for {track}",
-            )
+            return {"success": True, "track": track, "google_groups": google_groups}
 
         except HttpError as e:
             self._logger.exception("Failed to update testers", error=str(e))
             self._delete_edit(package_name, edit_id)
-            return ListingUpdateResult(
-                success=False,
-                package_name=package_name,
-                language=track,
-                message=f"Failed to update testers: {e.reason}",
-                error=str(e),
-            )
+            return {"success": False, "track": track, "error": str(e)}
 
     # =========================================================================
     # Orders API
