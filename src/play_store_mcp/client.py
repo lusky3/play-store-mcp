@@ -2938,6 +2938,17 @@ class PlayStoreClient:
         parts = date_str.split("-")
         return {"year": int(parts[0]), "month": int(parts[1]), "day": int(parts[2])}
 
+    # Maps metric set name → vitals sub-resource method name in the client library
+    _METRIC_SET_RESOURCE: dict[str, str] = {
+        "crashRateMetricSet": "crashrate",
+        "anrRateMetricSet": "anrrate",
+        "slowStartRateMetricSet": "slowstartrate",
+        "slowRenderingRateMetricSet": "slowrenderingrate",
+        "excessiveWakeupRateMetricSet": "excessivewakeuprate",
+        "stuckBackgroundWakelockRateMetricSet": "stuckbackgroundwakelockrate",
+        "lmkRateMetricSet": "lmkrate",
+    }
+
     def _query_metric_set(
         self,
         package_name: str,
@@ -2948,27 +2959,13 @@ class PlayStoreClient:
         end_date: str,
         aggregation_period: str = "DAILY",
     ) -> "VitalsQueryResult":
-        """Generic helper to query any Reporting API metric set.
-
-        Args:
-            package_name: App package name.
-            metric_set_name: e.g. 'crashRateMetricSet', 'anrRateMetricSet'.
-            metrics: List of metric names to retrieve.
-            dimensions: List of dimension names to group by.
-            start_date: Start date as YYYY-MM-DD.
-            end_date: End date as YYYY-MM-DD (exclusive).
-            aggregation_period: 'DAILY' or 'HOURLY'.
-
-        Returns:
-            VitalsQueryResult with timeline data points.
-        """
+        """Generic helper to query any Reporting API metric set."""
         from play_store_mcp.models import VitalsDataPoint, VitalsQueryResult
 
         service = self._get_reporting_service()
-        parent = f"apps/{package_name}"
 
         body: dict[str, Any] = {
-            "timeline": {
+            "timelineSpec": {
                 "aggregationPeriod": aggregation_period,
                 "startTime": self._build_time_unit(start_date),
                 "endTime": self._build_time_unit(end_date),
@@ -2986,9 +2983,15 @@ class PlayStoreClient:
             end=end_date,
         )
 
+        resource_method = self._METRIC_SET_RESOURCE.get(metric_set_name)
+        if not resource_method:
+            raise PlayStoreClientError(f"Unknown metric set: {metric_set_name}")
+
         try:
-            resource = getattr(service, metric_set_name)()
-            result = resource.query(name=f"{parent}/{metric_set_name}", body=body).execute()
+            resource = getattr(service.vitals(), resource_method)()
+            result = resource.query(
+                name=f"apps/{package_name}/{metric_set_name}", body=body
+            ).execute()
 
             data_points: list[VitalsDataPoint] = []
             for row in result.get("rows", []):
@@ -3015,9 +3018,7 @@ class PlayStoreClient:
                     )
                 )
 
-            # Strip trailing 'MetricSet' suffix for display
             display_name = metric_set_name.replace("MetricSet", "")
-
             return VitalsQueryResult(
                 package_name=package_name,
                 metric_set=display_name,
@@ -3083,7 +3084,7 @@ class PlayStoreClient:
         return self._query_metric_set(
             package_name=package_name,
             metric_set_name="anrRateMetricSet",
-            metrics=["anrRate", "distinctUsers", "anrCount"],
+            metrics=["anrRate", "anrRate7dUserWeighted", "anrRate28dUserWeighted", "distinctUsers"],
             dimensions=dimensions or [],
             start_date=start_date,
             end_date=end_date,
@@ -3107,11 +3108,15 @@ class PlayStoreClient:
         Returns:
             VitalsQueryResult with slowStartupRate per day.
         """
+        # startType is a required dimension for slowStartRateMetricSet
+        dims = list(dimensions) if dimensions else []
+        if "startType" not in dims:
+            dims = ["startType"] + dims
         return self._query_metric_set(
             package_name=package_name,
-            metric_set_name="slowStartupRateMetricSet",
-            metrics=["slowStartupRate", "distinctUsers", "slowStartupCount"],
-            dimensions=dimensions or [],
+            metric_set_name="slowStartRateMetricSet",
+            metrics=["slowStartRate", "slowStartRate7dUserWeighted", "slowStartRate28dUserWeighted", "distinctUsers"],
+            dimensions=dims,
             start_date=start_date,
             end_date=end_date,
         )
@@ -3164,7 +3169,7 @@ class PlayStoreClient:
         return self._query_metric_set(
             package_name=package_name,
             metric_set_name="excessiveWakeupRateMetricSet",
-            metrics=["excessiveWakeupRate", "distinctUsers", "excessiveWakeupCount"],
+            metrics=["excessiveWakeupRate", "excessiveWakeupRate7dUserWeighted", "excessiveWakeupRate28dUserWeighted", "distinctUsers"],
             dimensions=dimensions or [],
             start_date=start_date,
             end_date=end_date,
@@ -3191,7 +3196,37 @@ class PlayStoreClient:
         return self._query_metric_set(
             package_name=package_name,
             metric_set_name="stuckBackgroundWakelockRateMetricSet",
-            metrics=["stuckBgWakelockRate", "distinctUsers", "stuckBgWakelockCount"],
+            metrics=["stuckBgWakelockRate", "stuckBgWakelockRate7dUserWeighted", "stuckBgWakelockRate28dUserWeighted", "distinctUsers"],
+            dimensions=dimensions or [],
+            start_date=start_date,
+            end_date=end_date,
+        )
+
+    def get_lmk_rate(
+        self,
+        package_name: str,
+        start_date: str,
+        end_date: str,
+        dimensions: list[str] | None = None,
+    ) -> "VitalsQueryResult":
+        """Query Low Memory Killer (LMK) rate metrics.
+
+        LMK rate measures how often the system kills the app due to memory pressure.
+        High LMK rate indicates the app uses too much memory.
+
+        Args:
+            package_name: App package name.
+            start_date: Start date YYYY-MM-DD.
+            end_date: End date YYYY-MM-DD (exclusive).
+            dimensions: Optional grouping dimensions.
+
+        Returns:
+            VitalsQueryResult with lmkRate per day.
+        """
+        return self._query_metric_set(
+            package_name=package_name,
+            metric_set_name="lmkRateMetricSet",
+            metrics=["userPerceivedLmkRate", "userPerceivedLmkRate7dUserWeighted", "userPerceivedLmkRate28dUserWeighted", "distinctUsers"],
             dimensions=dimensions or [],
             start_date=start_date,
             end_date=end_date,

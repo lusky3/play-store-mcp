@@ -1626,7 +1626,10 @@ def get_slow_rendering_rate(
     end_date: str,
     dimensions: list[str] | None = None,
 ) -> dict[str, Any]:
-    f"""Query daily slow rendering (frame drop) rate.
+    f"""Query daily slow rendering (frame drop) rate. GAMES ONLY.
+
+    This metric is only accessible for apps categorized as games in Play Console.
+    Non-game apps will receive a 403 error.
 
     Returns slowRenderingRate20Fps (frames rendered below 20fps) and
     slowRenderingRate30Fps (frames rendered below 30fps), plus distinctUsers.
@@ -1710,6 +1713,39 @@ def get_stuck_wakelock_rate(
     """
     client = get_client_from_context()
     result = client.get_stuck_wakelock_rate(
+        package_name=package_name,
+        start_date=start_date,
+        end_date=end_date,
+        dimensions=dimensions,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def get_lmk_rate(
+    package_name: str,
+    start_date: str,
+    end_date: str,
+    dimensions: list[str] | None = None,
+) -> dict[str, Any]:
+    f"""Query daily Low Memory Killer (LMK) rate.
+
+    LMK rate measures how often the system kills the app due to memory pressure.
+    High values indicate the app consumes too much memory.
+
+    {_VITALS_PERMISSION_NOTE}
+
+    Args:
+        package_name: App package name
+        start_date: Start date YYYY-MM-DD
+        end_date: End date YYYY-MM-DD (exclusive)
+        dimensions: {_VITALS_DIMENSIONS_HELP}
+
+    Returns:
+        VitalsQueryResult with lmkRate, lmkCount, distinctUsers per day
+    """
+    client = get_client_from_context()
+    result = client.get_lmk_rate(
         package_name=package_name,
         start_date=start_date,
         end_date=end_date,
