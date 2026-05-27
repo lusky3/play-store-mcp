@@ -1056,7 +1056,7 @@ class PlayStoreClient:
                             comment=user_comment.get("text", ""),
                             language=user_comment.get("reviewerLanguage", "en"),
                             device=user_comment.get("device"),
-                            android_version=user_comment.get("androidOsVersion"),
+                            android_version=str(user_comment["androidOsVersion"]) if user_comment.get("androidOsVersion") is not None else None,
                             app_version_code=user_comment.get("appVersionCode"),
                             app_version_name=user_comment.get("appVersionName"),
                             developer_reply=dev_comment.get("text") if dev_comment else None,
