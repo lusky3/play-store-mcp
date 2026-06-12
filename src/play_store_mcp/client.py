@@ -24,11 +24,14 @@ from play_store_mcp.models import (
     AppDetailsInfo,
     AppDetailsUpdateResult,
     AppInfo,
+    BasePlanActionResult,
     BatchDeploymentResult,
     BundleInfo,
     ConsoleInstallStats,
     ConsoleStatsResult,
+    ConvertRegionPricesResult,
     CountryAvailability,
+    CountryAvailabilityUpdateResult,
     DailyStatPoint,
     DeobfuscationFileResult,
     DeploymentResult,
@@ -38,20 +41,26 @@ from play_store_mcp.models import (
     ImageInfo,
     ImageUploadResult,
     InAppProduct,
+    InAppProductUpsertResult,
     Listing,
     ListingBatchUpdateResult,
+    ListingDeleteResult,
     ListingUpdateResult,
     Order,
     ProductPurchase,
     RefundResult,
+    RegionPrice,
     Release,
     Review,
     ReviewReplyResult,
     SearchTermResult,
     SearchTermsStats,
+    SubscriptionDeferResult,
+    SubscriptionDetails,
     SubscriptionProduct,
     SubscriptionPurchase,
     SubscriptionPurchaseV2,
+    SubscriptionUpsertResult,
     TesterInfo,
     TrackInfo,
     UserInfo,
@@ -1149,6 +1158,168 @@ class PlayStoreClient:
             self._logger.exception("Failed to list subscriptions", error=str(e))
             raise PlayStoreClientError(f"Failed to list subscriptions: {e.reason}") from e
 
+    def get_subscription(self, package_name: str, product_id: str) -> SubscriptionDetails:
+        """Get a subscription product from the Monetization API."""
+        self._logger.info("Getting subscription", package_name=package_name, product_id=product_id)
+        service = self._get_service()
+        try:
+            data = service.monetization().subscriptions().get(
+                packageName=package_name, productId=product_id
+            ).execute()
+            return SubscriptionDetails(
+                product_id=data.get("productId", product_id),
+                package_name=package_name,
+                state=data.get("state"),
+                listings=data.get("listings"),
+                base_plans=data.get("basePlans"),
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to get subscription", error=str(e))
+            raise PlayStoreClientError(f"Failed to get subscription: {e.reason}") from e
+
+    def create_subscription(
+        self,
+        package_name: str,
+        product_id: str,
+        default_language: str,
+        title: str,
+        description: str,
+    ) -> SubscriptionUpsertResult:
+        """Create a new subscription product via the Monetization API."""
+        self._logger.info("Creating subscription", package_name=package_name, product_id=product_id)
+        service = self._get_service()
+        body = {
+            "productId": product_id,
+            "listings": {
+                default_language: {
+                    "title": title,
+                    "description": description,
+                    "benefits": [],
+                }
+            },
+        }
+        try:
+            service.monetization().subscriptions().create(
+                packageName=package_name, productId=product_id, body=body
+            ).execute()
+            return SubscriptionUpsertResult(
+                success=True, package_name=package_name, product_id=product_id,
+                message=f"Created subscription '{product_id}' successfully.",
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to create subscription", error=str(e))
+            return SubscriptionUpsertResult(
+                success=False, package_name=package_name, product_id=product_id,
+                message=f"Failed to create subscription: {e.reason}", error=str(e),
+            )
+
+    def update_subscription(
+        self,
+        package_name: str,
+        product_id: str,
+        title: str | None = None,
+        description: str | None = None,
+        default_language: str = "en-US",
+    ) -> SubscriptionUpsertResult:
+        """Update an existing subscription product."""
+        self._logger.info("Updating subscription", package_name=package_name, product_id=product_id)
+        service = self._get_service()
+        try:
+            existing = service.monetization().subscriptions().get(
+                packageName=package_name, productId=product_id
+            ).execute()
+            listings = existing.get("listings", {})
+            listing = listings.get(default_language, {})
+            if title:
+                listing["title"] = title
+            if description:
+                listing["description"] = description
+            listings[default_language] = listing
+            existing["listings"] = listings
+            service.monetization().subscriptions().patch(
+                packageName=package_name, productId=product_id,
+                body=existing, updateMask="listings",
+            ).execute()
+            return SubscriptionUpsertResult(
+                success=True, package_name=package_name, product_id=product_id,
+                message=f"Updated subscription '{product_id}' successfully.",
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to update subscription", error=str(e))
+            return SubscriptionUpsertResult(
+                success=False, package_name=package_name, product_id=product_id,
+                message=f"Failed to update subscription: {e.reason}", error=str(e),
+            )
+
+    def delete_subscription(self, package_name: str, product_id: str) -> SubscriptionUpsertResult:
+        """Delete a subscription product."""
+        self._logger.info("Deleting subscription", package_name=package_name, product_id=product_id)
+        service = self._get_service()
+        try:
+            service.monetization().subscriptions().delete(
+                packageName=package_name, productId=product_id
+            ).execute()
+            return SubscriptionUpsertResult(
+                success=True, package_name=package_name, product_id=product_id,
+                message=f"Deleted subscription '{product_id}' successfully.",
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to delete subscription", error=str(e))
+            return SubscriptionUpsertResult(
+                success=False, package_name=package_name, product_id=product_id,
+                message=f"Failed to delete subscription: {e.reason}", error=str(e),
+            )
+
+    def activate_base_plan(
+        self, package_name: str, product_id: str, base_plan_id: str
+    ) -> BasePlanActionResult:
+        """Activate a base plan for a subscription."""
+        self._logger.info("Activating base plan", package_name=package_name,
+                          product_id=product_id, base_plan_id=base_plan_id)
+        service = self._get_service()
+        try:
+            service.monetization().subscriptions().basePlans().activate(
+                packageName=package_name, productId=product_id,
+                basePlanId=base_plan_id, body={},
+            ).execute()
+            return BasePlanActionResult(
+                success=True, package_name=package_name, product_id=product_id,
+                base_plan_id=base_plan_id, action="activate",
+                message=f"Activated base plan '{base_plan_id}' for '{product_id}'.",
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to activate base plan", error=str(e))
+            return BasePlanActionResult(
+                success=False, package_name=package_name, product_id=product_id,
+                base_plan_id=base_plan_id, action="activate",
+                message=f"Failed to activate base plan: {e.reason}", error=str(e),
+            )
+
+    def deactivate_base_plan(
+        self, package_name: str, product_id: str, base_plan_id: str
+    ) -> BasePlanActionResult:
+        """Deactivate a base plan for a subscription."""
+        self._logger.info("Deactivating base plan", package_name=package_name,
+                          product_id=product_id, base_plan_id=base_plan_id)
+        service = self._get_service()
+        try:
+            service.monetization().subscriptions().basePlans().deactivate(
+                packageName=package_name, productId=product_id,
+                basePlanId=base_plan_id, body={},
+            ).execute()
+            return BasePlanActionResult(
+                success=True, package_name=package_name, product_id=product_id,
+                base_plan_id=base_plan_id, action="deactivate",
+                message=f"Deactivated base plan '{base_plan_id}' for '{product_id}'.",
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to deactivate base plan", error=str(e))
+            return BasePlanActionResult(
+                success=False, package_name=package_name, product_id=product_id,
+                base_plan_id=base_plan_id, action="deactivate",
+                message=f"Failed to deactivate base plan: {e.reason}", error=str(e),
+            )
+
     def get_subscription_purchase(
         self,
         package_name: str,
@@ -1424,6 +1595,101 @@ class PlayStoreClient:
             self._logger.exception("Failed to get in-app product", error=str(e))
             raise PlayStoreClientError(f"Failed to get in-app product: {e.reason}") from e
 
+    def create_in_app_product(
+        self,
+        package_name: str,
+        sku: str,
+        product_type: str,
+        default_language: str,
+        title: str,
+        description: str,
+        default_price_amount: str,
+        default_price_currency: str,
+    ) -> InAppProductUpsertResult:
+        """Create a new in-app product (managed product or subscription)."""
+        self._logger.info("Creating in-app product", package_name=package_name, sku=sku)
+        service = self._get_service()
+        price_micros = str(int(float(default_price_amount) * 1_000_000))
+        body = {
+            "packageName": package_name,
+            "sku": sku,
+            "purchaseType": product_type,
+            "defaultLanguage": default_language,
+            "status": "active",
+            "listings": {default_language: {"title": title, "description": description}},
+            "defaultPrice": {"priceMicros": price_micros, "currency": default_price_currency},
+        }
+        try:
+            service.inappproducts().insert(packageName=package_name, body=body).execute()
+            return InAppProductUpsertResult(
+                success=True, package_name=package_name, sku=sku,
+                message=f"Created in-app product '{sku}' successfully.",
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to create in-app product", error=str(e))
+            return InAppProductUpsertResult(
+                success=False, package_name=package_name, sku=sku,
+                message=f"Failed to create in-app product: {e.reason}", error=str(e),
+            )
+
+    def update_in_app_product(
+        self,
+        package_name: str,
+        sku: str,
+        title: str | None = None,
+        description: str | None = None,
+        default_price_amount: str | None = None,
+        default_price_currency: str | None = None,
+        status: str | None = None,
+    ) -> InAppProductUpsertResult:
+        """Update an existing in-app product."""
+        self._logger.info("Updating in-app product", package_name=package_name, sku=sku)
+        service = self._get_service()
+        try:
+            existing = service.inappproducts().get(packageName=package_name, sku=sku).execute()
+            if title or description:
+                lang = existing.get("defaultLanguage", "en-US")
+                listings = existing.get("listings", {})
+                listing = listings.get(lang, {})
+                if title:
+                    listing["title"] = title
+                if description:
+                    listing["description"] = description
+                listings[lang] = listing
+                existing["listings"] = listings
+            if default_price_amount:
+                currency = default_price_currency or existing.get("defaultPrice", {}).get("currency", "USD")
+                existing["defaultPrice"] = {
+                    "priceMicros": str(int(float(default_price_amount) * 1_000_000)),
+                    "currency": currency,
+                }
+            if status:
+                existing["status"] = status
+            service.inappproducts().update(packageName=package_name, sku=sku, body=existing).execute()
+            return InAppProductUpsertResult(
+                success=True, package_name=package_name, sku=sku,
+                message=f"Updated in-app product '{sku}' successfully.",
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to update in-app product", error=str(e))
+            return InAppProductUpsertResult(
+                success=False, package_name=package_name, sku=sku,
+                message=f"Failed to update in-app product: {e.reason}", error=str(e),
+            )
+
+    def delete_in_app_product(self, package_name: str, sku: str) -> dict:
+        """Delete an in-app product."""
+        self._logger.info("Deleting in-app product", package_name=package_name, sku=sku)
+        service = self._get_service()
+        try:
+            service.inappproducts().delete(packageName=package_name, sku=sku).execute()
+            return {"success": True, "package_name": package_name, "sku": sku,
+                    "message": f"Deleted in-app product '{sku}' successfully."}
+        except HttpError as e:
+            self._logger.exception("Failed to delete in-app product", error=str(e))
+            return {"success": False, "package_name": package_name, "sku": sku,
+                    "message": f"Failed to delete in-app product: {e.reason}", "error": str(e)}
+
     # =========================================================================
     # Store Listings API
     # =========================================================================
@@ -1554,6 +1820,79 @@ class PlayStoreClient:
                 language=language,
                 message=f"Failed to update listing: {e}",
                 error=str(e),
+            )
+
+    def delete_listing(self, package_name: str, language: str) -> ListingDeleteResult:
+        """Delete the store listing for a specific language."""
+        self._logger.info("Deleting listing", package_name=package_name, language=language)
+        service = self._get_service()
+        edit_id = self._create_edit(package_name)
+        try:
+            service.edits().listings().delete(
+                packageName=package_name, editId=edit_id, language=language
+            ).execute()
+            self._commit_edit(package_name, edit_id)
+            return ListingDeleteResult(
+                success=True, package_name=package_name, language=language,
+                message=f"Deleted store listing for language '{language}'.",
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to delete listing", error=str(e))
+            return ListingDeleteResult(
+                success=False, package_name=package_name, language=language,
+                message=f"Failed to delete listing: {e.reason}", error=str(e),
+            )
+        finally:
+            self._delete_edit(package_name, edit_id)
+
+    def delete_all_listings(self, package_name: str) -> ListingDeleteResult:
+        """Delete all store listings for an app."""
+        self._logger.info("Deleting all listings", package_name=package_name)
+        service = self._get_service()
+        edit_id = self._create_edit(package_name)
+        try:
+            service.edits().listings().deleteall(
+                packageName=package_name, editId=edit_id
+            ).execute()
+            self._commit_edit(package_name, edit_id)
+            return ListingDeleteResult(
+                success=True, package_name=package_name,
+                message="Deleted all store listings.",
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to delete all listings", error=str(e))
+            return ListingDeleteResult(
+                success=False, package_name=package_name,
+                message=f"Failed to delete all listings: {e.reason}", error=str(e),
+            )
+        finally:
+            self._delete_edit(package_name, edit_id)
+
+    def convert_region_prices(
+        self, package_name: str, price_amount: str, currency_code: str
+    ) -> ConvertRegionPricesResult:
+        """Convert a base price to all regional equivalents."""
+        self._logger.info("Converting region prices", package_name=package_name)
+        service = self._get_service()
+        price_micros = str(int(float(price_amount) * 1_000_000))
+        try:
+            result = service.monetization().convertRegionPrices(
+                packageName=package_name,
+                body={"price": {"priceMicros": price_micros, "currencyCode": currency_code}},
+            ).execute()
+            converted: list[RegionPrice] = []
+            for region_code, price_data in result.get("convertedRegionPrices", {}).items():
+                p = price_data.get("price", {})
+                converted.append(RegionPrice(
+                    region_code=region_code,
+                    price_micros=p.get("priceMicros", "0"),
+                    currency_code=p.get("currencyCode", ""),
+                ))
+            return ConvertRegionPricesResult(success=True, converted_prices=converted)
+        except HttpError as e:
+            self._logger.exception("Failed to convert region prices", error=str(e))
+            return ConvertRegionPricesResult(
+                success=False, converted_prices=[], error=str(e),
             )
 
     def batch_update_listings(
@@ -2555,6 +2894,41 @@ class PlayStoreClient:
         finally:
             self._delete_edit(package_name, edit_id)
 
+    def update_country_availability(
+        self,
+        package_name: str,
+        track: str,
+        countries: list[str],
+        rest_of_world: bool = False,
+    ) -> CountryAvailabilityUpdateResult:
+        """Set the list of countries where a track is available."""
+        self._logger.info("Updating country availability", package_name=package_name, track=track)
+        service = self._get_service()
+        edit_id = self._create_edit(package_name)
+        try:
+            body = {
+                "countries": [{"countryCode": c} for c in countries],
+                "restOfWorld": rest_of_world,
+            }
+            service.edits().countryavailability().update(
+                packageName=package_name, editId=edit_id, track=track, body=body
+            ).execute()
+            self._commit_edit(package_name, edit_id)
+            return CountryAvailabilityUpdateResult(
+                success=True, package_name=package_name, track=track,
+                countries_set=countries, rest_of_world=rest_of_world,
+                message=f"Updated country availability for track '{track}': {len(countries)} countries.",
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to update country availability", error=str(e))
+            return CountryAvailabilityUpdateResult(
+                success=False, package_name=package_name, track=track,
+                countries_set=[], rest_of_world=rest_of_world,
+                message=f"Failed to update country availability: {e.reason}", error=str(e),
+            )
+        finally:
+            self._delete_edit(package_name, edit_id)
+
     # =========================================================================
     # Users API
     # =========================================================================
@@ -2681,6 +3055,32 @@ class PlayStoreClient:
                 error=str(e),
             )
 
+    def update_user(
+        self,
+        developer_id: str,
+        email: str,
+        access_state: str,
+    ) -> UserOperationResult:
+        """Update a user's account-level access state."""
+        self._logger.info("Updating user", developer_id=developer_id, email=email)
+        service = self._get_service()
+        try:
+            service.users().patch(
+                name=f"developers/{developer_id}/users/{email}",
+                body={"accessState": access_state},
+                updateMask="accessState",
+            ).execute()
+            return UserOperationResult(
+                success=True, email=email,
+                message=f"Updated user {email} access state to '{access_state}'.",
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to update user", error=str(e))
+            return UserOperationResult(
+                success=False, email=email,
+                message=f"Failed to update user: {e.reason}", error=str(e),
+            )
+
     # =========================================================================
     # Grants API
     # =========================================================================
@@ -2779,6 +3179,34 @@ class PlayStoreClient:
                 email=email,
                 message=f"Failed to revoke grant: {e.reason}",
                 error=str(e),
+            )
+
+    def update_grant(
+        self,
+        developer_id: str,
+        email: str,
+        package_name: str,
+        app_level_permissions: list[str],
+    ) -> UserOperationResult:
+        """Update a user's app-level permissions on a specific app."""
+        self._logger.info("Updating grant", developer_id=developer_id,
+                          email=email, package_name=package_name)
+        service = self._get_service()
+        try:
+            service.grants().patch(
+                name=f"developers/{developer_id}/users/{email}/grants/{package_name}",
+                body={"appLevelPermissions": app_level_permissions},
+                updateMask="appLevelPermissions",
+            ).execute()
+            return UserOperationResult(
+                success=True, email=email,
+                message=f"Updated permissions for {email} on {package_name}: {app_level_permissions}",
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to update grant", error=str(e))
+            return UserOperationResult(
+                success=False, email=email,
+                message=f"Failed to update grant: {e.reason}", error=str(e),
             )
 
     # =========================================================================
@@ -3094,6 +3522,43 @@ class PlayStoreClient:
                 email="",
                 message=f"Failed to revoke subscription: {e.reason}",
                 error=str(e),
+            )
+
+    def defer_subscription(
+        self,
+        package_name: str,
+        subscription_id: str,
+        token: str,
+        expected_expiry_time_millis: str,
+        desired_expiry_time_millis: str,
+    ) -> SubscriptionDeferResult:
+        """Defer a subscription's renewal to a future time."""
+        self._logger.info("Deferring subscription", package_name=package_name,
+                          subscription_id=subscription_id)
+        service = self._get_service()
+        try:
+            result = service.purchases().subscriptions().defer(
+                packageName=package_name,
+                subscriptionId=subscription_id,
+                token=token,
+                body={
+                    "deferralInfo": {
+                        "expectedExpiryTimeMillis": expected_expiry_time_millis,
+                        "desiredExpiryTimeMillis": desired_expiry_time_millis,
+                    }
+                },
+            ).execute()
+            new_expiry = result.get("newExpiryTimeMillis")
+            return SubscriptionDeferResult(
+                success=True, package_name=package_name, subscription_id=subscription_id,
+                new_expiry_time_millis=new_expiry,
+                message=f"Deferred subscription. New expiry: {new_expiry} ms.",
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to defer subscription", error=str(e))
+            return SubscriptionDeferResult(
+                success=False, package_name=package_name, subscription_id=subscription_id,
+                message=f"Failed to defer subscription: {e.reason}", error=str(e),
             )
 
     # =========================================================================

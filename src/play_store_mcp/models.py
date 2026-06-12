@@ -551,4 +551,100 @@ class AcquisitionFunnelResult(BaseModel):
     package_name: str = Field(..., description="App package name")
     start_date: str = Field(..., description="Start date YYYY-MM-DD")
     end_date: str = Field(..., description="End date YYYY-MM-DD")
+
+
+# ---------------------------------------------------------------------------
+# New models for missing API coverage
+# ---------------------------------------------------------------------------
+
+
+class InAppProductUpsertResult(BaseModel):
+    """Result of creating or updating an in-app product."""
+
+    success: bool
+    package_name: str
+    sku: str
+    message: str
+    error: str | None = None
+
+
+class SubscriptionDetails(BaseModel):
+    """Full subscription product details from the Monetization API."""
+
+    product_id: str
+    package_name: str
+    state: str | None = None
+    listings: dict | None = None
+    base_plans: list[dict] | None = None
+
+
+class SubscriptionUpsertResult(BaseModel):
+    """Result of creating or updating a subscription product."""
+
+    success: bool
+    package_name: str
+    product_id: str
+    message: str
+    error: str | None = None
+
+
+class BasePlanActionResult(BaseModel):
+    """Result of activating or deactivating a base plan."""
+
+    success: bool
+    package_name: str
+    product_id: str
+    base_plan_id: str
+    action: str
+    message: str
+    error: str | None = None
+
+
+class CountryAvailabilityUpdateResult(BaseModel):
+    """Result of updating country availability for a track."""
+
+    success: bool
+    package_name: str
+    track: str
+    countries_set: list[str]
+    rest_of_world: bool
+    message: str
+    error: str | None = None
+
+
+class SubscriptionDeferResult(BaseModel):
+    """Result of deferring a subscription renewal."""
+
+    success: bool
+    package_name: str
+    subscription_id: str
+    new_expiry_time_millis: str | None = None
+    message: str
+    error: str | None = None
+
+
+class ListingDeleteResult(BaseModel):
+    """Result of deleting a store listing."""
+
+    success: bool
+    package_name: str
+    language: str | None = None
+    message: str
+    error: str | None = None
+
+
+class RegionPrice(BaseModel):
+    """Converted price for a specific region."""
+
+    region_code: str
+    price_micros: str
+    currency_code: str
+
+
+class ConvertRegionPricesResult(BaseModel):
+    """Result of converting a price to all regional equivalents."""
+
+    success: bool
+    converted_prices: list[RegionPrice]
+    error: str | None = None
     stages: list[AcquisitionFunnelStage] = Field(default_factory=list, description="Funnel stages in order")
