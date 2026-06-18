@@ -1,0 +1,13 @@
+title = "Gitleaks Configuration"
+
+[allowlist]
+  description = "Allowlisted patterns"
+  paths = [
+    '''tests/''',
+    '''examples/''',
+  ]
+  regexTarget = "match"
+  regexes = [
+    '''sonarcloud\.io/api/project_badges/measure\?project=.*&metric=''',
+    '''codecov\.io/github/.*/graph/badge\.svg\?token=''',
+  ]

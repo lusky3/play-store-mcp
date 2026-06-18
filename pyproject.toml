@@ -193,3 +193,6 @@ exclude_lines = [
 constraint-dependencies = [
     "pyjwt>=2.12.0",  # CVE-2026-32597: Insufficient Verification of Data Authenticity
 ]
+[tool.bandit]
+skips = ["B101", "B311"]
+exclude_dirs = ["tests"]
