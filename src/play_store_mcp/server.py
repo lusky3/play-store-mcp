@@ -142,7 +142,7 @@ def _validate_rollout(pct: float) -> str | None:
 mcp = FastMCP(
     "Play Store MCP Server",
     lifespan=lifespan,
-    transport_security=TransportSecuritySettings(),
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
 )
 
 
