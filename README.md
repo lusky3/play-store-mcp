@@ -302,6 +302,7 @@ Add to `.kiro/settings/mcp.json`:
 | `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON key | Yes (or use per-request credentials) |
 | `GOOGLE_PLAY_STORE_CREDENTIALS` | Inline JSON credentials string | Alternative to file path |
 | `PLAY_STORE_MCP_LOG_LEVEL` | Log level (DEBUG, INFO, WARNING, ERROR) | No (default: INFO) |
+| `PLAY_STORE_MCP_DISABLE_DNS_REBINDING` | Disable DNS rebinding protection (for cloud/reverse-proxy deployments) | No |
 
 ## 🧪 Development
 
