@@ -94,7 +94,7 @@ def retry_with_backoff(func):  # type: ignore[no-untyped-def]
                         raise
 
                     # Add jitter to prevent thundering herd
-                    sleep_time = backoff * (0.5 + random.random())  # noqa: S311 — non-crypto jitter for retry backoff
+                    sleep_time = backoff * (0.5 + random.random())  # noqa: S311 # nosec B311 — non-crypto jitter for retry backoff
                     logger.warning(
                         "API error, retrying",
                         status=e.resp.status,

@@ -2,6 +2,7 @@ title = "Gitleaks Configuration"
 
 [allowlist]
   description = "Allowlisted patterns"
+  condition = "AND"
   paths = [
     '''tests/''',
     '''examples/''',
