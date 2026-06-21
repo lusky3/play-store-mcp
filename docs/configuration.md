@@ -81,6 +81,7 @@ docker run -p 8000:8000 \
 | `GOOGLE_APPLICATION_CREDENTIALS` | Path to service account JSON key file | Yes (or use per-request credentials) | — |
 | `GOOGLE_PLAY_STORE_CREDENTIALS` | Inline JSON credentials string | Alternative to file path | — |
 | `PLAY_STORE_MCP_LOG_LEVEL` | Log level: `DEBUG`, `INFO`, `WARNING`, `ERROR` | No | `INFO` |
+| `PLAY_STORE_MCP_DISABLE_DNS_REBINDING` | Disable DNS rebinding protection (for cloud/reverse-proxy deployments) | No | — |
 
 ## HTTP Transport
 
