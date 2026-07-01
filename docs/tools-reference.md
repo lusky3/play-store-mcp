@@ -21,6 +21,10 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 | [`get_listing`](tools/store-listings.md#get_listing) | Get store listing for a language |
 | [`update_listing`](tools/store-listings.md#update_listing) | Update store listing text and video |
 | [`list_all_listings`](tools/store-listings.md#list_all_listings) | List all store listings across languages |
+| [`list_images`](tools/store-listings.md#list_images) | List store-listing images for a language and image type |
+| `upload_image` | Upload a store-listing image (PNG/JPEG) and commit the edit (write) |
+| `delete_image` | Delete a single store-listing image by ID (write) |
+| `delete_all_images` | Delete all store-listing images for a language and image type (write) |
 
 ## Review Tools
 

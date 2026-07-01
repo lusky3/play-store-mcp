@@ -21,6 +21,7 @@ from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from play_store_mcp.models import (
     Apk,
     AppDetails,
+    AppImage,
     AppRecovery,
     AppRecoveryResult,
     BatchDeploymentResult,
@@ -33,6 +34,7 @@ from play_store_mcp.models import (
     ExpansionFile,
     ExternalTransaction,
     GeneratedApksDownload,
+    ImageDeleteResult,
     InAppProduct,
     InAppProductActionResult,
     InternalAppSharingArtifact,
@@ -4333,6 +4335,225 @@ class PlayStoreClient:
             self._logger.exception("Failed to upload expansion file", error=str(e))
             self._delete_edit(package_name, edit_id)
             raise PlayStoreClientError(f"Failed to upload expansion file: {e.reason}") from e
+
+    # =========================================================================
+    # Store Listing Images API (edits.images)
+    # =========================================================================
+
+    @staticmethod
+    def _parse_app_image(
+        package_name: str,
+        language: str,
+        image_type: str,
+        data: dict[str, Any],
+    ) -> AppImage:
+        """Parse an Image API resource into an AppImage model."""
+        return AppImage(
+            package_name=package_name,
+            language=language,
+            image_type=image_type,
+            image_id=data.get("id"),
+            url=data.get("url"),
+            sha1=data.get("sha1"),
+            sha256=data.get("sha256"),
+        )
+
+    def list_images(
+        self,
+        package_name: str,
+        language: str,
+        image_type: str,
+    ) -> list[AppImage]:
+        """List the store-listing images for a language and image type.
+
+        Args:
+            package_name: App package name.
+            language: Language localization code (BCP-47 tag, e.g. "en-US").
+            image_type: Image type (e.g. phoneScreenshots, icon, featureGraphic).
+
+        Returns:
+            List of images with their IDs, URLs and hashes.
+        """
+        self._logger.info(
+            "Listing images",
+            package_name=package_name,
+            language=language,
+            image_type=image_type,
+        )
+        service = self._get_service()
+        edit_id = self._create_edit(package_name)
+
+        try:
+            result = (
+                service.edits()
+                .images()
+                .list(
+                    packageName=package_name,
+                    editId=edit_id,
+                    language=language,
+                    imageType=image_type,
+                )
+                .execute()
+            )
+            return [
+                self._parse_app_image(package_name, language, image_type, image_data)
+                for image_data in result.get("images", [])
+            ]
+        finally:
+            self._delete_edit(package_name, edit_id)
+
+    def upload_image(
+        self,
+        package_name: str,
+        language: str,
+        image_type: str,
+        image_path: str,
+    ) -> AppImage:
+        """Upload a store-listing image to a new edit and commit it.
+
+        Args:
+            package_name: App package name.
+            language: Language localization code (BCP-47 tag, e.g. "en-US").
+            image_type: Image type (e.g. phoneScreenshots, icon, featureGraphic).
+            image_path: Local path to the image file (PNG or JPEG).
+
+        Returns:
+            The uploaded image with its ID, URL and hashes.
+        """
+        self._logger.info(
+            "Uploading image",
+            package_name=package_name,
+            language=language,
+            image_type=image_type,
+            image_path=image_path,
+        )
+        service = self._get_service()
+        edit_id = self._create_edit(package_name)
+
+        try:
+            mimetype = "image/png" if image_path.lower().endswith(".png") else "image/jpeg"
+            media = MediaFileUpload(image_path, mimetype=mimetype, resumable=True)
+            data = (
+                service.edits()
+                .images()
+                .upload(
+                    packageName=package_name,
+                    editId=edit_id,
+                    language=language,
+                    imageType=image_type,
+                    media_body=media,
+                )
+                .execute()
+            )
+            self._commit_edit(package_name, edit_id)
+            image = data.get("image") or {}
+            return self._parse_app_image(package_name, language, image_type, image)
+        except HttpError as e:
+            self._logger.exception("Failed to upload image", error=str(e))
+            self._delete_edit(package_name, edit_id)
+            raise PlayStoreClientError(f"Failed to upload image: {e.reason}") from e
+
+    def delete_image(
+        self,
+        package_name: str,
+        language: str,
+        image_type: str,
+        image_id: str,
+    ) -> ImageDeleteResult:
+        """Delete a single store-listing image by ID and commit the edit.
+
+        Args:
+            package_name: App package name.
+            language: Language localization code (BCP-47 tag, e.g. "en-US").
+            image_type: Image type the image belongs to.
+            image_id: Unique identifier of the image to delete.
+
+        Returns:
+            Delete result with success status.
+        """
+        self._logger.info(
+            "Deleting image",
+            package_name=package_name,
+            language=language,
+            image_type=image_type,
+            image_id=image_id,
+        )
+        service = self._get_service()
+        edit_id = self._create_edit(package_name)
+
+        try:
+            service.edits().images().delete(
+                packageName=package_name,
+                editId=edit_id,
+                language=language,
+                imageType=image_type,
+                imageId=image_id,
+            ).execute()
+            self._commit_edit(package_name, edit_id)
+            return ImageDeleteResult(
+                success=True,
+                package_name=package_name,
+                language=language,
+                image_type=image_type,
+                deleted_count=1,
+                message=f"Deleted image {image_id}",
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to delete image", error=str(e))
+            self._delete_edit(package_name, edit_id)
+            raise PlayStoreClientError(f"Failed to delete image: {e.reason}") from e
+
+    def delete_all_images(
+        self,
+        package_name: str,
+        language: str,
+        image_type: str,
+    ) -> ImageDeleteResult:
+        """Delete all store-listing images for a language and image type.
+
+        Args:
+            package_name: App package name.
+            language: Language localization code (BCP-47 tag, e.g. "en-US").
+            image_type: Image type to clear all images for.
+
+        Returns:
+            Delete result with the number of images deleted.
+        """
+        self._logger.info(
+            "Deleting all images",
+            package_name=package_name,
+            language=language,
+            image_type=image_type,
+        )
+        service = self._get_service()
+        edit_id = self._create_edit(package_name)
+
+        try:
+            result = (
+                service.edits()
+                .images()
+                .deleteall(
+                    packageName=package_name,
+                    editId=edit_id,
+                    language=language,
+                    imageType=image_type,
+                )
+                .execute()
+            )
+            self._commit_edit(package_name, edit_id)
+            deleted_count = len(result.get("deleted", []))
+            return ImageDeleteResult(
+                success=True,
+                package_name=package_name,
+                language=language,
+                image_type=image_type,
+                deleted_count=deleted_count,
+                message=f"Deleted {deleted_count} image(s)",
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to delete all images", error=str(e))
+            self._delete_edit(package_name, edit_id)
+            raise PlayStoreClientError(f"Failed to delete all images: {e.reason}") from e
 
     # =========================================================================
     # External Transactions API (alternative billing)

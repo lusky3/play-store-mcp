@@ -3093,6 +3093,119 @@ def upload_expansion_file(
 
 
 # =============================================================================
+# Store Listing Image Tools
+# =============================================================================
+
+
+@mcp.tool()
+def list_images(package_name: str, language: str, image_type: str) -> list[dict[str, Any]]:
+    """List the store-listing images for a language and image type.
+
+    Args:
+        package_name: App package name
+        language: Language localization code (BCP-47 tag, e.g. en-US)
+        image_type: Image type - one of: phoneScreenshots, sevenInchScreenshots,
+            tenInchScreenshots, tvScreenshots, wearScreenshots, icon, featureGraphic,
+            tvBanner
+
+    Returns:
+        List of images, each with its ID, serving URL and sha1/sha256 hashes
+    """
+    client = get_client_from_context()
+
+    images = client.list_images(package_name, language, image_type)
+    return [image.model_dump() for image in images]
+
+
+@mcp.tool()
+def upload_image(
+    package_name: str, language: str, image_type: str, image_path: str
+) -> dict[str, Any]:
+    """Upload a store-listing image (PNG or JPEG) to a new edit and commit it.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        language: Language localization code (BCP-47 tag, e.g. en-US)
+        image_type: Image type - one of: phoneScreenshots, sevenInchScreenshots,
+            tenInchScreenshots, tvScreenshots, wearScreenshots, icon, featureGraphic,
+            tvBanner
+        image_path: Local path to the image file (PNG or JPEG)
+
+    Returns:
+        The uploaded image with its ID, serving URL and sha1/sha256 hashes
+    """
+    if blocked := _read_only_block("upload_image"):
+        return blocked
+    client = get_client_from_context()
+
+    image = client.upload_image(
+        package_name=package_name,
+        language=language,
+        image_type=image_type,
+        image_path=image_path,
+    )
+    return image.model_dump()
+
+
+@mcp.tool()
+def delete_image(
+    package_name: str, language: str, image_type: str, image_id: str
+) -> dict[str, Any]:
+    """Delete a single store-listing image by ID and commit the edit.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        language: Language localization code (BCP-47 tag, e.g. en-US)
+        image_type: Image type the image belongs to
+        image_id: Unique identifier of the image to delete
+
+    Returns:
+        Delete result with success status and deleted count
+    """
+    if blocked := _read_only_block("delete_image"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.delete_image(
+        package_name=package_name,
+        language=language,
+        image_type=image_type,
+        image_id=image_id,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def delete_all_images(package_name: str, language: str, image_type: str) -> dict[str, Any]:
+    """Delete all store-listing images for a language and image type; commit the edit.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        language: Language localization code (BCP-47 tag, e.g. en-US)
+        image_type: Image type to clear all images for
+
+    Returns:
+        Delete result with success status and the number of images deleted
+    """
+    if blocked := _read_only_block("delete_all_images"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.delete_all_images(
+        package_name=package_name,
+        language=language,
+        image_type=image_type,
+    )
+    return result.model_dump()
+
+
+# =============================================================================
 # Validation Tools
 # =============================================================================
 

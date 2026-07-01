@@ -464,6 +464,32 @@ WRITE_TOOLS = [
         "upload_expansion_file",
         {"package_name": "com.example.app", "version_code": 1, "file_path": "main.obb"},
     ),
+    (
+        "upload_image",
+        {
+            "package_name": "com.example.app",
+            "language": "en-US",
+            "image_type": "icon",
+            "image_path": "icon.png",
+        },
+    ),
+    (
+        "delete_image",
+        {
+            "package_name": "com.example.app",
+            "language": "en-US",
+            "image_type": "icon",
+            "image_id": "img-1",
+        },
+    ),
+    (
+        "delete_all_images",
+        {
+            "package_name": "com.example.app",
+            "language": "en-US",
+            "image_type": "phoneScreenshots",
+        },
+    ),
 ]
 
 
