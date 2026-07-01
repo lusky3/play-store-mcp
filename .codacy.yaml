@@ -1,0 +1,11 @@
+# Codacy configuration
+# Exclude the test suite from analysis. Tests are validated by running them
+# (pytest/ruff/mypy in CI), not by Codacy's security/quality scanners. This
+# mirrors the project's own bandit config in pyproject.toml
+# ([tool.bandit] exclude_dirs = ["tests"], skips = ["B101"]) and the ruff
+# per-file ignores for tests, avoiding false positives such as:
+#   - bandit B101 "Use of assert" (asserts are the pytest idiom)
+#   - semgrep "Google (GCM) Service account detected" on `{"type": "service_account"}`
+#     test stubs that contain no actual key material.
+exclude_paths:
+  - 'tests/**'
