@@ -484,3 +484,14 @@ class DownloadResult(BaseModel):
     destination_path: str = Field(..., description="Local path the file was written to")
     message: str = Field(..., description="Status message")
     error: str | None = Field(None, description="Error details if failed")
+
+
+class InternalAppSharingArtifact(BaseModel):
+    """An uploaded internal app sharing artifact (internalappsharingartifacts)."""
+
+    package_name: str = Field(..., description="App package name")
+    download_url: str | None = Field(None, description="Download URL for the uploaded artifact")
+    certificate_fingerprint: str | None = Field(
+        None, description="SHA-256 fingerprint of the signing certificate"
+    )
+    sha256: str | None = Field(None, description="SHA-256 hash of the artifact")

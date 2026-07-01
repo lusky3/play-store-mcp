@@ -145,6 +145,13 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 | `create_system_apk_variant` | Create a system APK variant from an uploaded app bundle (write) |
 | [`download_system_apk_variant`](tools/subscriptions.md#download_system_apk_variant) | Download a system APK variant to a local file |
 
+## Internal App Sharing Tools
+
+| Tool | Description |
+|---|---|
+| `upload_internal_app_sharing_apk` | Upload an APK to internal app sharing (write) |
+| `upload_internal_app_sharing_bundle` | Upload an app bundle (.aab) to internal app sharing (write) |
+
 ## App Management Tools
 
 | Tool | Description |

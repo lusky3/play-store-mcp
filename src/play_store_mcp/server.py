@@ -3070,6 +3070,65 @@ def batch_deploy(
 
 
 # =============================================================================
+# Internal App Sharing Tools
+# =============================================================================
+
+
+@mcp.tool()
+def upload_internal_app_sharing_apk(
+    package_name: str,
+    apk_path: str,
+) -> dict[str, Any]:
+    """Upload an APK to internal app sharing.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        apk_path: Local path to the APK file
+
+    Returns:
+        The uploaded artifact with download URL, certificate fingerprint, and sha256
+    """
+    if blocked := _read_only_block("upload_internal_app_sharing_apk"):
+        return blocked
+    client = get_client_from_context()
+
+    artifact = client.upload_internal_app_sharing_apk(
+        package_name=package_name,
+        apk_path=apk_path,
+    )
+    return artifact.model_dump()
+
+
+@mcp.tool()
+def upload_internal_app_sharing_bundle(
+    package_name: str,
+    bundle_path: str,
+) -> dict[str, Any]:
+    """Upload an app bundle (.aab) to internal app sharing.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        bundle_path: Local path to the app bundle (.aab) file
+
+    Returns:
+        The uploaded artifact with download URL, certificate fingerprint, and sha256
+    """
+    if blocked := _read_only_block("upload_internal_app_sharing_bundle"):
+        return blocked
+    client = get_client_from_context()
+
+    artifact = client.upload_internal_app_sharing_bundle(
+        package_name=package_name,
+        bundle_path=bundle_path,
+    )
+    return artifact.model_dump()
+
+
+# =============================================================================
 # HTTP Endpoints for Streamable Transport
 # =============================================================================
 
