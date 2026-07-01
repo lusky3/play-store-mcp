@@ -41,6 +41,12 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 | `patch_subscription` | Partially update a subscription product (write) |
 | `delete_subscription` | Delete a subscription product (write) |
 | `batch_update_subscriptions` | Update multiple subscription products at once (write) |
+| `activate_base_plan` | Activate a subscription base plan (write) |
+| `deactivate_base_plan` | Deactivate a subscription base plan (write) |
+| `delete_base_plan` | Delete a subscription base plan (write) |
+| `migrate_base_plan_prices` | Migrate subscribers to current base plan prices (write) |
+| `batch_migrate_base_plan_prices` | Migrate prices for multiple base plans at once (write) |
+| `batch_update_base_plan_states` | Activate/deactivate multiple base plans at once (write) |
 | [`get_subscription_status`](tools/subscriptions.md#get_subscription_status) | Check subscription purchase status |
 | [`list_voided_purchases`](tools/subscriptions.md#list_voided_purchases) | List voided purchases |
 

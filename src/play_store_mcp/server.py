@@ -1217,6 +1217,196 @@ def batch_update_subscriptions(
 
 
 # =============================================================================
+# Subscription Base Plan Tools
+# =============================================================================
+
+
+@mcp.tool()
+def activate_base_plan(
+    package_name: str,
+    product_id: str,
+    base_plan_id: str,
+) -> dict[str, Any]:
+    """Activate a subscription base plan, making it available to new subscribers.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent subscription product ID
+        base_plan_id: Base plan ID to activate
+
+    Returns:
+        The updated subscription product
+    """
+    if blocked := _read_only_block("activate_base_plan"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.activate_base_plan(
+        package_name=package_name,
+        product_id=product_id,
+        base_plan_id=base_plan_id,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def deactivate_base_plan(
+    package_name: str,
+    product_id: str,
+    base_plan_id: str,
+) -> dict[str, Any]:
+    """Deactivate a subscription base plan, making it unavailable to new subscribers.
+
+    Existing subscribers keep their subscription. Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent subscription product ID
+        base_plan_id: Base plan ID to deactivate
+
+    Returns:
+        The updated subscription product
+    """
+    if blocked := _read_only_block("deactivate_base_plan"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.deactivate_base_plan(
+        package_name=package_name,
+        product_id=product_id,
+        base_plan_id=base_plan_id,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def delete_base_plan(
+    package_name: str,
+    product_id: str,
+    base_plan_id: str,
+) -> dict[str, Any]:
+    """Delete a subscription base plan.
+
+    Only inactive base plans with no active subscribers can be deleted.
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent subscription product ID
+        base_plan_id: Base plan ID to delete
+
+    Returns:
+        Result with success status
+    """
+    if blocked := _read_only_block("delete_base_plan"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.delete_base_plan(
+        package_name=package_name,
+        product_id=product_id,
+        base_plan_id=base_plan_id,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def migrate_base_plan_prices(
+    package_name: str,
+    product_id: str,
+    base_plan_id: str,
+    request: dict[str, Any],
+) -> dict[str, Any]:
+    """Migrate subscribers to the current base plan prices.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent subscription product ID
+        base_plan_id: Base plan ID whose prices to migrate
+        request: MigrateBasePlanPricesRequest body (e.g. regionalPriceMigrations,
+            regionsVersion)
+
+    Returns:
+        The MigrateBasePlanPricesResponse (raw dict), or an error object in read-only mode
+    """
+    if blocked := _read_only_block("migrate_base_plan_prices"):
+        return blocked
+    client = get_client_from_context()
+
+    return client.migrate_base_plan_prices(
+        package_name=package_name,
+        product_id=product_id,
+        base_plan_id=base_plan_id,
+        request=request,
+    )
+
+
+@mcp.tool()
+def batch_migrate_base_plan_prices(
+    package_name: str,
+    product_id: str,
+    requests: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Migrate prices for multiple base plans in a single operation.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent subscription product ID
+        requests: List of MigrateBasePlanPricesRequest bodies
+
+    Returns:
+        The BatchMigrateBasePlanPricesResponse (raw dict), or an error object in
+        read-only mode
+    """
+    if blocked := _read_only_block("batch_migrate_base_plan_prices"):
+        return blocked
+    client = get_client_from_context()
+
+    return client.batch_migrate_base_plan_prices(
+        package_name=package_name,
+        product_id=product_id,
+        requests=requests,
+    )
+
+
+@mcp.tool()
+def batch_update_base_plan_states(
+    package_name: str,
+    product_id: str,
+    requests: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Activate or deactivate multiple base plans in a single operation.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent subscription product ID
+        requests: List of UpdateBasePlanStateRequest bodies (each with a nested
+            activateBasePlanRequest or deactivateBasePlanRequest)
+
+    Returns:
+        The updated subscription product
+    """
+    if blocked := _read_only_block("batch_update_base_plan_states"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.batch_update_base_plan_states(
+        package_name=package_name,
+        product_id=product_id,
+        requests=requests,
+    )
+    return result.model_dump()
+
+
+# =============================================================================
 # Store Listings Tools
 # =============================================================================
 

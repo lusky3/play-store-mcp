@@ -2153,6 +2153,276 @@ class PlayStoreClient:
             raise PlayStoreClientError(f"Failed to batch update subscriptions: {e.reason}") from e
 
     # =========================================================================
+    # Subscription Base Plans API
+    # =========================================================================
+
+    def activate_base_plan(
+        self, package_name: str, product_id: str, base_plan_id: str
+    ) -> SubscriptionProduct:
+        """Activate a subscription base plan.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent subscription product ID.
+            base_plan_id: Base plan ID to activate.
+
+        Returns:
+            The updated subscription product.
+        """
+        self._logger.info(
+            "Activating base plan",
+            package_name=package_name,
+            product_id=product_id,
+            base_plan_id=base_plan_id,
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .subscriptions()
+                .basePlans()
+                .activate(
+                    packageName=package_name,
+                    productId=product_id,
+                    basePlanId=base_plan_id,
+                    body={
+                        "packageName": package_name,
+                        "productId": product_id,
+                        "basePlanId": base_plan_id,
+                    },
+                )
+                .execute()
+            )
+            return self._parse_subscription(package_name, result)
+
+        except HttpError as e:
+            self._logger.exception("Failed to activate base plan", error=str(e))
+            raise PlayStoreClientError(f"Failed to activate base plan: {e.reason}") from e
+
+    def deactivate_base_plan(
+        self, package_name: str, product_id: str, base_plan_id: str
+    ) -> SubscriptionProduct:
+        """Deactivate a subscription base plan.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent subscription product ID.
+            base_plan_id: Base plan ID to deactivate.
+
+        Returns:
+            The updated subscription product.
+        """
+        self._logger.info(
+            "Deactivating base plan",
+            package_name=package_name,
+            product_id=product_id,
+            base_plan_id=base_plan_id,
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .subscriptions()
+                .basePlans()
+                .deactivate(
+                    packageName=package_name,
+                    productId=product_id,
+                    basePlanId=base_plan_id,
+                    body={
+                        "packageName": package_name,
+                        "productId": product_id,
+                        "basePlanId": base_plan_id,
+                    },
+                )
+                .execute()
+            )
+            return self._parse_subscription(package_name, result)
+
+        except HttpError as e:
+            self._logger.exception("Failed to deactivate base plan", error=str(e))
+            raise PlayStoreClientError(f"Failed to deactivate base plan: {e.reason}") from e
+
+    def delete_base_plan(
+        self, package_name: str, product_id: str, base_plan_id: str
+    ) -> SubscriptionCatalogResult:
+        """Delete a subscription base plan.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent subscription product ID.
+            base_plan_id: Base plan ID to delete.
+
+        Returns:
+            Action result with success status.
+        """
+        self._logger.info(
+            "Deleting base plan",
+            package_name=package_name,
+            product_id=product_id,
+            base_plan_id=base_plan_id,
+        )
+        service = self._get_service()
+
+        try:
+            service.monetization().subscriptions().basePlans().delete(
+                packageName=package_name,
+                productId=product_id,
+                basePlanId=base_plan_id,
+            ).execute()
+
+            return SubscriptionCatalogResult(
+                success=True,
+                package_name=package_name,
+                product_id=product_id,
+                message=f"Base plan {base_plan_id} deleted successfully",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to delete base plan", error=str(e))
+            raise PlayStoreClientError(f"Failed to delete base plan: {e.reason}") from e
+
+    def migrate_base_plan_prices(
+        self,
+        package_name: str,
+        product_id: str,
+        base_plan_id: str,
+        request: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Migrate subscribers to the current base plan prices.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent subscription product ID.
+            base_plan_id: Base plan ID whose prices to migrate.
+            request: MigrateBasePlanPricesRequest body.
+
+        Returns:
+            The raw MigrateBasePlanPricesResponse dict.
+        """
+        self._logger.info(
+            "Migrating base plan prices",
+            package_name=package_name,
+            product_id=product_id,
+            base_plan_id=base_plan_id,
+        )
+        service = self._get_service()
+
+        try:
+            result: dict[str, Any] = (
+                service.monetization()
+                .subscriptions()
+                .basePlans()
+                .migratePrices(
+                    packageName=package_name,
+                    productId=product_id,
+                    basePlanId=base_plan_id,
+                    body=request,
+                )
+                .execute()
+            )
+            return result
+
+        except HttpError as e:
+            self._logger.exception("Failed to migrate base plan prices", error=str(e))
+            raise PlayStoreClientError(f"Failed to migrate base plan prices: {e.reason}") from e
+
+    def batch_migrate_base_plan_prices(
+        self,
+        package_name: str,
+        product_id: str,
+        requests: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Migrate prices for multiple base plans in a single operation.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent subscription product ID.
+            requests: List of MigrateBasePlanPricesRequest bodies.
+
+        Returns:
+            The raw BatchMigrateBasePlanPricesResponse dict.
+        """
+        self._logger.info(
+            "Batch migrating base plan prices",
+            package_name=package_name,
+            product_id=product_id,
+            count=len(requests),
+        )
+        service = self._get_service()
+
+        try:
+            result: dict[str, Any] = (
+                service.monetization()
+                .subscriptions()
+                .basePlans()
+                .batchMigratePrices(
+                    packageName=package_name,
+                    productId=product_id,
+                    body={"requests": requests},
+                )
+                .execute()
+            )
+            return result
+
+        except HttpError as e:
+            self._logger.exception("Failed to batch migrate base plan prices", error=str(e))
+            raise PlayStoreClientError(
+                f"Failed to batch migrate base plan prices: {e.reason}"
+            ) from e
+
+    def batch_update_base_plan_states(
+        self,
+        package_name: str,
+        product_id: str,
+        requests: list[dict[str, Any]],
+    ) -> SubscriptionProduct:
+        """Activate or deactivate multiple base plans in a single operation.
+
+        The API returns one updated subscription per request in order; this
+        returns the first one (all requests here target the same subscription).
+
+        Args:
+            package_name: App package name.
+            product_id: Parent subscription product ID.
+            requests: List of UpdateBasePlanStateRequest bodies (each with a
+                nested activateBasePlanRequest or deactivateBasePlanRequest).
+
+        Returns:
+            The updated subscription product.
+        """
+        self._logger.info(
+            "Batch updating base plan states",
+            package_name=package_name,
+            product_id=product_id,
+            count=len(requests),
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .subscriptions()
+                .basePlans()
+                .batchUpdateStates(
+                    packageName=package_name,
+                    productId=product_id,
+                    body={"requests": requests},
+                )
+                .execute()
+            )
+            subscriptions = result.get("subscriptions", [])
+            first = subscriptions[0] if subscriptions else {}
+            return self._parse_subscription(package_name, first)
+
+        except HttpError as e:
+            self._logger.exception("Failed to batch update base plan states", error=str(e))
+            raise PlayStoreClientError(
+                f"Failed to batch update base plan states: {e.reason}"
+            ) from e
+
+    # =========================================================================
     # Store Listings API
     # =========================================================================
 

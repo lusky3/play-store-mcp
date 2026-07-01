@@ -187,6 +187,138 @@ batch_update_subscriptions(
 
 ---
 
+## Subscription Base Plans
+
+Manage base plans within a subscription (`monetization.subscriptions.basePlans`).
+All tools here are writes and are disabled in
+[read-only mode](../configuration.md#read-only-mode).
+
+Activating and deactivating (including the batch state update) return the updated
+[Subscription](https://developers.google.com/android-publisher/api-ref/rest/v3/monetization.subscriptions)
+as a subscription product. The price-migration tools take/return raw
+[MigrateBasePlanPrices](https://developers.google.com/android-publisher/api-ref/rest/v3/monetization.subscriptions.basePlans/migratePrices)
+request/response bodies.
+
+### activate_base_plan
+
+Activate a base plan, making it available to new subscribers. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent subscription product ID |
+| `base_plan_id` | string | Yes | Base plan ID to activate |
+
+```python
+activate_base_plan("com.example.myapp", product_id="premium", base_plan_id="monthly")
+```
+
+### deactivate_base_plan
+
+Deactivate a base plan so it is unavailable to new subscribers (existing subscribers keep it). **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent subscription product ID |
+| `base_plan_id` | string | Yes | Base plan ID to deactivate |
+
+```python
+deactivate_base_plan("com.example.myapp", product_id="premium", base_plan_id="monthly")
+```
+
+### delete_base_plan
+
+Delete a base plan (must be inactive with no active subscribers). **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent subscription product ID |
+| `base_plan_id` | string | Yes | Base plan ID to delete |
+
+```python
+delete_base_plan("com.example.myapp", product_id="premium", base_plan_id="monthly")
+```
+
+### migrate_base_plan_prices
+
+Migrate subscribers to the base plan's current prices. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent subscription product ID |
+| `base_plan_id` | string | Yes | Base plan ID whose prices to migrate |
+| `request` | object | Yes | MigrateBasePlanPricesRequest body (`regionalPriceMigrations`, `regionsVersion`) |
+
+Returns the raw `MigrateBasePlanPricesResponse` dict.
+
+```python
+migrate_base_plan_prices(
+    package_name="com.example.myapp",
+    product_id="premium",
+    base_plan_id="monthly",
+    request={
+        "regionalPriceMigrations": [
+            {"regionCode": "US", "oldestAllowedPriceVersionTime": "2023-01-01T00:00:00Z"}
+        ],
+        "regionsVersion": {"version": "2022/02"},
+    },
+)
+```
+
+### batch_migrate_base_plan_prices
+
+Migrate prices for multiple base plans in a single operation. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent subscription product ID |
+| `requests` | array of object | Yes | MigrateBasePlanPricesRequest bodies |
+
+Returns the raw `BatchMigrateBasePlanPricesResponse` dict.
+
+```python
+batch_migrate_base_plan_prices(
+    package_name="com.example.myapp",
+    product_id="premium",
+    requests=[
+        {
+            "basePlanId": "monthly",
+            "regionalPriceMigrations": [],
+            "regionsVersion": {"version": "2022/02"},
+        }
+    ],
+)
+```
+
+### batch_update_base_plan_states
+
+Activate or deactivate multiple base plans in a single operation. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent subscription product ID |
+| `requests` | array of object | Yes | UpdateBasePlanStateRequest bodies (each with a nested `activateBasePlanRequest` or `deactivateBasePlanRequest`) |
+
+Returns the updated subscription product.
+
+```python
+batch_update_base_plan_states(
+    package_name="com.example.myapp",
+    product_id="premium",
+    requests=[
+        {"activateBasePlanRequest": {"basePlanId": "monthly"}},
+        {"deactivateBasePlanRequest": {"basePlanId": "yearly"}},
+    ],
+)
+```
+
+---
+
 ## list_in_app_products
 
 List all in-app products (managed products) for an app.

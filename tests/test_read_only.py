@@ -179,6 +179,55 @@ WRITE_TOOLS = [
         "batch_update_subscriptions",
         {"package_name": "com.example.app", "requests": [{"subscription": {}}]},
     ),
+    (
+        "activate_base_plan",
+        {
+            "package_name": "com.example.app",
+            "product_id": "premium_monthly",
+            "base_plan_id": "monthly",
+        },
+    ),
+    (
+        "deactivate_base_plan",
+        {
+            "package_name": "com.example.app",
+            "product_id": "premium_monthly",
+            "base_plan_id": "monthly",
+        },
+    ),
+    (
+        "delete_base_plan",
+        {
+            "package_name": "com.example.app",
+            "product_id": "premium_monthly",
+            "base_plan_id": "monthly",
+        },
+    ),
+    (
+        "migrate_base_plan_prices",
+        {
+            "package_name": "com.example.app",
+            "product_id": "premium_monthly",
+            "base_plan_id": "monthly",
+            "request": {"regionsVersion": {"version": "2022/02"}},
+        },
+    ),
+    (
+        "batch_migrate_base_plan_prices",
+        {
+            "package_name": "com.example.app",
+            "product_id": "premium_monthly",
+            "requests": [{"basePlanId": "monthly"}],
+        },
+    ),
+    (
+        "batch_update_base_plan_states",
+        {
+            "package_name": "com.example.app",
+            "product_id": "premium_monthly",
+            "requests": [{"activateBasePlanRequest": {"basePlanId": "monthly"}}],
+        },
+    ),
 ]
 
 
