@@ -47,6 +47,16 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 | [`acknowledge_product_purchase`](tools/subscriptions.md#acknowledge_product_purchase) | Acknowledge an in-app product purchase (write) |
 | [`consume_product_purchase`](tools/subscriptions.md#consume_product_purchase) | Consume an in-app product purchase (write) |
 
+## Purchase Management Tools
+
+| Tool | Description |
+|---|---|
+| [`get_product_purchase_v2`](tools/subscriptions.md#get_product_purchase_v2) | Read an in-app product purchase (v2, token only) |
+| [`refund_order`](tools/subscriptions.md#refund_order) | Refund an order, optionally revoking entitlement (write) |
+| [`cancel_subscription_purchase`](tools/subscriptions.md#cancel_subscription_purchase) | Cancel a subscription (write) |
+| [`defer_subscription_purchase`](tools/subscriptions.md#defer_subscription_purchase) | Defer a subscription's next renewal (write) |
+| [`revoke_subscription_purchase`](tools/subscriptions.md#revoke_subscription_purchase) | Revoke/refund a subscription (write) |
+
 ## Testers Tools
 
 | Tool | Description |

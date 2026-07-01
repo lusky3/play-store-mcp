@@ -138,3 +138,60 @@ Consume a product purchase so a consumable product can be purchased again. Disab
 ```python
 consume_product_purchase("com.example.myapp", product_id="coins_100", purchase_token="tok...")
 ```
+
+---
+
+## Purchase Management
+
+Manage and refund purchases. All actions except `get_product_purchase_v2` are
+writes and are disabled in [read-only mode](../configuration.md#read-only-mode).
+
+### get_product_purchase_v2
+
+Read a product purchase using the v2 API (token only — no product ID).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `purchase_token` | string | Yes | Purchase token from the client app |
+
+### refund_order
+
+Refund an order, optionally revoking the entitlement. **Write / money.**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `order_id` | string | Yes | Order ID to refund |
+| `revoke` | boolean | No | Also revoke the user's entitlement (default: false) |
+
+### cancel_subscription_purchase
+
+Cancel a subscription. **Write.**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `purchase_token` | string | Yes | Purchase token |
+| `cancellation_type` | string | No | `USER_REQUESTED_STOP_RENEWALS` (default), `DEVELOPER_REQUESTED_STOP_PAYMENTS`, or `CANCELLATION_TYPE_UNSPECIFIED` |
+
+### defer_subscription_purchase
+
+Defer a subscription's next renewal. **Write.**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `purchase_token` | string | Yes | Purchase token |
+| `defer_duration` | string | Yes | Duration, e.g. `604800s` (7 days) |
+| `etag` | string | Yes | Current etag of the subscription purchase |
+
+### revoke_subscription_purchase
+
+Revoke (refund) a subscription. **Write / money.**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `purchase_token` | string | Yes | Purchase token |
+| `refund_type` | string | No | `full` (default) or `prorated` |
