@@ -83,6 +83,37 @@ def _parse_timestamp(value: dict[str, Any] | None) -> datetime | None:
         return None
 
 
+def _parse_review(review_data: dict[str, Any]) -> Review | None:
+    """Parse a Reviews API resource into a Review, or None if it has no user comment."""
+    user_comment = None
+    dev_comment = None
+    for comment in review_data.get("comments", []):
+        if "userComment" in comment:
+            user_comment = comment["userComment"]
+        if "developerComment" in comment:
+            dev_comment = comment["developerComment"]
+
+    if not user_comment:
+        return None
+
+    return Review(
+        review_id=review_data.get("reviewId", ""),
+        author_name=review_data.get("authorName", "Anonymous"),
+        star_rating=user_comment.get("starRating", 0),
+        comment=user_comment.get("text", ""),
+        language=user_comment.get("reviewerLanguage", "en"),
+        device=user_comment.get("device"),
+        android_version=user_comment.get("androidOsVersion"),
+        app_version_code=user_comment.get("appVersionCode"),
+        app_version_name=user_comment.get("appVersionName"),
+        last_modified=_parse_timestamp(user_comment.get("lastModified")),
+        developer_reply=dev_comment.get("text") if dev_comment else None,
+        developer_reply_time=(
+            _parse_timestamp(dev_comment.get("lastModified")) if dev_comment else None
+        ),
+    )
+
+
 def retry_with_backoff(func):  # type: ignore[no-untyped-def]
     """Decorator to retry API calls with exponential backoff.
 
@@ -953,46 +984,49 @@ class PlayStoreClient:
 
             reviews: list[Review] = []
             for review_data in result.get("reviews", []):
-                # Get most recent comment
-                comments = review_data.get("comments", [])
-                user_comment = None
-                dev_comment = None
-
-                for comment in comments:
-                    if "userComment" in comment:
-                        user_comment = comment["userComment"]
-                    if "developerComment" in comment:
-                        dev_comment = comment["developerComment"]
-
-                if user_comment:
-                    last_modified = _parse_timestamp(user_comment.get("lastModified"))
-
-                    dev_reply_time = (
-                        _parse_timestamp(dev_comment.get("lastModified")) if dev_comment else None
-                    )
-
-                    reviews.append(
-                        Review(
-                            review_id=review_data.get("reviewId", ""),
-                            author_name=review_data.get("authorName", "Anonymous"),
-                            star_rating=user_comment.get("starRating", 0),
-                            comment=user_comment.get("text", ""),
-                            language=user_comment.get("reviewerLanguage", "en"),
-                            device=user_comment.get("device"),
-                            android_version=user_comment.get("androidOsVersion"),
-                            app_version_code=user_comment.get("appVersionCode"),
-                            app_version_name=user_comment.get("appVersionName"),
-                            last_modified=last_modified,
-                            developer_reply=dev_comment.get("text") if dev_comment else None,
-                            developer_reply_time=dev_reply_time,
-                        )
-                    )
+                review = _parse_review(review_data)
+                if review is not None:
+                    reviews.append(review)
 
             return reviews
 
         except HttpError as e:
             self._logger.exception("Failed to fetch reviews", error=str(e))
             raise PlayStoreClientError(f"Failed to fetch reviews: {e.reason}") from e
+
+    def get_review(
+        self,
+        package_name: str,
+        review_id: str,
+        translation_language: str | None = None,
+    ) -> Review:
+        """Get a single review by ID.
+
+        Args:
+            package_name: App package name.
+            review_id: Review ID.
+            translation_language: Optional language to translate the review to.
+
+        Returns:
+            The review.
+        """
+        self._logger.info("Fetching review", package_name=package_name, review_id=review_id)
+        service = self._get_service()
+
+        try:
+            kwargs: dict[str, Any] = {"packageName": package_name, "reviewId": review_id}
+            if translation_language:
+                kwargs["translationLanguage"] = translation_language
+            result = service.reviews().get(**kwargs).execute()
+
+            review = _parse_review(result)
+            if review is None:
+                raise PlayStoreClientError(f"Review {review_id} has no user comment")
+            return review
+
+        except HttpError as e:
+            self._logger.exception("Failed to fetch review", error=str(e))
+            raise PlayStoreClientError(f"Failed to fetch review: {e.reason}") from e
 
     def reply_to_review(
         self,
@@ -2014,6 +2048,40 @@ class PlayStoreClient:
         except HttpError as e:
             self._logger.exception("Failed to get order", error=str(e))
             raise PlayStoreClientError(f"Failed to get order: {e.reason}") from e
+
+    def batch_get_orders(self, package_name: str, order_ids: list[str]) -> list[Order]:
+        """Get details for multiple orders.
+
+        Args:
+            package_name: App package name.
+            order_ids: List of order IDs to retrieve.
+
+        Returns:
+            List of orders.
+        """
+        self._logger.info("Batch getting orders", package_name=package_name, count=len(order_ids))
+        service = self._get_service()
+
+        try:
+            # NOTE: googleapiclient method is lowercase "batchget" (per the discovery doc).
+            result = (
+                service.orders().batchget(packageName=package_name, orderIds=order_ids).execute()
+            )
+
+            return [
+                Order(
+                    order_id=order_data.get("orderId", ""),
+                    package_name=package_name,
+                    product_id=order_data.get("productId"),
+                    purchase_state=order_data.get("purchaseState"),
+                    purchase_token=order_data.get("purchaseToken"),
+                )
+                for order_data in result.get("orders", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception("Failed to batch get orders", error=str(e))
+            raise PlayStoreClientError(f"Failed to batch get orders: {e.reason}") from e
 
     # =========================================================================
     # Expansion Files API

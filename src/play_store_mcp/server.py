@@ -477,6 +477,33 @@ def reply_to_review(
     return result.model_dump()
 
 
+@mcp.tool()
+def get_review(
+    package_name: str,
+    review_id: str,
+    translation_language: str | None = None,
+) -> dict[str, Any]:
+    """Get a single user review by its ID.
+
+    Args:
+        package_name: App package name
+        review_id: Review ID (from get_reviews)
+        translation_language: Optional language to translate the review to
+
+    Returns:
+        The review with rating, text, and any developer reply
+    """
+    client = get_client_from_context()
+
+    review = client.get_review(
+        package_name=package_name,
+        review_id=review_id,
+        translation_language=translation_language,
+    )
+
+    return review.model_dump()
+
+
 # =============================================================================
 # Subscription Tools
 # =============================================================================
@@ -1021,6 +1048,26 @@ def get_order(
 
     order = client.get_order(package_name, order_id)
     return order.model_dump()
+
+
+@mcp.tool()
+def batch_get_orders(
+    package_name: str,
+    order_ids: list[str],
+) -> list[dict[str, Any]]:
+    """Get detailed information for multiple orders at once.
+
+    Args:
+        package_name: App package name
+        order_ids: List of order IDs to retrieve (1-1000)
+
+    Returns:
+        List of order details
+    """
+    client = get_client_from_context()
+
+    orders = client.batch_get_orders(package_name=package_name, order_ids=order_ids)
+    return [order.model_dump() for order in orders]
 
 
 # =============================================================================
