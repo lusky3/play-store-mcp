@@ -241,6 +241,32 @@ class DeobfuscationFile(BaseModel):
     )
 
 
+class AppImage(BaseModel):
+    """A store-listing image belonging to an edit (edits.images resource)."""
+
+    package_name: str = Field(..., description="App package name")
+    language: str = Field(..., description="Language localization code (BCP-47 tag)")
+    image_type: str = Field(
+        ..., description="Image type (e.g. phoneScreenshots, icon, featureGraphic)"
+    )
+    image_id: str | None = Field(None, description="Unique image identifier")
+    url: str | None = Field(None, description="URL where the image is served")
+    sha1: str | None = Field(None, description="SHA1 hash of the image content")
+    sha256: str | None = Field(None, description="SHA256 hash of the image content")
+
+
+class ImageDeleteResult(BaseModel):
+    """Result of deleting one or all store-listing images."""
+
+    success: bool = Field(..., description="Whether the delete action succeeded")
+    package_name: str = Field(..., description="App package name")
+    language: str = Field(..., description="Language localization code (BCP-47 tag)")
+    image_type: str = Field(..., description="Image type the deletion applied to")
+    deleted_count: int = Field(0, description="Number of images deleted")
+    message: str = Field(..., description="Status message")
+    error: str | None = Field(None, description="Error details if failed")
+
+
 class BatchDeploymentResult(BaseModel):
     """Result of batch deployment to multiple tracks."""
 
