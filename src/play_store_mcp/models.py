@@ -215,6 +215,43 @@ class BatchDeploymentResult(BaseModel):
     message: str = Field(..., description="Overall status message")
 
 
+class ProductPurchase(BaseModel):
+    """Status of an in-app product purchase."""
+
+    package_name: str = Field(..., description="App package name")
+    product_id: str = Field(..., description="In-app product SKU")
+    purchase_token: str = Field(..., description="Purchase token")
+    order_id: str | None = Field(None, description="Order ID")
+    purchase_state: int | None = Field(
+        None, description="Purchase state (0=purchased, 1=canceled, 2=pending)"
+    )
+    consumption_state: int | None = Field(
+        None, description="Consumption state (0=yet to be consumed, 1=consumed)"
+    )
+    acknowledgement_state: int | None = Field(
+        None, description="Acknowledgement state (0=not acknowledged, 1=acknowledged)"
+    )
+    purchase_time: datetime | None = Field(None, description="Purchase time")
+    purchase_type: int | None = Field(
+        None, description="Purchase type (0=test, 1=promo, 2=rewarded)"
+    )
+    quantity: int | None = Field(None, description="Quantity purchased")
+    region_code: str | None = Field(None, description="Billing region code")
+    developer_payload: str | None = Field(None, description="Developer-supplied payload")
+
+
+class ProductPurchaseActionResult(BaseModel):
+    """Result of an acknowledge/consume action on an in-app product purchase."""
+
+    success: bool = Field(..., description="Whether the action succeeded")
+    package_name: str = Field(..., description="App package name")
+    product_id: str = Field(..., description="In-app product SKU")
+    purchase_token: str = Field(..., description="Purchase token")
+    action: str = Field(..., description="Action performed (acknowledge or consume)")
+    message: str = Field(..., description="Status message")
+    error: str | None = Field(None, description="Error details if failed")
+
+
 class ValidationResult(BaseModel):
     """Validation result details."""
 

@@ -27,6 +27,8 @@ from play_store_mcp.models import (
     Listing,
     ListingUpdateResult,
     Order,
+    ProductPurchase,
+    ProductPurchaseActionResult,
     Release,
     Review,
     ReviewReplyResult,
@@ -1159,6 +1161,146 @@ class PlayStoreClient:
         except HttpError as e:
             self._logger.exception("Failed to list voided purchases", error=str(e))
             raise PlayStoreClientError(f"Failed to list voided purchases: {e.reason}") from e
+
+    def get_product_purchase(
+        self,
+        package_name: str,
+        product_id: str,
+        token: str,
+    ) -> ProductPurchase:
+        """Get the status of an in-app product purchase.
+
+        Args:
+            package_name: App package name.
+            product_id: In-app product SKU.
+            token: Purchase token.
+
+        Returns:
+            Product purchase details.
+        """
+        self._logger.info(
+            "Getting product purchase", package_name=package_name, product_id=product_id
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.purchases()
+                .products()
+                .get(packageName=package_name, productId=product_id, token=token)
+                .execute()
+            )
+
+            purchase_time = (
+                datetime.fromtimestamp(int(result["purchaseTimeMillis"]) / 1000, tz=UTC)
+                if result.get("purchaseTimeMillis")
+                else None
+            )
+
+            return ProductPurchase(
+                package_name=package_name,
+                product_id=product_id,
+                purchase_token=token,
+                order_id=result.get("orderId"),
+                purchase_state=result.get("purchaseState"),
+                consumption_state=result.get("consumptionState"),
+                acknowledgement_state=result.get("acknowledgementState"),
+                purchase_time=purchase_time,
+                purchase_type=result.get("purchaseType"),
+                quantity=result.get("quantity"),
+                region_code=result.get("regionCode"),
+                developer_payload=result.get("developerPayload"),
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to get product purchase", error=str(e))
+            raise PlayStoreClientError(f"Failed to get product purchase: {e.reason}") from e
+
+    def acknowledge_product_purchase(
+        self,
+        package_name: str,
+        product_id: str,
+        token: str,
+        developer_payload: str | None = None,
+    ) -> ProductPurchaseActionResult:
+        """Acknowledge an in-app product purchase.
+
+        Args:
+            package_name: App package name.
+            product_id: In-app product SKU.
+            token: Purchase token.
+            developer_payload: Optional payload to attach to the purchase.
+
+        Returns:
+            Action result with success status.
+        """
+        self._logger.info(
+            "Acknowledging product purchase", package_name=package_name, product_id=product_id
+        )
+        service = self._get_service()
+        body = {"developerPayload": developer_payload} if developer_payload else {}
+
+        try:
+            service.purchases().products().acknowledge(
+                packageName=package_name,
+                productId=product_id,
+                token=token,
+                body=body,
+            ).execute()
+
+            return ProductPurchaseActionResult(
+                success=True,
+                package_name=package_name,
+                product_id=product_id,
+                purchase_token=token,
+                action="acknowledge",
+                message="Purchase acknowledged successfully",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to acknowledge product purchase", error=str(e))
+            raise PlayStoreClientError(f"Failed to acknowledge product purchase: {e.reason}") from e
+
+    def consume_product_purchase(
+        self,
+        package_name: str,
+        product_id: str,
+        token: str,
+    ) -> ProductPurchaseActionResult:
+        """Consume an in-app product purchase.
+
+        Args:
+            package_name: App package name.
+            product_id: In-app product SKU.
+            token: Purchase token.
+
+        Returns:
+            Action result with success status.
+        """
+        self._logger.info(
+            "Consuming product purchase", package_name=package_name, product_id=product_id
+        )
+        service = self._get_service()
+
+        try:
+            service.purchases().products().consume(
+                packageName=package_name,
+                productId=product_id,
+                token=token,
+            ).execute()
+
+            return ProductPurchaseActionResult(
+                success=True,
+                package_name=package_name,
+                product_id=product_id,
+                purchase_token=token,
+                action="consume",
+                message="Purchase consumed successfully",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to consume product purchase", error=str(e))
+            raise PlayStoreClientError(f"Failed to consume product purchase: {e.reason}") from e
 
     # =========================================================================
     # Batch Operations

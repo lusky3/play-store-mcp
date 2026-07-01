@@ -549,6 +549,98 @@ def list_voided_purchases(
     return [v.model_dump() for v in voided]
 
 
+@mcp.tool()
+def get_product_purchase(
+    package_name: str,
+    product_id: str,
+    purchase_token: str,
+) -> dict[str, Any]:
+    """Get the status of an in-app product purchase.
+
+    Args:
+        package_name: App package name
+        product_id: In-app product SKU
+        purchase_token: The purchase token from the client app
+
+    Returns:
+        Product purchase status (purchase/consumption/acknowledgement state, order, region)
+    """
+    client = get_client_from_context()
+
+    purchase = client.get_product_purchase(
+        package_name=package_name,
+        product_id=product_id,
+        token=purchase_token,
+    )
+
+    return purchase.model_dump()
+
+
+@mcp.tool()
+def acknowledge_product_purchase(
+    package_name: str,
+    product_id: str,
+    purchase_token: str,
+    developer_payload: str | None = None,
+) -> dict[str, Any]:
+    """Acknowledge an in-app product purchase.
+
+    Purchases not acknowledged within 3 days are automatically refunded.
+
+    Args:
+        package_name: App package name
+        product_id: In-app product SKU
+        purchase_token: The purchase token from the client app
+        developer_payload: Optional payload to associate with the purchase
+
+    Returns:
+        Result with success status and details
+    """
+    if blocked := _read_only_block("acknowledge_product_purchase"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.acknowledge_product_purchase(
+        package_name=package_name,
+        product_id=product_id,
+        token=purchase_token,
+        developer_payload=developer_payload,
+    )
+
+    return result.model_dump()
+
+
+@mcp.tool()
+def consume_product_purchase(
+    package_name: str,
+    product_id: str,
+    purchase_token: str,
+) -> dict[str, Any]:
+    """Consume an in-app product purchase (for consumable products).
+
+    Marks the product as consumed so the user can purchase it again.
+
+    Args:
+        package_name: App package name
+        product_id: In-app product SKU
+        purchase_token: The purchase token from the client app
+
+    Returns:
+        Result with success status and details
+    """
+    if blocked := _read_only_block("consume_product_purchase"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.consume_product_purchase(
+        package_name=package_name,
+        product_id=product_id,
+        token=purchase_token,
+    )
+
+    return result.model_dump()
+
+
 # =============================================================================
 # Vitals Tools
 # =============================================================================

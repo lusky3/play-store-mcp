@@ -111,6 +111,14 @@ WRITE_TOOLS = [
         "batch_deploy",
         {"package_name": "com.example.app", "file_path": "app.aab", "tracks": ["internal"]},
     ),
+    (
+        "acknowledge_product_purchase",
+        {"package_name": "com.example.app", "product_id": "sku1", "purchase_token": "tok"},
+    ),
+    (
+        "consume_product_purchase",
+        {"package_name": "com.example.app", "product_id": "sku1", "purchase_token": "tok"},
+    ),
 ]
 
 
