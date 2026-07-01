@@ -129,6 +129,12 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 | [`list_device_tier_configs`](tools/subscriptions.md#list_device_tier_configs) | List device tier configs for an app |
 | `create_device_tier_config` | Create a device tier config (write) |
 
+## App Management Tools
+
+| Tool | Description |
+|---|---|
+| `set_data_safety` | Write an app's data safety labels declaration (write) |
+
 ## Testers Tools
 
 | Tool | Description |

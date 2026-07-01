@@ -2577,6 +2577,39 @@ def create_device_tier_config(
 
 
 # =============================================================================
+# Data Safety Tools
+# =============================================================================
+
+
+@mcp.tool()
+def set_data_safety(
+    package_name: str,
+    safety_labels: dict[str, Any],
+) -> dict[str, Any]:
+    """Write the data safety labels declaration of an app.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        safety_labels: SafetyLabelsUpdateRequest resource body. Contains a
+            `safetyLabels` string with the contents of the Data Safety CSV
+
+    Returns:
+        The result of the update
+    """
+    if blocked := _read_only_block("set_data_safety"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.set_data_safety(
+        package_name=package_name,
+        safety_labels=safety_labels,
+    )
+    return result.model_dump()
+
+
+# =============================================================================
 # Expansion Files Tools
 # =============================================================================
 

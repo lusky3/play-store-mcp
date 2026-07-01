@@ -408,6 +408,13 @@ WRITE_TOOLS = [
             "config": {"deviceGroups": [{"name": "high"}]},
         },
     ),
+    (
+        "set_data_safety",
+        {
+            "package_name": "com.example.app",
+            "safety_labels": {"safetyLabels": "csv"},
+        },
+    ),
 ]
 
 

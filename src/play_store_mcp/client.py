@@ -21,6 +21,7 @@ from googleapiclient.http import MediaFileUpload
 from play_store_mcp.models import (
     AppDetails,
     BatchDeploymentResult,
+    DataSafetyResult,
     DeploymentResult,
     DeviceTierConfig,
     ExpansionFile,
@@ -4321,3 +4322,40 @@ class PlayStoreClient:
         except HttpError as e:
             self._logger.exception("Failed to create device tier config", error=str(e))
             raise PlayStoreClientError(f"Failed to create device tier config: {e.reason}") from e
+
+    # =========================================================================
+    # Data Safety API
+    # =========================================================================
+
+    def set_data_safety(
+        self,
+        package_name: str,
+        safety_labels: dict[str, Any],
+    ) -> DataSafetyResult:
+        """Write the data safety labels declaration of an app.
+
+        Args:
+            package_name: App package name.
+            safety_labels: SafetyLabelsUpdateRequest resource body. Contains a
+                ``safetyLabels`` string with the contents of the Data Safety CSV.
+
+        Returns:
+            The result of the update.
+        """
+        self._logger.info("Setting data safety labels", package_name=package_name)
+        service = self._get_service()
+
+        try:
+            service.applications().dataSafety(
+                packageName=package_name,
+                body=safety_labels,
+            ).execute()
+            return DataSafetyResult(
+                success=True,
+                package_name=package_name,
+                message="Data safety labels updated",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to update data safety labels", error=str(e))
+            raise PlayStoreClientError(f"Failed to update data safety labels: {e.reason}") from e

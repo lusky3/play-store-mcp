@@ -418,3 +418,12 @@ class DeviceTierConfig(BaseModel):
     user_country_sets: list[dict[str, Any]] = Field(
         default_factory=list, description="User country set definitions"
     )
+
+
+class DataSafetyResult(BaseModel):
+    """Result of updating an app's data safety labels (applications.dataSafety)."""
+
+    success: bool = Field(..., description="Whether the update succeeded")
+    package_name: str = Field(..., description="App package name")
+    message: str = Field(..., description="Status message")
+    error: str | None = Field(None, description="Error details if failed")

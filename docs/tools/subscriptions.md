@@ -1280,3 +1280,21 @@ create_device_tier_config(
     allow_unknown_devices=False,
 )
 ```
+
+## Data Safety
+
+### set_data_safety
+
+Write the data safety labels declaration of an app. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `safety_labels` | object | Yes | `SafetyLabelsUpdateRequest` body containing a `safetyLabels` string with the contents of the Data Safety CSV file |
+
+```python
+set_data_safety(
+    package_name="com.example.myapp",
+    safety_labels={"safetyLabels": "<contents of Data Safety CSV>"},
+)
+```
