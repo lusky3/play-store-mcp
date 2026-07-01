@@ -1521,3 +1521,45 @@ download_system_apk_variant(
     destination_path="/path/to/system.apk",
 )
 ```
+
+## Internal App Sharing
+
+Upload artifacts to
+[internal app sharing](https://developers.google.com/android-publisher/api-ref/rest/v3/internalappsharingartifacts),
+which returns a shareable download URL for testing. Both tools are writes and
+are disabled in [read-only mode](../configuration.md#read-only-mode).
+
+Each returns an artifact with `download_url`, `certificate_fingerprint`, and
+`sha256`.
+
+### upload_internal_app_sharing_apk
+
+Upload an APK to internal app sharing. **Write.**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `apk_path` | string | Yes | Local path to the APK file |
+
+```python
+upload_internal_app_sharing_apk(
+    package_name="com.example.myapp",
+    apk_path="/path/to/app.apk",
+)
+```
+
+### upload_internal_app_sharing_bundle
+
+Upload an app bundle (`.aab`) to internal app sharing. **Write.**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `bundle_path` | string | Yes | Local path to the app bundle (`.aab`) file |
+
+```python
+upload_internal_app_sharing_bundle(
+    package_name="com.example.myapp",
+    bundle_path="/path/to/app.aab",
+)
+```

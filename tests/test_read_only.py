@@ -446,6 +446,14 @@ WRITE_TOOLS = [
             "variant": {"deviceSpec": {"screenDensity": 480}},
         },
     ),
+    (
+        "upload_internal_app_sharing_apk",
+        {"package_name": "com.example.app", "apk_path": "app.apk"},
+    ),
+    (
+        "upload_internal_app_sharing_bundle",
+        {"package_name": "com.example.app", "bundle_path": "app.aab"},
+    ),
 ]
 
 

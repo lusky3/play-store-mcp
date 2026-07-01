@@ -32,6 +32,7 @@ from play_store_mcp.models import (
     GeneratedApksDownload,
     InAppProduct,
     InAppProductActionResult,
+    InternalAppSharingArtifact,
     Listing,
     ListingUpdateResult,
     OneTimeProduct,
@@ -4872,3 +4873,100 @@ class PlayStoreClient:
         except HttpError as e:
             self._logger.exception("Failed to download system APK variant", error=str(e))
             raise PlayStoreClientError(f"Failed to download system APK variant: {e.reason}") from e
+
+    # =========================================================================
+    # Internal App Sharing API
+    # =========================================================================
+
+    @staticmethod
+    def _parse_internal_app_sharing_artifact(
+        package_name: str,
+        data: dict[str, Any],
+    ) -> InternalAppSharingArtifact:
+        """Parse an InternalAppSharingArtifact API resource into a model."""
+        return InternalAppSharingArtifact(
+            package_name=package_name,
+            download_url=data.get("downloadUrl"),
+            certificate_fingerprint=data.get("certificateFingerprint"),
+            sha256=data.get("sha256"),
+        )
+
+    def upload_internal_app_sharing_apk(
+        self,
+        package_name: str,
+        apk_path: str,
+    ) -> InternalAppSharingArtifact:
+        """Upload an APK to internal app sharing.
+
+        Args:
+            package_name: App package name.
+            apk_path: Local path to the APK file.
+
+        Returns:
+            The uploaded internal app sharing artifact.
+        """
+        self._logger.info(
+            "Uploading internal app sharing APK",
+            package_name=package_name,
+            apk_path=apk_path,
+        )
+        service = self._get_service()
+
+        try:
+            media = MediaFileUpload(
+                apk_path,
+                mimetype="application/vnd.android.package-archive",
+                resumable=True,
+            )
+            data = (
+                service.internalappsharingartifacts()
+                .uploadapk(packageName=package_name, media_body=media)
+                .execute()
+            )
+            return self._parse_internal_app_sharing_artifact(package_name, data)
+
+        except HttpError as e:
+            self._logger.exception("Failed to upload internal app sharing APK", error=str(e))
+            raise PlayStoreClientError(
+                f"Failed to upload internal app sharing APK: {e.reason}"
+            ) from e
+
+    def upload_internal_app_sharing_bundle(
+        self,
+        package_name: str,
+        bundle_path: str,
+    ) -> InternalAppSharingArtifact:
+        """Upload an app bundle (.aab) to internal app sharing.
+
+        Args:
+            package_name: App package name.
+            bundle_path: Local path to the app bundle (.aab) file.
+
+        Returns:
+            The uploaded internal app sharing artifact.
+        """
+        self._logger.info(
+            "Uploading internal app sharing bundle",
+            package_name=package_name,
+            bundle_path=bundle_path,
+        )
+        service = self._get_service()
+
+        try:
+            media = MediaFileUpload(
+                bundle_path,
+                mimetype="application/octet-stream",
+                resumable=True,
+            )
+            data = (
+                service.internalappsharingartifacts()
+                .uploadbundle(packageName=package_name, media_body=media)
+                .execute()
+            )
+            return self._parse_internal_app_sharing_artifact(package_name, data)
+
+        except HttpError as e:
+            self._logger.exception("Failed to upload internal app sharing bundle", error=str(e))
+            raise PlayStoreClientError(
+                f"Failed to upload internal app sharing bundle: {e.reason}"
+            ) from e
