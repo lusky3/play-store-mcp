@@ -62,3 +62,17 @@ reply_to_review(
     - Address the user's specific concern
     - Mention if a fix is available in a newer version
     - The service account needs "Reply to reviews" permission in Play Console
+
+## get_review
+
+Fetch a single review by its ID.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `review_id` | string | Yes | Review ID (from `get_reviews`) |
+| `translation_language` | string | No | Language to translate the review to |
+
+```python
+get_review("com.example.myapp", review_id="abc123")
+```

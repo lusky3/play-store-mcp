@@ -27,6 +27,7 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 | Tool | Description |
 |---|---|
 | [`get_reviews`](tools/reviews.md#get_reviews) | Fetch recent reviews with optional filters |
+| [`get_review`](tools/reviews.md#get_review) | Fetch a single review by ID |
 | [`reply_to_review`](tools/reviews.md#reply_to_review) | Reply to a user review |
 
 ## Subscription Tools
@@ -69,6 +70,7 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 | Tool | Description |
 |---|---|
 | [`get_order`](#get_order) | Get order/transaction details |
+| [`batch_get_orders`](#batch_get_orders) | Get details for multiple orders at once |
 | [`get_expansion_file`](#get_expansion_file) | Get APK expansion file info |
 
 ## Validation Tools
