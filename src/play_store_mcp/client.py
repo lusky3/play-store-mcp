@@ -24,6 +24,7 @@ from play_store_mcp.models import (
     DeploymentResult,
     ExpansionFile,
     InAppProduct,
+    InAppProductActionResult,
     Listing,
     ListingUpdateResult,
     Order,
@@ -1746,30 +1747,212 @@ class PlayStoreClient:
 
         try:
             product_data = service.inappproducts().get(packageName=package_name, sku=sku).execute()
-
-            # Get default price if available
-            default_price = None
-            if "defaultPrice" in product_data:
-                default_price = product_data["defaultPrice"]
-
-            # Get localized listings
-            listings = product_data.get("listings", {})
-            default_listing = listings.get(product_data.get("defaultLanguage", "en-US"), {})
-
-            return InAppProduct(
-                sku=product_data.get("sku", ""),
-                package_name=package_name,
-                product_type=product_data.get("purchaseType", "managedProduct"),
-                status=product_data.get("status"),
-                default_language=product_data.get("defaultLanguage"),
-                title=default_listing.get("title"),
-                description=default_listing.get("description"),
-                default_price=default_price,
-            )
+            return self._parse_in_app_product(package_name, product_data)
 
         except HttpError as e:
             self._logger.exception("Failed to get in-app product", error=str(e))
             raise PlayStoreClientError(f"Failed to get in-app product: {e.reason}") from e
+
+    @staticmethod
+    def _parse_in_app_product(package_name: str, product_data: dict[str, Any]) -> InAppProduct:
+        """Parse an InappProduct API resource into an InAppProduct model."""
+        # Get default price if available
+        default_price = None
+        if "defaultPrice" in product_data:
+            default_price = product_data["defaultPrice"]
+
+        # Get localized listings
+        listings = product_data.get("listings", {})
+        default_listing = listings.get(product_data.get("defaultLanguage", "en-US"), {})
+
+        return InAppProduct(
+            sku=product_data.get("sku", ""),
+            package_name=package_name,
+            product_type=product_data.get("purchaseType", "managedProduct"),
+            status=product_data.get("status"),
+            default_language=product_data.get("defaultLanguage"),
+            title=default_listing.get("title"),
+            description=default_listing.get("description"),
+            default_price=default_price,
+        )
+
+    def create_in_app_product(self, package_name: str, product: dict[str, Any]) -> InAppProduct:
+        """Create a new in-app product.
+
+        Args:
+            package_name: App package name.
+            product: In-app product body (InAppProduct resource).
+
+        Returns:
+            The created in-app product.
+        """
+        self._logger.info("Creating in-app product", package_name=package_name)
+        service = self._get_service()
+
+        try:
+            result = (
+                service.inappproducts().insert(packageName=package_name, body=product).execute()
+            )
+            return self._parse_in_app_product(package_name, result)
+
+        except HttpError as e:
+            self._logger.exception("Failed to create in-app product", error=str(e))
+            raise PlayStoreClientError(f"Failed to create in-app product: {e.reason}") from e
+
+    def update_in_app_product(
+        self,
+        package_name: str,
+        sku: str,
+        product: dict[str, Any],
+        auto_convert_missing_prices: bool = False,
+    ) -> InAppProduct:
+        """Update (replace) an existing in-app product.
+
+        Args:
+            package_name: App package name.
+            sku: Product SKU.
+            product: In-app product body (InAppProduct resource).
+            auto_convert_missing_prices: If True, auto-convert prices for regions
+                without a specified price based on the default price.
+
+        Returns:
+            The updated in-app product.
+        """
+        self._logger.info("Updating in-app product", package_name=package_name, sku=sku)
+        service = self._get_service()
+
+        try:
+            result = (
+                service.inappproducts()
+                .update(
+                    packageName=package_name,
+                    sku=sku,
+                    autoConvertMissingPrices=auto_convert_missing_prices,
+                    body=product,
+                )
+                .execute()
+            )
+            return self._parse_in_app_product(package_name, result)
+
+        except HttpError as e:
+            self._logger.exception("Failed to update in-app product", error=str(e))
+            raise PlayStoreClientError(f"Failed to update in-app product: {e.reason}") from e
+
+    def patch_in_app_product(
+        self, package_name: str, sku: str, product: dict[str, Any]
+    ) -> InAppProduct:
+        """Partially update an existing in-app product.
+
+        Args:
+            package_name: App package name.
+            sku: Product SKU.
+            product: Partial in-app product body (InAppProduct resource).
+
+        Returns:
+            The patched in-app product.
+        """
+        self._logger.info("Patching in-app product", package_name=package_name, sku=sku)
+        service = self._get_service()
+
+        try:
+            result = (
+                service.inappproducts()
+                .patch(packageName=package_name, sku=sku, body=product)
+                .execute()
+            )
+            return self._parse_in_app_product(package_name, result)
+
+        except HttpError as e:
+            self._logger.exception("Failed to patch in-app product", error=str(e))
+            raise PlayStoreClientError(f"Failed to patch in-app product: {e.reason}") from e
+
+    def delete_in_app_product(self, package_name: str, sku: str) -> InAppProductActionResult:
+        """Delete an in-app product.
+
+        Args:
+            package_name: App package name.
+            sku: Product SKU.
+
+        Returns:
+            Action result with success status.
+        """
+        self._logger.info("Deleting in-app product", package_name=package_name, sku=sku)
+        service = self._get_service()
+
+        try:
+            service.inappproducts().delete(packageName=package_name, sku=sku).execute()
+
+            return InAppProductActionResult(
+                success=True,
+                package_name=package_name,
+                sku=sku,
+                message=f"In-app product {sku} deleted successfully",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to delete in-app product", error=str(e))
+            raise PlayStoreClientError(f"Failed to delete in-app product: {e.reason}") from e
+
+    def batch_get_in_app_products(self, package_name: str, skus: list[str]) -> list[InAppProduct]:
+        """Get details for multiple in-app products.
+
+        Args:
+            package_name: App package name.
+            skus: List of product SKUs to retrieve.
+
+        Returns:
+            List of in-app products, in the same order as the request.
+        """
+        self._logger.info(
+            "Batch getting in-app products", package_name=package_name, count=len(skus)
+        )
+        service = self._get_service()
+
+        try:
+            result = service.inappproducts().batchGet(packageName=package_name, sku=skus).execute()
+
+            return [
+                self._parse_in_app_product(package_name, product_data)
+                for product_data in result.get("inappproduct", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception("Failed to batch get in-app products", error=str(e))
+            raise PlayStoreClientError(f"Failed to batch get in-app products: {e.reason}") from e
+
+    def batch_delete_in_app_products(
+        self, package_name: str, skus: list[str]
+    ) -> InAppProductActionResult:
+        """Delete multiple in-app products in a single operation.
+
+        Args:
+            package_name: App package name.
+            skus: List of product SKUs to delete.
+
+        Returns:
+            Action result with success status.
+        """
+        self._logger.info(
+            "Batch deleting in-app products", package_name=package_name, count=len(skus)
+        )
+        service = self._get_service()
+
+        try:
+            service.inappproducts().batchDelete(
+                packageName=package_name,
+                body={"requests": [{"packageName": package_name, "sku": s} for s in skus]},
+            ).execute()
+
+            return InAppProductActionResult(
+                success=True,
+                package_name=package_name,
+                sku=None,
+                message=f"Deleted {len(skus)} in-app product(s) successfully",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to batch delete in-app products", error=str(e))
+            raise PlayStoreClientError(f"Failed to batch delete in-app products: {e.reason}") from e
 
     # =========================================================================
     # Store Listings API

@@ -898,6 +898,159 @@ def get_in_app_product(
     return product.model_dump()
 
 
+@mcp.tool()
+def create_in_app_product(
+    package_name: str,
+    product: dict[str, Any],
+) -> dict[str, Any]:
+    """Create a new in-app product in the catalog.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product: In-app product resource body (e.g. sku, purchaseType, defaultPrice,
+            listings, status, defaultLanguage)
+
+    Returns:
+        The created in-app product
+    """
+    if blocked := _read_only_block("create_in_app_product"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.create_in_app_product(package_name=package_name, product=product)
+    return result.model_dump()
+
+
+@mcp.tool()
+def update_in_app_product(
+    package_name: str,
+    sku: str,
+    product: dict[str, Any],
+    auto_convert_missing_prices: bool = False,
+) -> dict[str, Any]:
+    """Update (replace) an existing in-app product.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        sku: Product SKU identifier
+        product: In-app product resource body
+        auto_convert_missing_prices: Auto-convert prices for regions without a
+            specified price based on the default price (default: False)
+
+    Returns:
+        The updated in-app product
+    """
+    if blocked := _read_only_block("update_in_app_product"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.update_in_app_product(
+        package_name=package_name,
+        sku=sku,
+        product=product,
+        auto_convert_missing_prices=auto_convert_missing_prices,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def patch_in_app_product(
+    package_name: str,
+    sku: str,
+    product: dict[str, Any],
+) -> dict[str, Any]:
+    """Partially update an existing in-app product.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        sku: Product SKU identifier
+        product: Partial in-app product resource body with fields to change
+
+    Returns:
+        The patched in-app product
+    """
+    if blocked := _read_only_block("patch_in_app_product"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.patch_in_app_product(package_name=package_name, sku=sku, product=product)
+    return result.model_dump()
+
+
+@mcp.tool()
+def delete_in_app_product(
+    package_name: str,
+    sku: str,
+) -> dict[str, Any]:
+    """Delete an in-app product from the catalog.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        sku: Product SKU identifier
+
+    Returns:
+        Result with success status
+    """
+    if blocked := _read_only_block("delete_in_app_product"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.delete_in_app_product(package_name=package_name, sku=sku)
+    return result.model_dump()
+
+
+@mcp.tool()
+def batch_get_in_app_products(
+    package_name: str,
+    skus: list[str],
+) -> list[dict[str, Any]]:
+    """Get details for multiple in-app products at once.
+
+    Args:
+        package_name: App package name
+        skus: List of product SKUs to retrieve
+
+    Returns:
+        List of in-app products, in the same order as requested
+    """
+    client = get_client_from_context()
+
+    products = client.batch_get_in_app_products(package_name=package_name, skus=skus)
+    return [product.model_dump() for product in products]
+
+
+@mcp.tool()
+def batch_delete_in_app_products(
+    package_name: str,
+    skus: list[str],
+) -> dict[str, Any]:
+    """Delete multiple in-app products in a single operation.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        skus: List of product SKUs to delete
+
+    Returns:
+        Result with success status
+    """
+    if blocked := _read_only_block("batch_delete_in_app_products"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.batch_delete_in_app_products(package_name=package_name, skus=skus)
+    return result.model_dump()
+
+
 # =============================================================================
 # Store Listings Tools
 # =============================================================================

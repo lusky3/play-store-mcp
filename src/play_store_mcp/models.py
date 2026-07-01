@@ -153,6 +153,16 @@ class InAppProduct(BaseModel):
     default_price: dict[str, Any] | None = Field(None, description="Default price information")
 
 
+class InAppProductActionResult(BaseModel):
+    """Result of a delete/batch-delete action on in-app products."""
+
+    success: bool = Field(..., description="Whether the action succeeded")
+    package_name: str = Field(..., description="App package name")
+    sku: str | None = Field(None, description="Product SKU (None for batch operations)")
+    message: str = Field(..., description="Status message")
+    error: str | None = Field(None, description="Error details if failed")
+
+
 class Listing(BaseModel):
     """Store listing for a specific language."""
 
