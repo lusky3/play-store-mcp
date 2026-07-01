@@ -76,6 +76,18 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 | [`acknowledge_product_purchase`](tools/subscriptions.md#acknowledge_product_purchase) | Acknowledge an in-app product purchase (write) |
 | [`consume_product_purchase`](tools/subscriptions.md#consume_product_purchase) | Consume an in-app product purchase (write) |
 
+## One-Time Product Tools
+
+| Tool | Description |
+|---|---|
+| [`get_one_time_product`](tools/subscriptions.md#get_one_time_product) | Get details of a specific one-time product |
+| [`list_one_time_products`](tools/subscriptions.md#list_one_time_products) | List all one-time products |
+| [`batch_get_one_time_products`](tools/subscriptions.md#batch_get_one_time_products) | Get details for multiple one-time products at once |
+| `patch_one_time_product` | Create or update a one-time product (write) |
+| `delete_one_time_product` | Delete a one-time product (write) |
+| `batch_update_one_time_products` | Update multiple one-time products at once (write) |
+| `batch_delete_one_time_products` | Delete multiple one-time products at once (write) |
+
 ## Purchase Management Tools
 
 | Tool | Description |

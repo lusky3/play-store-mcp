@@ -155,6 +155,27 @@ WRITE_TOOLS = [
         {"package_name": "com.example.app", "skus": ["sku1", "sku2"]},
     ),
     (
+        "patch_one_time_product",
+        {
+            "package_name": "com.example.app",
+            "product_id": "coins_pack",
+            "product": {"productId": "coins_pack"},
+            "update_mask": "listings",
+        },
+    ),
+    (
+        "delete_one_time_product",
+        {"package_name": "com.example.app", "product_id": "coins_pack"},
+    ),
+    (
+        "batch_update_one_time_products",
+        {"package_name": "com.example.app", "requests": [{"oneTimeProduct": {}}]},
+    ),
+    (
+        "batch_delete_one_time_products",
+        {"package_name": "com.example.app", "requests": [{"productId": "coins_pack"}]},
+    ),
+    (
         "create_subscription",
         {
             "package_name": "com.example.app",

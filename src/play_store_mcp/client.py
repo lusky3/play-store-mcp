@@ -27,6 +27,8 @@ from play_store_mcp.models import (
     InAppProductActionResult,
     Listing,
     ListingUpdateResult,
+    OneTimeProduct,
+    OneTimeProductActionResult,
     Order,
     OrderRefundResult,
     ProductPurchase,
@@ -1934,6 +1936,258 @@ class PlayStoreClient:
         except HttpError as e:
             self._logger.exception("Failed to batch delete in-app products", error=str(e))
             raise PlayStoreClientError(f"Failed to batch delete in-app products: {e.reason}") from e
+
+    # =========================================================================
+    # One-Time Product Catalog API
+    # =========================================================================
+
+    @staticmethod
+    def _parse_one_time_product(package_name: str, data: dict[str, Any]) -> OneTimeProduct:
+        """Parse a OneTimeProduct API resource into a OneTimeProduct model."""
+        return OneTimeProduct(
+            product_id=data.get("productId", ""),
+            package_name=package_name,
+            listings=data.get("listings", []),
+            purchase_options=data.get("purchaseOptions", []),
+            offer_tags=data.get("offerTags", []),
+            restricted_payment_countries=data.get("restrictedPaymentCountries"),
+        )
+
+    def get_one_time_product(self, package_name: str, product_id: str) -> OneTimeProduct:
+        """Get details of a specific one-time product.
+
+        Args:
+            package_name: App package name.
+            product_id: One-time product ID.
+
+        Returns:
+            One-time product details.
+        """
+        self._logger.info(
+            "Getting one-time product", package_name=package_name, product_id=product_id
+        )
+        service = self._get_service()
+
+        try:
+            data = (
+                service.monetization()
+                .onetimeproducts()
+                .get(packageName=package_name, productId=product_id)
+                .execute()
+            )
+            return self._parse_one_time_product(package_name, data)
+
+        except HttpError as e:
+            self._logger.exception("Failed to get one-time product", error=str(e))
+            raise PlayStoreClientError(f"Failed to get one-time product: {e.reason}") from e
+
+    def list_one_time_products(self, package_name: str) -> list[OneTimeProduct]:
+        """List one-time products for an app.
+
+        Args:
+            package_name: App package name.
+
+        Returns:
+            List of one-time products.
+        """
+        self._logger.info("Listing one-time products", package_name=package_name)
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization().onetimeproducts().list(packageName=package_name).execute()
+            )
+
+            return [
+                self._parse_one_time_product(package_name, data)
+                for data in result.get("oneTimeProducts", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception("Failed to list one-time products", error=str(e))
+            raise PlayStoreClientError(f"Failed to list one-time products: {e.reason}") from e
+
+    def batch_get_one_time_products(
+        self, package_name: str, product_ids: list[str]
+    ) -> list[OneTimeProduct]:
+        """Get details for multiple one-time products.
+
+        Args:
+            package_name: App package name.
+            product_ids: List of one-time product IDs to retrieve.
+
+        Returns:
+            List of one-time products.
+        """
+        self._logger.info(
+            "Batch getting one-time products", package_name=package_name, count=len(product_ids)
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .onetimeproducts()
+                .batchGet(packageName=package_name, productIds=product_ids)
+                .execute()
+            )
+
+            return [
+                self._parse_one_time_product(package_name, data)
+                for data in result.get("oneTimeProducts", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception("Failed to batch get one-time products", error=str(e))
+            raise PlayStoreClientError(f"Failed to batch get one-time products: {e.reason}") from e
+
+    def patch_one_time_product(
+        self,
+        package_name: str,
+        product_id: str,
+        product: dict[str, Any],
+        update_mask: str,
+        regions_version: str = "2022/02",
+    ) -> OneTimeProduct:
+        """Create or update a one-time product (patch is create-or-update).
+
+        Args:
+            package_name: App package name.
+            product_id: One-time product ID.
+            product: Partial OneTimeProduct resource body.
+            update_mask: Comma-separated list of fields to update.
+            regions_version: Version of available regions to use for regional prices.
+
+        Returns:
+            The patched one-time product.
+        """
+        self._logger.info(
+            "Patching one-time product", package_name=package_name, product_id=product_id
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .onetimeproducts()
+                .patch(
+                    packageName=package_name,
+                    productId=product_id,
+                    updateMask=update_mask,
+                    regionsVersion_version=regions_version,
+                    body=product,
+                )
+                .execute()
+            )
+            return self._parse_one_time_product(package_name, result)
+
+        except HttpError as e:
+            self._logger.exception("Failed to patch one-time product", error=str(e))
+            raise PlayStoreClientError(f"Failed to patch one-time product: {e.reason}") from e
+
+    def delete_one_time_product(
+        self, package_name: str, product_id: str
+    ) -> OneTimeProductActionResult:
+        """Delete a one-time product.
+
+        Args:
+            package_name: App package name.
+            product_id: One-time product ID.
+
+        Returns:
+            Action result with success status.
+        """
+        self._logger.info(
+            "Deleting one-time product", package_name=package_name, product_id=product_id
+        )
+        service = self._get_service()
+
+        try:
+            service.monetization().onetimeproducts().delete(
+                packageName=package_name, productId=product_id
+            ).execute()
+
+            return OneTimeProductActionResult(
+                success=True,
+                package_name=package_name,
+                product_id=product_id,
+                message=f"One-time product {product_id} deleted successfully",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to delete one-time product", error=str(e))
+            raise PlayStoreClientError(f"Failed to delete one-time product: {e.reason}") from e
+
+    def batch_update_one_time_products(
+        self, package_name: str, requests: list[dict[str, Any]]
+    ) -> list[OneTimeProduct]:
+        """Update multiple one-time products in a single operation.
+
+        Args:
+            package_name: App package name.
+            requests: List of UpdateOneTimeProductRequest bodies.
+
+        Returns:
+            List of updated one-time products.
+        """
+        self._logger.info(
+            "Batch updating one-time products", package_name=package_name, count=len(requests)
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .onetimeproducts()
+                .batchUpdate(packageName=package_name, body={"requests": requests})
+                .execute()
+            )
+
+            return [
+                self._parse_one_time_product(package_name, data)
+                for data in result.get("oneTimeProducts", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception("Failed to batch update one-time products", error=str(e))
+            raise PlayStoreClientError(
+                f"Failed to batch update one-time products: {e.reason}"
+            ) from e
+
+    def batch_delete_one_time_products(
+        self, package_name: str, requests: list[dict[str, Any]]
+    ) -> OneTimeProductActionResult:
+        """Delete multiple one-time products in a single operation.
+
+        Args:
+            package_name: App package name.
+            requests: List of DeleteOneTimeProductRequest bodies.
+
+        Returns:
+            Action result with success status.
+        """
+        self._logger.info(
+            "Batch deleting one-time products", package_name=package_name, count=len(requests)
+        )
+        service = self._get_service()
+
+        try:
+            service.monetization().onetimeproducts().batchDelete(
+                packageName=package_name, body={"requests": requests}
+            ).execute()
+
+            return OneTimeProductActionResult(
+                success=True,
+                package_name=package_name,
+                product_id=None,
+                message=f"Deleted {len(requests)} one-time product(s) successfully",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to batch delete one-time products", error=str(e))
+            raise PlayStoreClientError(
+                f"Failed to batch delete one-time products: {e.reason}"
+            ) from e
 
     # =========================================================================
     # Subscription Catalog API

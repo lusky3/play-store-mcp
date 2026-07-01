@@ -740,6 +740,139 @@ batch_delete_in_app_products("com.example.myapp", skus=["premium_upgrade", "coin
 
 ---
 
+## One-Time Products
+
+Manage one-time products (`monetization.oneTimeProducts`) in your catalog. The
+read tools (`get_one_time_product`, `list_one_time_products`, and
+`batch_get_one_time_products`) are available in read-only mode; all other tools
+here are writes and are disabled in
+[read-only mode](../configuration.md#read-only-mode).
+
+The `product` parameter is a
+[OneTimeProduct](https://developers.google.com/android-publisher/api-ref/rest/v3/monetization.onetimeproducts)
+resource body — for example `listings`, `purchaseOptions`, `offerTags`, and
+`restrictedPaymentCountries`. Write operations take a `regions_version` (default
+`"2022/02"`) identifying the version of available regions used for regional
+prices. One-time-product-returning tools include: `product_id`, `package_name`,
+`listings`, `purchase_options`, `offer_tags`, and `restricted_payment_countries`.
+
+### get_one_time_product
+
+Get details of a specific one-time product. Read-only (available in read-only mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | One-time product ID |
+
+```python
+get_one_time_product("com.example.myapp", product_id="coins_pack")
+```
+
+### list_one_time_products
+
+List all one-time products for an app. Read-only (available in read-only mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+
+```python
+list_one_time_products("com.example.myapp")
+```
+
+### batch_get_one_time_products
+
+Get details for multiple one-time products at once. Read-only (available in read-only mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_ids` | array of string | Yes | One-time product IDs to retrieve |
+
+```python
+batch_get_one_time_products("com.example.myapp", product_ids=["coins_pack", "gems_pack"])
+```
+
+### patch_one_time_product
+
+Create or update a one-time product — for one-time products, `patch` is
+create-or-update. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `package_name` | string | Yes | — | App package name |
+| `product_id` | string | Yes | — | One-time product ID |
+| `product` | object | Yes | — | Partial OneTimeProduct body with the fields to change |
+| `update_mask` | string | Yes | — | Comma-separated list of fields to update |
+| `regions_version` | string | No | `"2022/02"` | Version of available regions for regional prices |
+
+```python
+patch_one_time_product(
+    package_name="com.example.myapp",
+    product_id="coins_pack",
+    product={"listings": [{"languageCode": "en-US", "title": "Coins Pack"}]},
+    update_mask="listings",
+)
+```
+
+### delete_one_time_product
+
+Delete a one-time product from the catalog. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | One-time product ID |
+
+```python
+delete_one_time_product("com.example.myapp", product_id="coins_pack")
+```
+
+### batch_update_one_time_products
+
+Update multiple one-time products in a single operation. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `requests` | array of object | Yes | UpdateOneTimeProductRequest bodies (each with `oneTimeProduct`, `updateMask`, and optional `regionsVersion` / `allowMissing`) |
+
+```python
+batch_update_one_time_products(
+    package_name="com.example.myapp",
+    requests=[
+        {
+            "oneTimeProduct": {
+                "packageName": "com.example.myapp",
+                "productId": "coins_pack",
+                "listings": [{"languageCode": "en-US", "title": "Coins Pack"}],
+            },
+            "updateMask": "listings",
+            "regionsVersion": {"version": "2022/02"},
+        }
+    ],
+)
+```
+
+### batch_delete_one_time_products
+
+Delete multiple one-time products in a single operation. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `requests` | array of object | Yes | DeleteOneTimeProductRequest bodies (each with `productId` and optional `packageName` / `latencyTolerance`) |
+
+```python
+batch_delete_one_time_products(
+    package_name="com.example.myapp",
+    requests=[{"productId": "coins_pack"}, {"productId": "gems_pack"}],
+)
+```
+
+---
+
 ## Purchase Management
 
 Manage and refund purchases. All actions except `get_product_purchase_v2` are

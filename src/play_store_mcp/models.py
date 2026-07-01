@@ -322,6 +322,37 @@ class SubscriptionOffer(BaseModel):
     regions_version: str | None = Field(None, description="Regions catalog version")
 
 
+class OneTimeProduct(BaseModel):
+    """One-time product definition (monetization.oneTimeProducts resource)."""
+
+    product_id: str = Field(..., description="One-time product ID")
+    package_name: str = Field(..., description="App package name")
+    listings: list[dict[str, Any]] = Field(
+        default_factory=list, description="Store listing definitions"
+    )
+    purchase_options: list[dict[str, Any]] = Field(
+        default_factory=list, description="Purchase option definitions"
+    )
+    offer_tags: list[dict[str, Any]] = Field(
+        default_factory=list, description="Offer tag definitions"
+    )
+    restricted_payment_countries: dict[str, Any] | None = Field(
+        None, description="Restricted payment countries configuration"
+    )
+
+
+class OneTimeProductActionResult(BaseModel):
+    """Result of a delete/batch-delete action on a one-time product catalog resource."""
+
+    success: bool = Field(..., description="Whether the action succeeded")
+    package_name: str = Field(..., description="App package name")
+    product_id: str | None = Field(
+        None, description="One-time product ID (None for batch operations)"
+    )
+    message: str = Field(..., description="Status message")
+    error: str | None = Field(None, description="Error details if failed")
+
+
 class ProductPurchaseV2(BaseModel):
     """Status of an in-app product purchase (Purchases.productsv2)."""
 

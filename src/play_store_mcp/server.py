@@ -1052,6 +1052,181 @@ def batch_delete_in_app_products(
 
 
 # =============================================================================
+# One-Time Product Catalog Tools
+# =============================================================================
+
+
+@mcp.tool()
+def get_one_time_product(
+    package_name: str,
+    product_id: str,
+) -> dict[str, Any]:
+    """Get details of a specific one-time product.
+
+    Args:
+        package_name: App package name
+        product_id: One-time product ID
+
+    Returns:
+        One-time product details including listings and purchase options
+    """
+    client = get_client_from_context()
+
+    product = client.get_one_time_product(package_name, product_id)
+    return product.model_dump()
+
+
+@mcp.tool()
+def list_one_time_products(
+    package_name: str,
+) -> list[dict[str, Any]]:
+    """List all one-time products for an app.
+
+    Args:
+        package_name: App package name
+
+    Returns:
+        List of one-time products
+    """
+    client = get_client_from_context()
+
+    products = client.list_one_time_products(package_name)
+    return [product.model_dump() for product in products]
+
+
+@mcp.tool()
+def batch_get_one_time_products(
+    package_name: str,
+    product_ids: list[str],
+) -> list[dict[str, Any]]:
+    """Get details for multiple one-time products at once.
+
+    Args:
+        package_name: App package name
+        product_ids: List of one-time product IDs to retrieve
+
+    Returns:
+        List of one-time products
+    """
+    client = get_client_from_context()
+
+    products = client.batch_get_one_time_products(
+        package_name=package_name, product_ids=product_ids
+    )
+    return [product.model_dump() for product in products]
+
+
+@mcp.tool()
+def patch_one_time_product(
+    package_name: str,
+    product_id: str,
+    product: dict[str, Any],
+    update_mask: str,
+    regions_version: str = "2022/02",
+) -> dict[str, Any]:
+    """Create or update a one-time product (patch is create-or-update).
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: One-time product ID
+        product: Partial OneTimeProduct resource body with fields to change
+        update_mask: Comma-separated list of fields to update
+        regions_version: Version of available regions for regional prices (default: "2022/02")
+
+    Returns:
+        The patched one-time product
+    """
+    if blocked := _read_only_block("patch_one_time_product"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.patch_one_time_product(
+        package_name=package_name,
+        product_id=product_id,
+        product=product,
+        update_mask=update_mask,
+        regions_version=regions_version,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def delete_one_time_product(
+    package_name: str,
+    product_id: str,
+) -> dict[str, Any]:
+    """Delete a one-time product from the catalog.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: One-time product ID
+
+    Returns:
+        Result with success status
+    """
+    if blocked := _read_only_block("delete_one_time_product"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.delete_one_time_product(package_name=package_name, product_id=product_id)
+    return result.model_dump()
+
+
+@mcp.tool()
+def batch_update_one_time_products(
+    package_name: str,
+    requests: list[dict[str, Any]],
+) -> list[dict[str, Any]] | dict[str, Any]:
+    """Update multiple one-time products in a single operation.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        requests: List of UpdateOneTimeProductRequest bodies (each with oneTimeProduct,
+            updateMask, and optional regionsVersion / allowMissing)
+
+    Returns:
+        List of updated one-time products, or an error object in read-only mode
+    """
+    if blocked := _read_only_block("batch_update_one_time_products"):
+        return blocked
+    client = get_client_from_context()
+
+    products = client.batch_update_one_time_products(package_name=package_name, requests=requests)
+    return [product.model_dump() for product in products]
+
+
+@mcp.tool()
+def batch_delete_one_time_products(
+    package_name: str,
+    requests: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Delete multiple one-time products in a single operation.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        requests: List of DeleteOneTimeProductRequest bodies (each with productId
+            and optional packageName / latencyTolerance)
+
+    Returns:
+        Result with success status
+    """
+    if blocked := _read_only_block("batch_delete_one_time_products"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.batch_delete_one_time_products(package_name=package_name, requests=requests)
+    return result.model_dump()
+
+
+# =============================================================================
 # Subscription Catalog Tools
 # =============================================================================
 
