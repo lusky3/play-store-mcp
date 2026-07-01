@@ -145,6 +145,17 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 | `create_system_apk_variant` | Create a system APK variant from an uploaded app bundle (write) |
 | [`download_system_apk_variant`](tools/subscriptions.md#download_system_apk_variant) | Download a system APK variant to a local file |
 
+## Edit Uploads Tools
+
+| Tool | Description |
+|---|---|
+| [`list_apks`](tools/subscriptions.md#list_apks) | List the APKs currently uploaded for an app |
+| [`list_bundles`](tools/subscriptions.md#list_bundles) | List the Android App Bundles currently uploaded for an app |
+| [`upload_apk`](tools/subscriptions.md#upload_apk) | Upload an APK and commit the edit (write) |
+| [`upload_bundle`](tools/subscriptions.md#upload_bundle) | Upload an app bundle (.aab) and commit the edit (write) |
+| [`upload_deobfuscation_file`](tools/subscriptions.md#upload_deobfuscation_file) | Upload a ProGuard mapping / native symbols file (write) |
+| [`upload_expansion_file`](tools/subscriptions.md#upload_expansion_file) | Upload an APK expansion (OBB) file (write) |
+
 ## Internal App Sharing Tools
 
 | Tool | Description |

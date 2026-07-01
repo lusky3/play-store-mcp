@@ -213,6 +213,34 @@ class ExpansionFile(BaseModel):
     references_version: int | None = Field(None, description="Referenced version code")
 
 
+class Apk(BaseModel):
+    """An APK belonging to an edit."""
+
+    package_name: str = Field(..., description="App package name")
+    version_code: int = Field(..., description="Version code from the manifest")
+    sha1: str | None = Field(None, description="SHA1 hash of the APK payload")
+    sha256: str | None = Field(None, description="SHA256 hash of the APK payload")
+
+
+class Bundle(BaseModel):
+    """An Android App Bundle (.aab) belonging to an edit."""
+
+    package_name: str = Field(..., description="App package name")
+    version_code: int = Field(..., description="Version code from the base module manifest")
+    sha1: str | None = Field(None, description="SHA1 hash of the upload payload")
+    sha256: str | None = Field(None, description="SHA256 hash of the upload payload")
+
+
+class DeobfuscationFile(BaseModel):
+    """A deobfuscation (mapping/symbol) file uploaded for an APK version."""
+
+    package_name: str = Field(..., description="App package name")
+    version_code: int = Field(..., description="APK version code the file applies to")
+    symbol_type: str | None = Field(
+        None, description="Deobfuscation file type (proguard or nativeCode)"
+    )
+
+
 class BatchDeploymentResult(BaseModel):
     """Result of batch deployment to multiple tracks."""
 

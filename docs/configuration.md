@@ -131,7 +131,7 @@ Per-request credentials are isolated — each request uses only the credentials 
 
 ## Read-Only Mode
 
-Enable read-only mode to guarantee the server performs no writes against the Play Developer API — useful for demos, audits, or pointing at a production app. When active, every write tool (`deploy_app`, `deploy_app_multilang`, `promote_release`, `halt_release`, `update_rollout`, `reply_to_review`, `update_listing`, `update_testers`, `batch_deploy`) returns an error and never contacts the API; all read and validation tools work normally.
+Enable read-only mode to guarantee the server performs no writes against the Play Developer API — useful for demos, audits, or pointing at a production app. When active, all write/mutating tools (deploy, promote, rollout control, review replies, listing/tester updates, catalog create/update/delete, purchase management, uploads, etc.) return an error and never contact the API; all read and validation tools work normally.
 
 Enable it with the CLI flag:
 
