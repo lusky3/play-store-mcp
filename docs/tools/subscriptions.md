@@ -873,6 +873,222 @@ batch_delete_one_time_products(
 
 ---
 
+## One-Time Product Offers
+
+Manage purchase options and their offers for one-time products
+(`monetization.onetimeproducts.purchaseOptions` and
+`monetization.onetimeproducts.purchaseOptions.offers`). The read tools
+(`list_purchase_option_offers` and `batch_get_purchase_option_offers`) are
+available in read-only mode; all other tools here are writes and are disabled in
+[read-only mode](../configuration.md#read-only-mode).
+
+Offer-returning tools include: `package_name`, `product_id`,
+`purchase_option_id`, `offer_id`, `state`, `offer_tags`, and `regions_version`.
+Where noted, `product_id` and `purchase_option_id` accept the `-` wildcard to
+operate across products / purchase options.
+
+### batch_delete_purchase_options
+
+Delete multiple purchase options from a one-time product in a single operation. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent one-time product ID |
+| `requests` | array of object | Yes | DeletePurchaseOptionRequest bodies (each with `purchaseOptionId` and optional `latencyTolerance`) |
+
+```python
+batch_delete_purchase_options(
+    package_name="com.example.myapp",
+    product_id="coins_pack",
+    requests=[{"purchaseOptionId": "opt1"}, {"purchaseOptionId": "opt2"}],
+)
+```
+
+### batch_update_purchase_option_states
+
+Activate or deactivate multiple purchase options in a single operation. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent one-time product ID |
+| `requests` | array of object | Yes | UpdatePurchaseOptionStateRequest bodies (each with a nested `activatePurchaseOptionRequest` or `deactivatePurchaseOptionRequest`) |
+
+```python
+batch_update_purchase_option_states(
+    package_name="com.example.myapp",
+    product_id="coins_pack",
+    requests=[{"activatePurchaseOptionRequest": {"purchaseOptionId": "opt1"}}],
+)
+```
+
+### list_purchase_option_offers
+
+List all offers for a one-time product purchase option. Read-only (available in read-only mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent one-time product ID (`-` wildcard lists across products) |
+| `purchase_option_id` | string | Yes | Parent purchase option ID (`-` wildcard lists across purchase options) |
+
+```python
+list_purchase_option_offers("com.example.myapp", product_id="coins_pack", purchase_option_id="opt1")
+```
+
+### batch_get_purchase_option_offers
+
+Get details for multiple one-time product offers at once. Read-only (available in read-only mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent one-time product ID (`-` wildcard allowed) |
+| `purchase_option_id` | string | Yes | Parent purchase option ID (`-` wildcard allowed) |
+| `requests` | array of object | Yes | GetOneTimeProductOfferRequest bodies (each with `offerId` and optional `purchaseOptionId` / `productId`) |
+
+```python
+batch_get_purchase_option_offers(
+    package_name="com.example.myapp",
+    product_id="coins_pack",
+    purchase_option_id="opt1",
+    requests=[{"offerId": "intro"}],
+)
+```
+
+### activate_purchase_option_offer
+
+Activate a one-time product offer, making it available to eligible buyers. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent one-time product ID |
+| `purchase_option_id` | string | Yes | Parent purchase option ID |
+| `offer_id` | string | Yes | One-time product offer ID |
+
+```python
+activate_purchase_option_offer(
+    package_name="com.example.myapp",
+    product_id="coins_pack",
+    purchase_option_id="opt1",
+    offer_id="intro",
+)
+```
+
+### deactivate_purchase_option_offer
+
+Deactivate a one-time product offer so it is unavailable to new buyers. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent one-time product ID |
+| `purchase_option_id` | string | Yes | Parent purchase option ID |
+| `offer_id` | string | Yes | One-time product offer ID |
+
+```python
+deactivate_purchase_option_offer(
+    package_name="com.example.myapp",
+    product_id="coins_pack",
+    purchase_option_id="opt1",
+    offer_id="intro",
+)
+```
+
+### cancel_purchase_option_offer
+
+Cancel a one-time product offer (for example, a pre-order offer). **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent one-time product ID |
+| `purchase_option_id` | string | Yes | Parent purchase option ID |
+| `offer_id` | string | Yes | One-time product offer ID |
+
+```python
+cancel_purchase_option_offer(
+    package_name="com.example.myapp",
+    product_id="coins_pack",
+    purchase_option_id="opt1",
+    offer_id="preorder",
+)
+```
+
+### batch_update_purchase_option_offers
+
+Create or update multiple one-time product offers in a single operation. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent one-time product ID (`-` wildcard allowed) |
+| `purchase_option_id` | string | Yes | Parent purchase option ID (`-` wildcard allowed) |
+| `requests` | array of object | Yes | UpdateOneTimeProductOfferRequest bodies (each with `oneTimeProductOffer`, `updateMask`, and optional `allowMissing` / `latencyTolerance`) |
+
+```python
+batch_update_purchase_option_offers(
+    package_name="com.example.myapp",
+    product_id="coins_pack",
+    purchase_option_id="opt1",
+    requests=[
+        {
+            "oneTimeProductOffer": {
+                "packageName": "com.example.myapp",
+                "productId": "coins_pack",
+                "purchaseOptionId": "opt1",
+                "offerId": "intro",
+            },
+            "updateMask": "regionalPricingAndAvailabilityConfigs",
+        }
+    ],
+)
+```
+
+### batch_update_purchase_option_offer_states
+
+Activate, deactivate, or cancel multiple one-time product offers in a single operation. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent one-time product ID (`-` wildcard allowed) |
+| `purchase_option_id` | string | Yes | Parent purchase option ID (`-` wildcard allowed) |
+| `requests` | array of object | Yes | UpdateOneTimeProductOfferStateRequest bodies (each with a nested activate / deactivate / cancel one-time product offer request) |
+
+```python
+batch_update_purchase_option_offer_states(
+    package_name="com.example.myapp",
+    product_id="coins_pack",
+    purchase_option_id="opt1",
+    requests=[{"activateOneTimeProductOfferRequest": {"offerId": "intro"}}],
+)
+```
+
+### batch_delete_purchase_option_offers
+
+Delete multiple one-time product offers in a single operation. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent one-time product ID (`-` wildcard allowed) |
+| `purchase_option_id` | string | Yes | Parent purchase option ID (`-` wildcard allowed) |
+| `requests` | array of object | Yes | DeleteOneTimeProductOfferRequest bodies (each with `offerId` and optional `latencyTolerance`) |
+
+```python
+batch_delete_purchase_option_offers(
+    package_name="com.example.myapp",
+    product_id="coins_pack",
+    purchase_option_id="opt1",
+    requests=[{"offerId": "intro"}],
+)
+```
+
+---
+
 ## Purchase Management
 
 Manage and refund purchases. All actions except `get_product_purchase_v2` are

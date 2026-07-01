@@ -29,6 +29,7 @@ from play_store_mcp.models import (
     ListingUpdateResult,
     OneTimeProduct,
     OneTimeProductActionResult,
+    OneTimeProductOffer,
     Order,
     OrderRefundResult,
     ProductPurchase,
@@ -2187,6 +2188,517 @@ class PlayStoreClient:
             self._logger.exception("Failed to batch delete one-time products", error=str(e))
             raise PlayStoreClientError(
                 f"Failed to batch delete one-time products: {e.reason}"
+            ) from e
+
+    # =========================================================================
+    # One-Time Product Purchase Options API
+    # =========================================================================
+
+    def batch_delete_purchase_options(
+        self, package_name: str, product_id: str, requests: list[dict[str, Any]]
+    ) -> OneTimeProductActionResult:
+        """Delete multiple purchase options from a one-time product in a single operation.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent one-time product ID.
+            requests: List of DeletePurchaseOptionRequest bodies.
+
+        Returns:
+            Action result with success status.
+        """
+        self._logger.info(
+            "Batch deleting purchase options",
+            package_name=package_name,
+            product_id=product_id,
+            count=len(requests),
+        )
+        service = self._get_service()
+
+        try:
+            service.monetization().onetimeproducts().purchaseOptions().batchDelete(
+                packageName=package_name,
+                productId=product_id,
+                body={"requests": requests},
+            ).execute()
+
+            return OneTimeProductActionResult(
+                success=True,
+                package_name=package_name,
+                product_id=product_id,
+                message=f"Deleted {len(requests)} purchase option(s) successfully",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to batch delete purchase options", error=str(e))
+            raise PlayStoreClientError(
+                f"Failed to batch delete purchase options: {e.reason}"
+            ) from e
+
+    def batch_update_purchase_option_states(
+        self, package_name: str, product_id: str, requests: list[dict[str, Any]]
+    ) -> list[OneTimeProduct]:
+        """Activate or deactivate multiple purchase options in a single operation.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent one-time product ID.
+            requests: List of UpdatePurchaseOptionStateRequest bodies (each with a
+                nested activatePurchaseOptionRequest or deactivatePurchaseOptionRequest).
+
+        Returns:
+            The updated one-time products, one per request in order.
+        """
+        self._logger.info(
+            "Batch updating purchase option states",
+            package_name=package_name,
+            product_id=product_id,
+            count=len(requests),
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .onetimeproducts()
+                .purchaseOptions()
+                .batchUpdateStates(
+                    packageName=package_name,
+                    productId=product_id,
+                    body={"requests": requests},
+                )
+                .execute()
+            )
+
+            return [
+                self._parse_one_time_product(package_name, data)
+                for data in result.get("oneTimeProducts", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception("Failed to batch update purchase option states", error=str(e))
+            raise PlayStoreClientError(
+                f"Failed to batch update purchase option states: {e.reason}"
+            ) from e
+
+    # =========================================================================
+    # One-Time Product Purchase Option Offers API
+    # =========================================================================
+
+    @staticmethod
+    def _parse_one_time_product_offer(data: dict[str, Any]) -> OneTimeProductOffer:
+        """Parse a OneTimeProductOffer API resource into a OneTimeProductOffer model."""
+        return OneTimeProductOffer(
+            package_name=data.get("packageName", ""),
+            product_id=data.get("productId", ""),
+            purchase_option_id=data.get("purchaseOptionId", ""),
+            offer_id=data.get("offerId", ""),
+            state=data.get("state"),
+            offer_tags=[
+                tag["tag"] for tag in data.get("offerTags", []) if tag.get("tag") is not None
+            ],
+            regions_version=data.get("regionsVersion", {}).get("version"),
+        )
+
+    def list_purchase_option_offers(
+        self, package_name: str, product_id: str, purchase_option_id: str
+    ) -> list[OneTimeProductOffer]:
+        """List all offers for a one-time product purchase option.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent one-time product ID ('-' wildcard allowed).
+            purchase_option_id: Parent purchase option ID ('-' wildcard allowed).
+
+        Returns:
+            List of one-time product offers.
+        """
+        self._logger.info(
+            "Listing purchase option offers",
+            package_name=package_name,
+            product_id=product_id,
+            purchase_option_id=purchase_option_id,
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .onetimeproducts()
+                .purchaseOptions()
+                .offers()
+                .list(
+                    packageName=package_name,
+                    productId=product_id,
+                    purchaseOptionId=purchase_option_id,
+                )
+                .execute()
+            )
+            return [
+                self._parse_one_time_product_offer(offer)
+                for offer in result.get("oneTimeProductOffers", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception("Failed to list purchase option offers", error=str(e))
+            raise PlayStoreClientError(f"Failed to list purchase option offers: {e.reason}") from e
+
+    def batch_get_purchase_option_offers(
+        self,
+        package_name: str,
+        product_id: str,
+        purchase_option_id: str,
+        requests: list[dict[str, Any]],
+    ) -> list[OneTimeProductOffer]:
+        """Get details for multiple one-time product offers in a single operation.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent one-time product ID ('-' wildcard allowed).
+            purchase_option_id: Parent purchase option ID ('-' wildcard allowed).
+            requests: List of GetOneTimeProductOfferRequest bodies.
+
+        Returns:
+            List of one-time product offers.
+        """
+        self._logger.info(
+            "Batch getting purchase option offers",
+            package_name=package_name,
+            product_id=product_id,
+            purchase_option_id=purchase_option_id,
+            count=len(requests),
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .onetimeproducts()
+                .purchaseOptions()
+                .offers()
+                .batchGet(
+                    packageName=package_name,
+                    productId=product_id,
+                    purchaseOptionId=purchase_option_id,
+                    body={"requests": requests},
+                )
+                .execute()
+            )
+            return [
+                self._parse_one_time_product_offer(offer)
+                for offer in result.get("oneTimeProductOffers", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception("Failed to batch get purchase option offers", error=str(e))
+            raise PlayStoreClientError(
+                f"Failed to batch get purchase option offers: {e.reason}"
+            ) from e
+
+    def activate_purchase_option_offer(
+        self, package_name: str, product_id: str, purchase_option_id: str, offer_id: str
+    ) -> OneTimeProductOffer:
+        """Activate a one-time product offer.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent one-time product ID.
+            purchase_option_id: Parent purchase option ID.
+            offer_id: One-time product offer ID to activate.
+
+        Returns:
+            The updated one-time product offer.
+        """
+        self._logger.info(
+            "Activating purchase option offer",
+            package_name=package_name,
+            product_id=product_id,
+            purchase_option_id=purchase_option_id,
+            offer_id=offer_id,
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .onetimeproducts()
+                .purchaseOptions()
+                .offers()
+                .activate(
+                    packageName=package_name,
+                    productId=product_id,
+                    purchaseOptionId=purchase_option_id,
+                    offerId=offer_id,
+                    body={
+                        "packageName": package_name,
+                        "productId": product_id,
+                        "purchaseOptionId": purchase_option_id,
+                        "offerId": offer_id,
+                    },
+                )
+                .execute()
+            )
+            return self._parse_one_time_product_offer(result)
+
+        except HttpError as e:
+            self._logger.exception("Failed to activate purchase option offer", error=str(e))
+            raise PlayStoreClientError(
+                f"Failed to activate purchase option offer: {e.reason}"
+            ) from e
+
+    def deactivate_purchase_option_offer(
+        self, package_name: str, product_id: str, purchase_option_id: str, offer_id: str
+    ) -> OneTimeProductOffer:
+        """Deactivate a one-time product offer.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent one-time product ID.
+            purchase_option_id: Parent purchase option ID.
+            offer_id: One-time product offer ID to deactivate.
+
+        Returns:
+            The updated one-time product offer.
+        """
+        self._logger.info(
+            "Deactivating purchase option offer",
+            package_name=package_name,
+            product_id=product_id,
+            purchase_option_id=purchase_option_id,
+            offer_id=offer_id,
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .onetimeproducts()
+                .purchaseOptions()
+                .offers()
+                .deactivate(
+                    packageName=package_name,
+                    productId=product_id,
+                    purchaseOptionId=purchase_option_id,
+                    offerId=offer_id,
+                    body={
+                        "packageName": package_name,
+                        "productId": product_id,
+                        "purchaseOptionId": purchase_option_id,
+                        "offerId": offer_id,
+                    },
+                )
+                .execute()
+            )
+            return self._parse_one_time_product_offer(result)
+
+        except HttpError as e:
+            self._logger.exception("Failed to deactivate purchase option offer", error=str(e))
+            raise PlayStoreClientError(
+                f"Failed to deactivate purchase option offer: {e.reason}"
+            ) from e
+
+    def cancel_purchase_option_offer(
+        self, package_name: str, product_id: str, purchase_option_id: str, offer_id: str
+    ) -> OneTimeProductOffer:
+        """Cancel a one-time product offer (e.g. a pre-order offer).
+
+        Args:
+            package_name: App package name.
+            product_id: Parent one-time product ID.
+            purchase_option_id: Parent purchase option ID.
+            offer_id: One-time product offer ID to cancel.
+
+        Returns:
+            The updated one-time product offer.
+        """
+        self._logger.info(
+            "Cancelling purchase option offer",
+            package_name=package_name,
+            product_id=product_id,
+            purchase_option_id=purchase_option_id,
+            offer_id=offer_id,
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .onetimeproducts()
+                .purchaseOptions()
+                .offers()
+                .cancel(
+                    packageName=package_name,
+                    productId=product_id,
+                    purchaseOptionId=purchase_option_id,
+                    offerId=offer_id,
+                    body={
+                        "packageName": package_name,
+                        "productId": product_id,
+                        "purchaseOptionId": purchase_option_id,
+                        "offerId": offer_id,
+                    },
+                )
+                .execute()
+            )
+            return self._parse_one_time_product_offer(result)
+
+        except HttpError as e:
+            self._logger.exception("Failed to cancel purchase option offer", error=str(e))
+            raise PlayStoreClientError(f"Failed to cancel purchase option offer: {e.reason}") from e
+
+    def batch_update_purchase_option_offers(
+        self,
+        package_name: str,
+        product_id: str,
+        purchase_option_id: str,
+        requests: list[dict[str, Any]],
+    ) -> list[OneTimeProductOffer]:
+        """Create or update multiple one-time product offers in a single operation.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent one-time product ID ('-' wildcard allowed).
+            purchase_option_id: Parent purchase option ID ('-' wildcard allowed).
+            requests: List of UpdateOneTimeProductOfferRequest bodies.
+
+        Returns:
+            List of updated one-time product offers.
+        """
+        self._logger.info(
+            "Batch updating purchase option offers",
+            package_name=package_name,
+            product_id=product_id,
+            purchase_option_id=purchase_option_id,
+            count=len(requests),
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .onetimeproducts()
+                .purchaseOptions()
+                .offers()
+                .batchUpdate(
+                    packageName=package_name,
+                    productId=product_id,
+                    purchaseOptionId=purchase_option_id,
+                    body={"requests": requests},
+                )
+                .execute()
+            )
+            return [
+                self._parse_one_time_product_offer(offer)
+                for offer in result.get("oneTimeProductOffers", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception("Failed to batch update purchase option offers", error=str(e))
+            raise PlayStoreClientError(
+                f"Failed to batch update purchase option offers: {e.reason}"
+            ) from e
+
+    def batch_update_purchase_option_offer_states(
+        self,
+        package_name: str,
+        product_id: str,
+        purchase_option_id: str,
+        requests: list[dict[str, Any]],
+    ) -> list[OneTimeProductOffer]:
+        """Activate, deactivate or cancel multiple one-time product offers at once.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent one-time product ID ('-' wildcard allowed).
+            purchase_option_id: Parent purchase option ID ('-' wildcard allowed).
+            requests: List of UpdateOneTimeProductOfferStateRequest bodies (each with a
+                nested activate/deactivate/cancel one-time product offer request).
+
+        Returns:
+            The updated one-time product offers, one per request in order.
+        """
+        self._logger.info(
+            "Batch updating purchase option offer states",
+            package_name=package_name,
+            product_id=product_id,
+            purchase_option_id=purchase_option_id,
+            count=len(requests),
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .onetimeproducts()
+                .purchaseOptions()
+                .offers()
+                .batchUpdateStates(
+                    packageName=package_name,
+                    productId=product_id,
+                    purchaseOptionId=purchase_option_id,
+                    body={"requests": requests},
+                )
+                .execute()
+            )
+            return [
+                self._parse_one_time_product_offer(offer)
+                for offer in result.get("oneTimeProductOffers", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception(
+                "Failed to batch update purchase option offer states", error=str(e)
+            )
+            raise PlayStoreClientError(
+                f"Failed to batch update purchase option offer states: {e.reason}"
+            ) from e
+
+    def batch_delete_purchase_option_offers(
+        self,
+        package_name: str,
+        product_id: str,
+        purchase_option_id: str,
+        requests: list[dict[str, Any]],
+    ) -> OneTimeProductActionResult:
+        """Delete multiple one-time product offers in a single operation.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent one-time product ID ('-' wildcard allowed).
+            purchase_option_id: Parent purchase option ID ('-' wildcard allowed).
+            requests: List of DeleteOneTimeProductOfferRequest bodies.
+
+        Returns:
+            Action result with success status.
+        """
+        self._logger.info(
+            "Batch deleting purchase option offers",
+            package_name=package_name,
+            product_id=product_id,
+            purchase_option_id=purchase_option_id,
+            count=len(requests),
+        )
+        service = self._get_service()
+
+        try:
+            service.monetization().onetimeproducts().purchaseOptions().offers().batchDelete(
+                packageName=package_name,
+                productId=product_id,
+                purchaseOptionId=purchase_option_id,
+                body={"requests": requests},
+            ).execute()
+
+            return OneTimeProductActionResult(
+                success=True,
+                package_name=package_name,
+                product_id=product_id,
+                message=f"Deleted {len(requests)} one-time product offer(s) successfully",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to batch delete purchase option offers", error=str(e))
+            raise PlayStoreClientError(
+                f"Failed to batch delete purchase option offers: {e.reason}"
             ) from e
 
     # =========================================================================
