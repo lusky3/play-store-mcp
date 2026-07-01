@@ -141,6 +141,118 @@ consume_product_purchase("com.example.myapp", product_id="coins_100", purchase_t
 
 ---
 
+## In-App Product Management
+
+Create, update, and delete in-app products (managed products) in your catalog.
+All tools here except `batch_get_in_app_products` are writes and are disabled in
+[read-only mode](../configuration.md#read-only-mode).
+
+The `product` parameter is an
+[InAppProduct](https://developers.google.com/android-publisher/api-ref/rest/v3/inappproducts)
+resource body — for example `sku`, `purchaseType` (`managedProduct` or
+`subscription`), `defaultLanguage`, `defaultPrice`, `prices`, `listings`, and
+`status`.
+
+### create_in_app_product
+
+Create a new in-app product. **Write.**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product` | object | Yes | InAppProduct resource body |
+
+```python
+create_in_app_product(
+    package_name="com.example.myapp",
+    product={
+        "sku": "premium_upgrade",
+        "purchaseType": "managedProduct",
+        "defaultLanguage": "en-US",
+        "status": "active",
+        "defaultPrice": {"priceMicros": "990000", "currency": "USD"},
+        "listings": {"en-US": {"title": "Premium Upgrade", "description": "Unlock everything"}},
+    },
+)
+```
+
+### update_in_app_product
+
+Update (replace) an existing in-app product. **Write.**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `package_name` | string | Yes | — | App package name |
+| `sku` | string | Yes | — | Product SKU identifier |
+| `product` | object | Yes | — | InAppProduct resource body |
+| `auto_convert_missing_prices` | boolean | No | `false` | Auto-convert prices for regions without a specified price from the default price |
+
+```python
+update_in_app_product(
+    package_name="com.example.myapp",
+    sku="premium_upgrade",
+    product={"sku": "premium_upgrade", "status": "active", "defaultPrice": {"priceMicros": "1990000", "currency": "USD"}},
+    auto_convert_missing_prices=True,
+)
+```
+
+### patch_in_app_product
+
+Partially update an existing in-app product. **Write.**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `sku` | string | Yes | Product SKU identifier |
+| `product` | object | Yes | Partial InAppProduct body with only the fields to change |
+
+```python
+patch_in_app_product("com.example.myapp", sku="premium_upgrade", product={"status": "inactive"})
+```
+
+### delete_in_app_product
+
+Delete an in-app product from the catalog. **Write.**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `sku` | string | Yes | Product SKU identifier |
+
+```python
+delete_in_app_product("com.example.myapp", sku="premium_upgrade")
+```
+
+### batch_get_in_app_products
+
+Get details for multiple in-app products at once. Read-only (available in read-only mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `skus` | array of string | Yes | Product SKUs to retrieve |
+
+Returns a list of products in the same order as requested.
+
+```python
+batch_get_in_app_products("com.example.myapp", skus=["premium_upgrade", "coins_100"])
+```
+
+### batch_delete_in_app_products
+
+Delete multiple in-app products in a single operation (up to 100). **Write.**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `skus` | array of string | Yes | Product SKUs to delete |
+
+```python
+batch_delete_in_app_products("com.example.myapp", skus=["premium_upgrade", "coins_100"])
+```
+
+---
+
 ## Purchase Management
 
 Manage and refund purchases. All actions except `get_product_purchase_v2` are

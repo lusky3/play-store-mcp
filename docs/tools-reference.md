@@ -44,6 +44,12 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 |---|---|
 | [`list_in_app_products`](tools/subscriptions.md#list_in_app_products) | List all in-app products |
 | [`get_in_app_product`](tools/subscriptions.md#get_in_app_product) | Get details of a specific product |
+| [`batch_get_in_app_products`](tools/subscriptions.md#batch_get_in_app_products) | Get details for multiple products at once |
+| `create_in_app_product` | Create a new in-app product (write) |
+| `update_in_app_product` | Update (replace) an in-app product (write) |
+| `patch_in_app_product` | Partially update an in-app product (write) |
+| `delete_in_app_product` | Delete an in-app product (write) |
+| `batch_delete_in_app_products` | Delete multiple in-app products at once (write) |
 | [`get_product_purchase`](tools/subscriptions.md#get_product_purchase) | Check status of an in-app product purchase |
 | [`acknowledge_product_purchase`](tools/subscriptions.md#acknowledge_product_purchase) | Acknowledge an in-app product purchase (write) |
 | [`consume_product_purchase`](tools/subscriptions.md#consume_product_purchase) | Consume an in-app product purchase (write) |
