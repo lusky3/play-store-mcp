@@ -119,6 +119,24 @@ WRITE_TOOLS = [
         "consume_product_purchase",
         {"package_name": "com.example.app", "product_id": "sku1", "purchase_token": "tok"},
     ),
+    ("refund_order", {"package_name": "com.example.app", "order_id": "GPA.1"}),
+    (
+        "cancel_subscription_purchase",
+        {"package_name": "com.example.app", "purchase_token": "tok"},
+    ),
+    (
+        "defer_subscription_purchase",
+        {
+            "package_name": "com.example.app",
+            "purchase_token": "tok",
+            "defer_duration": "604800s",
+            "etag": "e",
+        },
+    ),
+    (
+        "revoke_subscription_purchase",
+        {"package_name": "com.example.app", "purchase_token": "tok"},
+    ),
 ]
 
 

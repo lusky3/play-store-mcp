@@ -258,3 +258,51 @@ class ValidationResult(BaseModel):
     field: str = Field(..., description="Field that failed validation")
     message: str = Field(..., description="Error message")
     value: Any | None = Field(None, description="Invalid value")
+
+
+class OrderRefundResult(BaseModel):
+    """Result of refunding an order."""
+
+    success: bool = Field(..., description="Whether the refund succeeded")
+    package_name: str = Field(..., description="App package name")
+    order_id: str = Field(..., description="Order ID")
+    revoked: bool = Field(..., description="Whether the entitlement was also revoked")
+    message: str = Field(..., description="Status message")
+    error: str | None = Field(None, description="Error details if failed")
+
+
+class SubscriptionActionResult(BaseModel):
+    """Result of a cancel/defer/revoke action on a subscription purchase."""
+
+    success: bool = Field(..., description="Whether the action succeeded")
+    package_name: str = Field(..., description="App package name")
+    purchase_token: str = Field(..., description="Purchase token")
+    action: str = Field(..., description="Action performed (cancel, defer, or revoke)")
+    message: str = Field(..., description="Status message")
+    details: dict[str, Any] | None = Field(
+        None, description="Extra result data (e.g. defer expiry)"
+    )
+    error: str | None = Field(None, description="Error details if failed")
+
+
+class ProductPurchaseV2(BaseModel):
+    """Status of an in-app product purchase (Purchases.productsv2)."""
+
+    package_name: str = Field(..., description="App package name")
+    purchase_token: str = Field(..., description="Purchase token")
+    order_id: str | None = Field(None, description="Order ID")
+    acknowledgement_state: str | None = Field(None, description="Acknowledgement state (enum)")
+    purchase_completion_time: str | None = Field(
+        None, description="Purchase completion time (RFC3339)"
+    )
+    region_code: str | None = Field(None, description="Billing region code")
+    product_line_items: list[dict[str, Any]] = Field(
+        default_factory=list, description="Purchased product line items"
+    )
+    obfuscated_external_account_id: str | None = Field(
+        None, description="Obfuscated external account ID"
+    )
+    obfuscated_external_profile_id: str | None = Field(
+        None, description="Obfuscated external profile ID"
+    )
+    test_purchase: bool = Field(False, description="Whether this is a test purchase")

@@ -27,11 +27,14 @@ from play_store_mcp.models import (
     Listing,
     ListingUpdateResult,
     Order,
+    OrderRefundResult,
     ProductPurchase,
     ProductPurchaseActionResult,
+    ProductPurchaseV2,
     Release,
     Review,
     ReviewReplyResult,
+    SubscriptionActionResult,
     SubscriptionProduct,
     SubscriptionPurchase,
     TesterInfo,
@@ -54,6 +57,12 @@ SCOPES = ["https://www.googleapis.com/auth/androidpublisher"]
 MAX_RETRIES = 3
 INITIAL_BACKOFF = 1.0  # seconds
 MAX_BACKOFF = 32.0  # seconds
+
+# Revocation contexts for subscription refunds (Purchases.subscriptionsv2.revoke)
+_REVOCATION_CONTEXTS: dict[str, dict[str, dict]] = {
+    "full": {"fullRefund": {}},
+    "prorated": {"proratedRefund": {}},
+}
 
 
 class PlayStoreClientError(Exception):
@@ -1301,6 +1310,212 @@ class PlayStoreClient:
         except HttpError as e:
             self._logger.exception("Failed to consume product purchase", error=str(e))
             raise PlayStoreClientError(f"Failed to consume product purchase: {e.reason}") from e
+
+    def refund_order(
+        self,
+        package_name: str,
+        order_id: str,
+        revoke: bool = False,
+    ) -> OrderRefundResult:
+        """Refund an order, optionally revoking the entitlement.
+
+        Args:
+            package_name: App package name.
+            order_id: Order ID to refund.
+            revoke: If True, also revoke the user's entitlement.
+
+        Returns:
+            Refund result with success status.
+        """
+        self._logger.info("Refunding order", package_name=package_name, order_id=order_id)
+        service = self._get_service()
+
+        try:
+            service.orders().refund(
+                packageName=package_name, orderId=order_id, revoke=revoke
+            ).execute()
+
+            message = "Order refunded successfully"
+            if revoke:
+                message += " and entitlement revoked"
+            return OrderRefundResult(
+                success=True,
+                package_name=package_name,
+                order_id=order_id,
+                revoked=revoke,
+                message=message,
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to refund order", error=str(e))
+            raise PlayStoreClientError(f"Failed to refund order: {e.reason}") from e
+
+    def cancel_subscription_purchase(
+        self,
+        package_name: str,
+        token: str,
+        cancellation_type: str = "USER_REQUESTED_STOP_RENEWALS",
+    ) -> SubscriptionActionResult:
+        """Cancel a subscription purchase.
+
+        Args:
+            package_name: App package name.
+            token: Purchase token.
+            cancellation_type: One of USER_REQUESTED_STOP_RENEWALS,
+                DEVELOPER_REQUESTED_STOP_PAYMENTS, CANCELLATION_TYPE_UNSPECIFIED.
+
+        Returns:
+            Action result with success status.
+        """
+        self._logger.info("Cancelling subscription purchase", package_name=package_name)
+        service = self._get_service()
+
+        try:
+            service.purchases().subscriptionsv2().cancel(
+                packageName=package_name,
+                token=token,
+                body={"cancellationContext": {"cancellationType": cancellation_type}},
+            ).execute()
+
+            return SubscriptionActionResult(
+                success=True,
+                package_name=package_name,
+                purchase_token=token,
+                action="cancel",
+                message="Subscription cancellation scheduled",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to cancel subscription", error=str(e))
+            raise PlayStoreClientError(f"Failed to cancel subscription: {e.reason}") from e
+
+    def defer_subscription_purchase(
+        self,
+        package_name: str,
+        token: str,
+        defer_duration: str,
+        etag: str,
+    ) -> SubscriptionActionResult:
+        """Defer a subscription purchase's next renewal.
+
+        Args:
+            package_name: App package name.
+            token: Purchase token.
+            defer_duration: Duration to defer, e.g. "604800s" (7 days).
+            etag: Current etag of the subscription purchase.
+
+        Returns:
+            Action result with success status and new expiry details.
+        """
+        self._logger.info("Deferring subscription purchase", package_name=package_name)
+        service = self._get_service()
+
+        try:
+            result = (
+                service.purchases()
+                .subscriptionsv2()
+                .defer(
+                    packageName=package_name,
+                    token=token,
+                    body={"deferralContext": {"deferDuration": defer_duration, "etag": etag}},
+                )
+                .execute()
+            )
+
+            return SubscriptionActionResult(
+                success=True,
+                package_name=package_name,
+                purchase_token=token,
+                action="defer",
+                message="Subscription deferred",
+                details={"itemExpiryTimeDetails": result.get("itemExpiryTimeDetails", [])},
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to defer subscription", error=str(e))
+            raise PlayStoreClientError(f"Failed to defer subscription: {e.reason}") from e
+
+    def revoke_subscription_purchase(
+        self,
+        package_name: str,
+        token: str,
+        refund_type: str = "full",
+    ) -> SubscriptionActionResult:
+        """Revoke (refund) a subscription purchase.
+
+        Args:
+            package_name: App package name.
+            token: Purchase token.
+            refund_type: "full" or "prorated".
+
+        Returns:
+            Action result with success status.
+        """
+        self._logger.info(
+            "Revoking subscription purchase", package_name=package_name, refund_type=refund_type
+        )
+        service = self._get_service()
+
+        try:
+            service.purchases().subscriptionsv2().revoke(
+                packageName=package_name,
+                token=token,
+                body={"revocationContext": _REVOCATION_CONTEXTS[refund_type]},
+            ).execute()
+
+            return SubscriptionActionResult(
+                success=True,
+                package_name=package_name,
+                purchase_token=token,
+                action="revoke",
+                message=f"Subscription revoked ({refund_type} refund)",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to revoke subscription", error=str(e))
+            raise PlayStoreClientError(f"Failed to revoke subscription: {e.reason}") from e
+
+    def get_product_purchase_v2(
+        self,
+        package_name: str,
+        token: str,
+    ) -> ProductPurchaseV2:
+        """Get the status of an in-app product purchase (v2 API).
+
+        Args:
+            package_name: App package name.
+            token: Purchase token (identifies the purchase; no product ID needed).
+
+        Returns:
+            Product purchase (v2) details.
+        """
+        self._logger.info("Getting product purchase (v2)", package_name=package_name)
+        service = self._get_service()
+
+        try:
+            result = (
+                service.purchases()
+                .productsv2()
+                .getproductpurchasev2(packageName=package_name, token=token)
+                .execute()
+            )
+
+            return ProductPurchaseV2(
+                package_name=package_name,
+                purchase_token=token,
+                order_id=result.get("orderId"),
+                acknowledgement_state=result.get("acknowledgementState"),
+                purchase_completion_time=result.get("purchaseCompletionTime"),
+                region_code=result.get("regionCode"),
+                product_line_items=result.get("productLineItem", []),
+                obfuscated_external_account_id=result.get("obfuscatedExternalAccountId"),
+                obfuscated_external_profile_id=result.get("obfuscatedExternalProfileId"),
+                test_purchase="testPurchaseContext" in result,
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to get product purchase (v2)", error=str(e))
+            raise PlayStoreClientError(f"Failed to get product purchase: {e.reason}") from e
 
     # =========================================================================
     # Batch Operations

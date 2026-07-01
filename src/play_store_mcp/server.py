@@ -641,6 +641,148 @@ def consume_product_purchase(
     return result.model_dump()
 
 
+@mcp.tool()
+def refund_order(
+    package_name: str,
+    order_id: str,
+    revoke: bool = False,
+) -> dict[str, Any]:
+    """Refund an order, optionally revoking the user's entitlement.
+
+    Args:
+        package_name: App package name
+        order_id: Order ID to refund
+        revoke: If True, also revoke the user's entitlement (default: False)
+
+    Returns:
+        Result with success status and details
+    """
+    if blocked := _read_only_block("refund_order"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.refund_order(package_name=package_name, order_id=order_id, revoke=revoke)
+
+    return result.model_dump()
+
+
+@mcp.tool()
+def cancel_subscription_purchase(
+    package_name: str,
+    purchase_token: str,
+    cancellation_type: str = "USER_REQUESTED_STOP_RENEWALS",
+) -> dict[str, Any]:
+    """Cancel a subscription purchase.
+
+    Args:
+        package_name: App package name
+        purchase_token: The purchase token from the client app
+        cancellation_type: USER_REQUESTED_STOP_RENEWALS (default),
+            DEVELOPER_REQUESTED_STOP_PAYMENTS, or CANCELLATION_TYPE_UNSPECIFIED
+
+    Returns:
+        Result with success status and details
+    """
+    if blocked := _read_only_block("cancel_subscription_purchase"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.cancel_subscription_purchase(
+        package_name=package_name,
+        token=purchase_token,
+        cancellation_type=cancellation_type,
+    )
+
+    return result.model_dump()
+
+
+@mcp.tool()
+def defer_subscription_purchase(
+    package_name: str,
+    purchase_token: str,
+    defer_duration: str,
+    etag: str,
+) -> dict[str, Any]:
+    """Defer a subscription purchase's next renewal.
+
+    Args:
+        package_name: App package name
+        purchase_token: The purchase token from the client app
+        defer_duration: Duration to defer, e.g. "604800s" for 7 days
+        etag: Current etag of the subscription purchase
+
+    Returns:
+        Result with success status and new expiry details
+    """
+    if blocked := _read_only_block("defer_subscription_purchase"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.defer_subscription_purchase(
+        package_name=package_name,
+        token=purchase_token,
+        defer_duration=defer_duration,
+        etag=etag,
+    )
+
+    return result.model_dump()
+
+
+@mcp.tool()
+def revoke_subscription_purchase(
+    package_name: str,
+    purchase_token: str,
+    refund_type: str = "full",
+) -> dict[str, Any]:
+    """Revoke (refund) a subscription purchase.
+
+    Args:
+        package_name: App package name
+        purchase_token: The purchase token from the client app
+        refund_type: "full" or "prorated" (default: full)
+
+    Returns:
+        Result with success status and details
+    """
+    if blocked := _read_only_block("revoke_subscription_purchase"):
+        return blocked
+    if refund_type not in ("full", "prorated"):
+        return {"error": "refund_type must be 'full' or 'prorated'"}
+    client = get_client_from_context()
+
+    result = client.revoke_subscription_purchase(
+        package_name=package_name,
+        token=purchase_token,
+        refund_type=refund_type,
+    )
+
+    return result.model_dump()
+
+
+@mcp.tool()
+def get_product_purchase_v2(
+    package_name: str,
+    purchase_token: str,
+) -> dict[str, Any]:
+    """Get the status of an in-app product purchase using the v2 API.
+
+    Unlike get_product_purchase, this identifies the purchase by token alone
+    (no product ID) and returns line items and acknowledgement state.
+
+    Args:
+        package_name: App package name
+        purchase_token: The purchase token from the client app
+
+    Returns:
+        Product purchase (v2) status
+    """
+    client = get_client_from_context()
+
+    purchase = client.get_product_purchase_v2(package_name=package_name, token=purchase_token)
+
+    return purchase.model_dump()
+
+
 # =============================================================================
 # Vitals Tools
 # =============================================================================
