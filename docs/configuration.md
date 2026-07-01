@@ -82,6 +82,7 @@ docker run -p 8000:8000 \
 | `GOOGLE_PLAY_STORE_CREDENTIALS` | Inline JSON credentials string | Alternative to file path | — |
 | `PLAY_STORE_MCP_LOG_LEVEL` | Log level: `DEBUG`, `INFO`, `WARNING`, `ERROR` | No | `INFO` |
 | `PLAY_STORE_MCP_DISABLE_DNS_REBINDING` | Disable DNS rebinding protection (for cloud/reverse-proxy deployments) | No | — |
+| `PLAY_STORE_MCP_READ_ONLY` | Disable all write operations | No | — |
 
 ## HTTP Transport
 
@@ -127,6 +128,22 @@ Configure your MCP client to send the header:
 ```
 
 Per-request credentials are isolated — each request uses only the credentials provided in its headers. No credentials are stored server-side or shared between requests.
+
+## Read-Only Mode
+
+Enable read-only mode to guarantee the server performs no writes against the Play Developer API — useful for demos, audits, or pointing at a production app. When active, every write tool (`deploy_app`, `deploy_app_multilang`, `promote_release`, `halt_release`, `update_rollout`, `reply_to_review`, `update_listing`, `update_testers`, `batch_deploy`) returns an error and never contacts the API; all read and validation tools work normally.
+
+Enable it with the CLI flag:
+
+```bash
+play-store-mcp --read-only
+```
+
+Or the environment variable (truthy values: `1`, `true`, `yes`, `on`):
+
+```bash
+export PLAY_STORE_MCP_READ_ONLY=1
+```
 
 ## Logging
 
