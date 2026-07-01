@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import base64
+import json
+import os
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -774,3 +777,430 @@ class TestServerMain:
             token="tok",
         )
         assert result["subscription_id"] == "sub1"
+
+
+# =========================================================================
+# get_client_from_context — header-based credentials
+# =========================================================================
+
+
+def _context_with_headers(headers: dict[str, str]) -> MagicMock:
+    """Build a mock MCP context whose request carries the given headers."""
+    ctx = MagicMock()
+    ctx.request_context.request.headers = headers
+    ctx.request_context.lifespan_context = {"client": None}
+    return ctx
+
+
+class TestGetClientFromContext:
+    """Test get_client_from_context credential resolution."""
+
+    def test_x_google_credentials_valid(self) -> None:
+        """A valid JSON X-Google-Credentials header builds a client."""
+        from play_store_mcp.server import get_client_from_context
+
+        creds = json.dumps({"type": "service_account"})
+        ctx = _context_with_headers({"x-google-credentials": creds})
+
+        with (
+            patch.object(mcp, "get_context", return_value=ctx),
+            patch("play_store_mcp.server.PlayStoreClient") as MockClient,
+        ):
+            result = get_client_from_context()
+
+        MockClient.assert_called_once_with(credentials_json={"type": "service_account"})
+        assert result is MockClient.return_value
+
+    def test_x_google_credentials_invalid_json(self) -> None:
+        """An invalid JSON X-Google-Credentials header raises PlayStoreClientError."""
+        from play_store_mcp.server import get_client_from_context
+
+        ctx = _context_with_headers({"x-google-credentials": "not json"})
+
+        with (
+            patch.object(mcp, "get_context", return_value=ctx),
+            pytest.raises(PlayStoreClientError, match="Invalid JSON in X-Google-Credentials"),
+        ):
+            get_client_from_context()
+
+    def test_x_google_credentials_base64_valid(self) -> None:
+        """A valid base64 X-Google-Credentials-Base64 header builds a client."""
+        from play_store_mcp.server import get_client_from_context
+
+        creds = json.dumps({"type": "service_account"})
+        b64 = base64.b64encode(creds.encode("utf-8")).decode("utf-8")
+        ctx = _context_with_headers({"x-google-credentials-base64": b64})
+
+        with (
+            patch.object(mcp, "get_context", return_value=ctx),
+            patch("play_store_mcp.server.PlayStoreClient") as MockClient,
+        ):
+            result = get_client_from_context()
+
+        MockClient.assert_called_once_with(credentials_json={"type": "service_account"})
+        assert result is MockClient.return_value
+
+    def test_x_google_credentials_base64_invalid(self) -> None:
+        """An invalid base64/JSON header raises PlayStoreClientError."""
+        from play_store_mcp.server import get_client_from_context
+
+        # Valid base64 that decodes to non-JSON text.
+        b64 = base64.b64encode(b"not json").decode("utf-8")
+        ctx = _context_with_headers({"x-google-credentials-base64": b64})
+
+        with (
+            patch.object(mcp, "get_context", return_value=ctx),
+            pytest.raises(
+                PlayStoreClientError,
+                match="Invalid base64 or JSON in X-Google-Credentials-Base64",
+            ),
+        ):
+            get_client_from_context()
+
+    def test_no_credentials_raises(self) -> None:
+        """No headers and no lifespan client raises PlayStoreClientError."""
+        from play_store_mcp.server import get_client_from_context
+
+        ctx = _context_with_headers({})
+
+        with (
+            patch.object(mcp, "get_context", return_value=ctx),
+            pytest.raises(PlayStoreClientError, match="No credentials provided"),
+        ):
+            get_client_from_context()
+
+    def test_context_without_request_context(self) -> None:
+        """A context lacking request_context falls through and raises."""
+        import types
+
+        from play_store_mcp.server import get_client_from_context
+
+        ctx = types.SimpleNamespace()  # no request_context attribute
+
+        with (
+            patch.object(mcp, "get_context", return_value=ctx),
+            pytest.raises(PlayStoreClientError, match="No credentials provided"),
+        ):
+            get_client_from_context()
+
+    def test_context_request_context_without_request(self) -> None:
+        """A request_context without request/lifespan_context attributes raises."""
+        import types
+
+        from play_store_mcp.server import get_client_from_context
+
+        # request_context exists but has neither `request` nor `lifespan_context`.
+        ctx = types.SimpleNamespace(request_context=types.SimpleNamespace())
+
+        with (
+            patch.object(mcp, "get_context", return_value=ctx),
+            pytest.raises(PlayStoreClientError, match="No credentials provided"),
+        ):
+            get_client_from_context()
+
+    def test_context_request_none(self) -> None:
+        """A request_context whose request is None falls through to lifespan."""
+        import types
+
+        from play_store_mcp.server import get_client_from_context
+
+        sentinel = MagicMock()
+        ctx = types.SimpleNamespace(
+            request_context=types.SimpleNamespace(
+                request=None,
+                lifespan_context={"client": sentinel},
+            )
+        )
+
+        with patch.object(mcp, "get_context", return_value=ctx):
+            result = get_client_from_context()
+
+        assert result is sentinel
+
+
+# =========================================================================
+# Tool validation error returns
+# =========================================================================
+
+
+class TestToolValidationErrors:
+    """Test that tools return {"error": ...} on validation failure."""
+
+    def test_deploy_app_bad_extension(self, tmp_path: Any) -> None:
+        """deploy_app rejects a non-apk/aab file."""
+        bad = tmp_path / "app.txt"
+        bad.write_text("x")
+
+        result = deploy_app("com.example.app", "internal", str(bad))
+
+        assert result["error"] == "file_path must be a .apk or .aab file"
+
+    def test_deploy_app_file_not_found(self, tmp_path: Any) -> None:
+        """deploy_app rejects a missing file."""
+        missing = str(tmp_path / "missing.apk")
+
+        result = deploy_app("com.example.app", "internal", missing)
+
+        assert "File not found" in result["error"]
+
+    def test_deploy_app_rollout_out_of_range(self, tmp_apk: str) -> None:
+        """deploy_app rejects an out-of-range rollout percentage."""
+        result = deploy_app("com.example.app", "internal", tmp_apk, rollout_percentage=150.0)
+
+        assert result["error"] == "rollout_percentage must be between 0.0 and 100.0"
+
+    def test_deploy_app_multilang_bad_extension(self, tmp_path: Any) -> None:
+        """deploy_app_multilang rejects a non-apk/aab file."""
+        bad = tmp_path / "app.txt"
+        bad.write_text("x")
+
+        result = deploy_app_multilang("com.example.app", "internal", str(bad), {"en-US": "notes"})
+
+        assert result["error"] == "file_path must be a .apk or .aab file"
+
+    def test_deploy_app_multilang_rollout_out_of_range(self, tmp_apk: str) -> None:
+        """deploy_app_multilang rejects an out-of-range rollout percentage."""
+        result = deploy_app_multilang(
+            "com.example.app", "internal", tmp_apk, {"en-US": "notes"}, rollout_percentage=-1.0
+        )
+
+        assert result["error"] == "rollout_percentage must be between 0.0 and 100.0"
+
+    def test_promote_release_rollout_out_of_range(self) -> None:
+        """promote_release rejects an out-of-range rollout percentage."""
+        result = promote_release("com.example.app", "beta", "production", 100, 200.0)
+
+        assert result["error"] == "rollout_percentage must be between 0.0 and 100.0"
+
+    def test_update_rollout_out_of_range(self) -> None:
+        """update_rollout rejects an out-of-range rollout percentage."""
+        result = update_rollout("com.example.app", "production", 100, 101.0)
+
+        assert result["error"] == "rollout_percentage must be between 0.0 and 100.0"
+
+    def test_batch_deploy_bad_extension(self, tmp_path: Any) -> None:
+        """batch_deploy rejects a non-apk/aab file."""
+        bad = tmp_path / "app.txt"
+        bad.write_text("x")
+
+        result = batch_deploy("com.example.app", str(bad), ["internal"])
+
+        assert result["error"] == "file_path must be a .apk or .aab file"
+
+    def test_batch_deploy_per_track_rollout_out_of_range(self, tmp_apk: str) -> None:
+        """batch_deploy validates each per-track rollout percentage."""
+        result = batch_deploy(
+            "com.example.app",
+            tmp_apk,
+            ["internal", "alpha"],
+            rollout_percentages={"internal": 50.0, "alpha": 150.0},
+        )
+
+        assert "alpha" in result["error"]
+        assert "between 0.0 and 100.0" in result["error"]
+
+    def test_batch_deploy_per_track_rollout_all_valid(
+        self, mock_client: MagicMock, tmp_apk: str
+    ) -> None:
+        """batch_deploy proceeds when all per-track rollout percentages are valid."""
+        mock_client.batch_deploy.return_value = BatchDeploymentResult(
+            success=True,
+            results=[],
+            successful_count=2,
+            failed_count=0,
+            message="All good",
+        )
+
+        result = batch_deploy(
+            "com.example.app",
+            tmp_apk,
+            ["internal", "alpha"],
+            rollout_percentages={"internal": 50.0, "alpha": 100.0},
+        )
+
+        assert result["success"] is True
+        mock_client.batch_deploy.assert_called_once_with(
+            package_name="com.example.app",
+            file_path=tmp_apk,
+            tracks=["internal", "alpha"],
+            release_notes=None,
+            rollout_percentages={"internal": 50.0, "alpha": 100.0},
+        )
+
+
+# =========================================================================
+# HTTP endpoints — health check and localhost enforcement
+# =========================================================================
+
+
+class TestHealthCheck:
+    """Test the /health endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_health_check(self) -> None:
+        """health_check returns a healthy status payload."""
+        from play_store_mcp.server import health_check
+
+        response = await health_check(MagicMock())
+
+        assert response.status_code == 200
+        data = json.loads(response.body)
+        assert data["status"] == "healthy"
+        assert data["service"] == "play-store-mcp"
+
+
+class TestCredentialsEndpointExtra:
+    """Additional /credentials endpoint branch coverage."""
+
+    @pytest.mark.asyncio
+    async def test_non_loopback_rejected(self) -> None:
+        """A non-loopback client is rejected with 403."""
+        from starlette.requests import Request
+
+        from play_store_mcp.server import update_credentials
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.client.host = "8.8.8.8"
+
+        response = await update_credentials(mock_request)
+
+        assert response.status_code == 403
+        data = json.loads(response.body)
+        assert data["success"] is False
+        assert "localhost" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_no_client_host_rejected(self) -> None:
+        """A request with no client (None host) is rejected with 403."""
+        from starlette.requests import Request
+
+        from play_store_mcp.server import update_credentials
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.client = None
+
+        response = await update_credentials(mock_request)
+
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_malformed_host_rejected(self) -> None:
+        """A malformed host (invalid IP) hits the ValueError branch and is rejected."""
+        from starlette.requests import Request
+
+        from play_store_mcp.server import update_credentials
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.client.host = "not-an-ip-address"
+
+        response = await update_credentials(mock_request)
+
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_base64_invalid_decoded_json(self) -> None:
+        """Base64 that decodes to invalid JSON returns 400."""
+        from starlette.requests import Request
+
+        from play_store_mcp.server import update_credentials
+
+        # Valid base64 decoding to text that is not JSON.
+        b64 = base64.b64encode(b"this is not json").decode("utf-8")
+        mock_request = MagicMock(spec=Request)
+        mock_request.client.host = "127.0.0.1"
+        mock_request.json = AsyncMock(return_value={"credentials_base64": b64})
+
+        response = await update_credentials(mock_request)
+
+        assert response.status_code == 400
+        data = json.loads(response.body)
+        assert data["success"] is False
+        assert "base64-decoded" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_generic_exception_returns_500(self) -> None:
+        """An unexpected error inside the handler returns 500."""
+        from starlette.requests import Request
+
+        from play_store_mcp.server import update_credentials
+
+        mock_request = MagicMock(spec=Request)
+        mock_request.client.host = "127.0.0.1"
+        # Raise a non-JSONDecodeError to hit the generic Exception handler.
+        mock_request.json = AsyncMock(side_effect=RuntimeError("boom"))
+
+        response = await update_credentials(mock_request)
+
+        assert response.status_code == 500
+        data = json.loads(response.body)
+        assert data["success"] is False
+        assert "Internal error" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_success_without_shared_state(self) -> None:
+        """A successful update works even when mcp has no _shared_state attribute."""
+        from starlette.requests import Request
+
+        from play_store_mcp.server import update_credentials
+
+        creds = {"type": "service_account", "project_id": "test"}
+
+        saved = getattr(mcp, "_shared_state", None)
+        if hasattr(mcp, "_shared_state"):
+            del mcp._shared_state
+        try:
+            with patch("play_store_mcp.client.PlayStoreClient._get_service") as mock_service:
+                mock_service.return_value = MagicMock()
+
+                mock_request = MagicMock(spec=Request)
+                mock_request.client.host = "127.0.0.1"
+                mock_request.json = AsyncMock(return_value={"credentials": creds})
+
+                response = await update_credentials(mock_request)
+
+            assert response.status_code == 200
+            data = json.loads(response.body)
+            assert data["success"] is True
+        finally:
+            if saved is not None:
+                mcp._shared_state = saved
+
+
+# =========================================================================
+# main() entry point branches
+# =========================================================================
+
+
+class TestMainEntryPoint:
+    """Test main() argument handling branches."""
+
+    def test_main_sets_credentials_env(self, monkeypatch: Any) -> None:
+        """--credentials sets GOOGLE_PLAY_STORE_CREDENTIALS."""
+        from play_store_mcp.server import main
+
+        monkeypatch.delenv("GOOGLE_PLAY_STORE_CREDENTIALS", raising=False)
+
+        with patch.object(mcp, "run") as mock_run:
+            main(["--credentials", "/path/to/creds.json"])
+
+        assert os.environ["GOOGLE_PLAY_STORE_CREDENTIALS"] == "/path/to/creds.json"
+        mock_run.assert_called_once()
+
+    def test_main_network_transport_sets_host_port(self, monkeypatch: Any) -> None:
+        """A network transport sets mcp.settings.host and port."""
+        from play_store_mcp.server import main
+
+        monkeypatch.delenv("GOOGLE_PLAY_STORE_CREDENTIALS", raising=False)
+
+        orig_host = mcp.settings.host
+        orig_port = mcp.settings.port
+        try:
+            with patch.object(mcp, "run") as mock_run:
+                main(["--transport", "streamable-http", "--host", "192.168.1.10", "--port", "9999"])
+
+            assert mcp.settings.host == "192.168.1.10"
+            assert mcp.settings.port == 9999
+            mock_run.assert_called_once_with(transport="streamable-http")
+        finally:
+            mcp.settings.host = orig_host
+            mcp.settings.port = orig_port

@@ -567,6 +567,29 @@ class TestReviewsExtended:
         assert len(reviews) == 1
         assert reviews[0].star_rating == 4
 
+    def test_get_reviews_developer_comment_only(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """A review with only a developer comment (no userComment) is skipped."""
+        _mock_service.reviews.return_value.list.return_value.execute.return_value = {
+            "reviews": [
+                {
+                    "reviewId": "r1",
+                    "authorName": "User",
+                    "comments": [
+                        {"developerComment": {"text": "Thanks for reaching out"}},
+                    ],
+                }
+            ]
+        }
+
+        reviews = client.get_reviews("com.example.app")
+
+        # No user comment means the review is not appended.
+        assert reviews == []
+
     def test_get_reviews_http_error(
         self,
         client: PlayStoreClient,
@@ -1264,3 +1287,216 @@ class TestEditFailures:
 
         with pytest.raises(HttpError):
             client._commit_edit("com.example.app", "edit-123")
+
+
+# =========================================================================
+# _parse_timestamp helper
+# =========================================================================
+
+
+class TestParseTimestamp:
+    """Test the _parse_timestamp helper."""
+
+    def test_parse_timestamp_none(self) -> None:
+        """None/empty input returns None."""
+        from play_store_mcp.client import _parse_timestamp
+
+        assert _parse_timestamp(None) is None
+        assert _parse_timestamp({}) is None
+
+    def test_parse_timestamp_missing_seconds(self) -> None:
+        """A dict without 'seconds' returns None."""
+        from play_store_mcp.client import _parse_timestamp
+
+        assert _parse_timestamp({"nanos": 5}) is None
+
+    def test_parse_timestamp_valid(self) -> None:
+        """A valid protobuf timestamp is parsed to a datetime."""
+        from play_store_mcp.client import _parse_timestamp
+
+        result = _parse_timestamp({"seconds": "1700000000", "nanos": 0})
+        assert result is not None
+        assert result.year == 2023
+
+    def test_parse_timestamp_invalid_value(self) -> None:
+        """A non-numeric 'seconds' triggers the except branch and returns None."""
+        from play_store_mcp.client import _parse_timestamp
+
+        assert _parse_timestamp({"seconds": "not-a-number"}) is None
+
+    def test_parse_timestamp_out_of_range(self) -> None:
+        """An out-of-range 'seconds' raises ValueError and returns None."""
+        from play_store_mcp.client import _parse_timestamp
+
+        # A value whose year exceeds 9999 makes fromtimestamp raise ValueError.
+        assert _parse_timestamp({"seconds": "100000000000000"}) is None
+
+
+# =========================================================================
+# credentials_json handling in _get_service
+# =========================================================================
+
+
+class TestCredentialsJson:
+    """Test the credentials_json branch of _get_service."""
+
+    def test_credentials_json_string(self, _mock_service: MagicMock) -> None:
+        """A JSON string starting with '{' uses from_service_account_info."""
+        client = PlayStoreClient(credentials_json='{"type": "service_account"}')
+
+        with patch(
+            "play_store_mcp.client.service_account.Credentials.from_service_account_info"
+        ) as mock_info:
+            mock_info.return_value = MagicMock()
+            client._get_service()
+
+        mock_info.assert_called_once()
+
+    def test_credentials_json_path(self, _mock_service: MagicMock, tmp_path: Any) -> None:
+        """A filesystem path string uses from_service_account_file."""
+        creds_file = tmp_path / "creds.json"
+        creds_file.write_text('{"type": "service_account"}')
+        client = PlayStoreClient(credentials_json=str(creds_file))
+
+        with patch(
+            "play_store_mcp.client.service_account.Credentials.from_service_account_file"
+        ) as mock_file:
+            mock_file.return_value = MagicMock()
+            client._get_service()
+
+        mock_file.assert_called_once()
+
+    def test_credentials_json_invalid_json(self, _mock_service: MagicMock) -> None:
+        """An invalid JSON string starting with '{' logs a warning and yields no creds."""
+        client = PlayStoreClient(credentials_json="{not valid json")
+
+        with pytest.raises(PlayStoreClientError, match="No valid credentials found"):
+            client._get_service()
+
+    def test_credentials_json_dict(self, _mock_service: MagicMock) -> None:
+        """A dict uses from_service_account_info."""
+        client = PlayStoreClient(credentials_json={"type": "service_account"})
+
+        with patch(
+            "play_store_mcp.client.service_account.Credentials.from_service_account_info"
+        ) as mock_info:
+            mock_info.return_value = MagicMock()
+            client._get_service()
+
+        mock_info.assert_called_once()
+
+    def test_credentials_json_string_not_json_not_path(self, _mock_service: MagicMock) -> None:
+        """A string that is neither JSON nor an existing path falls through to no creds."""
+        client = PlayStoreClient(credentials_json="/nonexistent/path/creds.json")
+
+        with pytest.raises(PlayStoreClientError, match="No valid credentials found"):
+            client._get_service()
+
+    def test_credentials_json_wrong_type(self, _mock_service: MagicMock) -> None:
+        """A truthy non-str, non-dict credentials_json yields no creds."""
+        client = PlayStoreClient(credentials_json=12345)  # type: ignore[arg-type]
+
+        with pytest.raises(PlayStoreClientError, match="No valid credentials found"):
+            client._get_service()
+
+
+# =========================================================================
+# Vitals overview (placeholder implementation)
+# =========================================================================
+
+
+class TestVitalsOverview:
+    """Test get_vitals_overview placeholder implementation."""
+
+    def test_get_vitals_overview(self, client: PlayStoreClient) -> None:
+        """get_vitals_overview returns a placeholder VitalsOverview."""
+        result = client.get_vitals_overview("com.example.app")
+
+        assert result.package_name == "com.example.app"
+        assert "Reporting API" in result.freshness_info
+
+
+# =========================================================================
+# In-app products error paths
+# =========================================================================
+
+
+class TestInAppProductsErrors:
+    """Test in-app product HttpError handling."""
+
+    def test_list_in_app_products_http_error(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """list_in_app_products wraps HttpError as PlayStoreClientError."""
+        _mock_service.inappproducts.return_value.list.return_value.execute.side_effect = (
+            _make_http_error(403, "forbidden")
+        )
+
+        with pytest.raises(PlayStoreClientError, match="Failed to list in-app products"):
+            client.list_in_app_products("com.example.app")
+
+    def test_get_in_app_product_http_error(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """get_in_app_product wraps HttpError as PlayStoreClientError."""
+        _mock_service.inappproducts.return_value.get.return_value.execute.side_effect = (
+            _make_http_error(404, "not found")
+        )
+
+        with pytest.raises(PlayStoreClientError, match="Failed to get in-app product"):
+            client.get_in_app_product("com.example.app", "sku1")
+
+    def test_get_in_app_product_no_default_price(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """get_in_app_product handles a product without a defaultPrice."""
+        _mock_service.inappproducts.return_value.get.return_value.execute.return_value = {
+            "sku": "sku1",
+            "purchaseType": "managedProduct",
+        }
+
+        product = client.get_in_app_product("com.example.app", "sku1")
+
+        assert product.sku == "sku1"
+        assert product.default_price is None
+
+
+# =========================================================================
+# update_listing with video
+# =========================================================================
+
+
+class TestUpdateListingVideo:
+    """Test update_listing setting the video field."""
+
+    def test_update_listing_with_video(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """update_listing with a video arg includes it in the update body."""
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.insert.return_value.execute.return_value = {"id": "edit-123"}
+        mock_edits.listings.return_value.get.return_value.execute.return_value = {
+            "title": "Old",
+            "fullDescription": "Old desc",
+            "shortDescription": "Old short",
+        }
+        mock_edits.listings.return_value.update.return_value.execute.return_value = {}
+        mock_edits.commit.return_value.execute.return_value = {}
+
+        result = client.update_listing(
+            package_name="com.example.app",
+            language="en-US",
+            video="https://youtube.com/watch?v=abc",
+        )
+
+        assert result.success is True
+        update_call = mock_edits.listings.return_value.update.call_args
+        assert update_call.kwargs["body"]["video"] == "https://youtube.com/watch?v=abc"
