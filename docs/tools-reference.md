@@ -133,6 +133,18 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 | [`list_device_tier_configs`](tools/subscriptions.md#list_device_tier_configs) | List device tier configs for an app |
 | `create_device_tier_config` | Create a device tier config (write) |
 
+## Account Access Tools
+
+| Tool | Description |
+|---|---|
+| [`list_users`](tools/subscriptions.md#list_users) | List users with access to a developer account |
+| `create_user` | Grant a user access to a developer account (write) |
+| `update_user` | Update a user's account access (write) |
+| `delete_user` | Remove a user's access to a developer account (write) |
+| `create_grant` | Grant a user app-level access (write) |
+| `update_grant` | Update a user's app-level access (write) |
+| `delete_grant` | Remove a user's app-level access (write) |
+
 ## Generated APKs Tools
 
 | Tool | Description |

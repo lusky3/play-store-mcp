@@ -490,6 +490,35 @@ WRITE_TOOLS = [
             "image_type": "phoneScreenshots",
         },
     ),
+    ("create_user", {"developer_id": "dev123", "user": {"email": "a@b.com"}}),
+    (
+        "update_user",
+        {
+            "developer_id": "dev123",
+            "email": "a@b.com",
+            "user": {"developerAccountPermissions": []},
+            "update_mask": "developerAccountPermissions",
+        },
+    ),
+    ("delete_user", {"developer_id": "dev123", "email": "a@b.com"}),
+    (
+        "create_grant",
+        {"developer_id": "dev123", "email": "a@b.com", "grant": {"packageName": "com.example.app"}},
+    ),
+    (
+        "update_grant",
+        {
+            "developer_id": "dev123",
+            "email": "a@b.com",
+            "package_name": "com.example.app",
+            "grant": {"appLevelPermissions": []},
+            "update_mask": "appLevelPermissions",
+        },
+    ),
+    (
+        "delete_grant",
+        {"developer_id": "dev123", "email": "a@b.com", "package_name": "com.example.app"},
+    ),
 ]
 
 

@@ -19,6 +19,7 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 
 from play_store_mcp.models import (
+    AccessResult,
     Apk,
     AppDetails,
     AppImage,
@@ -34,6 +35,7 @@ from play_store_mcp.models import (
     ExpansionFile,
     ExternalTransaction,
     GeneratedApksDownload,
+    Grant,
     ImageDeleteResult,
     InAppProduct,
     InAppProductActionResult,
@@ -59,6 +61,7 @@ from play_store_mcp.models import (
     SystemApkVariant,
     TesterInfo,
     TrackInfo,
+    User,
     ValidationResult,
     VitalsMetric,
     VitalsOverview,
@@ -4799,6 +4802,243 @@ class PlayStoreClient:
         except HttpError as e:
             self._logger.exception("Failed to create device tier config", error=str(e))
             raise PlayStoreClientError(f"Failed to create device tier config: {e.reason}") from e
+
+    # =========================================================================
+    # Account Access API (users & grants)
+    # =========================================================================
+
+    @staticmethod
+    def _parse_user(developer_id: str, data: dict[str, Any]) -> User:
+        """Parse a User API resource into a User model.
+
+        The email is preferred from the response body; if absent it is derived
+        from the resource name suffix (developers/{developerId}/users/{email}).
+        """
+        email = data.get("email")
+        if email is None and (name := data.get("name")):
+            email = name.rsplit("/", 1)[-1]
+        return User(
+            developer_id=developer_id,
+            email=email,
+            access_state=data.get("accessState"),
+            expiration_time=data.get("expirationTime"),
+            developer_account_permissions=data.get("developerAccountPermissions", []),
+        )
+
+    @staticmethod
+    def _parse_grant(developer_id: str, email: str, data: dict[str, Any]) -> Grant:
+        """Parse a Grant API resource into a Grant model.
+
+        The package name is preferred from the response body; if absent it is
+        derived from the resource name suffix
+        (developers/{developerId}/users/{email}/grants/{packageName}).
+        """
+        package_name = data.get("packageName")
+        if package_name is None and (name := data.get("name")):
+            package_name = name.rsplit("/", 1)[-1]
+        return Grant(
+            developer_id=developer_id,
+            email=email,
+            package_name=package_name,
+            app_level_permissions=data.get("appLevelPermissions", []),
+        )
+
+    def list_users(self, developer_id: str) -> list[User]:
+        """List users with access to a developer account.
+
+        Args:
+            developer_id: Developer account ID.
+
+        Returns:
+            List of users.
+        """
+        self._logger.info("Listing users", developer_id=developer_id)
+        service = self._get_service()
+        parent = f"developers/{developer_id}"
+
+        try:
+            result = service.users().list(parent=parent).execute()
+
+            return [
+                self._parse_user(developer_id, user_data) for user_data in result.get("users", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception("Failed to list users", error=str(e))
+            raise PlayStoreClientError(f"Failed to list users: {e.reason}") from e
+
+    def create_user(self, developer_id: str, user: dict[str, Any]) -> User:
+        """Grant a user access to a developer account.
+
+        Args:
+            developer_id: Developer account ID.
+            user: User resource body (email, developerAccountPermissions,
+                expirationTime, grants).
+
+        Returns:
+            The created user.
+        """
+        self._logger.info("Creating user", developer_id=developer_id)
+        service = self._get_service()
+        parent = f"developers/{developer_id}"
+
+        try:
+            data = service.users().create(parent=parent, body=user).execute()
+            return self._parse_user(developer_id, data)
+
+        except HttpError as e:
+            self._logger.exception("Failed to create user", error=str(e))
+            raise PlayStoreClientError(f"Failed to create user: {e.reason}") from e
+
+    def update_user(
+        self,
+        developer_id: str,
+        email: str,
+        user: dict[str, Any],
+        update_mask: str,
+    ) -> User:
+        """Update a user's account access.
+
+        Args:
+            developer_id: Developer account ID.
+            email: Email of the user to update.
+            user: User resource body with the fields to update.
+            update_mask: Comma-separated list of fields to update (e.g.
+                "developerAccountPermissions,expirationTime").
+
+        Returns:
+            The updated user.
+        """
+        self._logger.info("Updating user", developer_id=developer_id, email=email)
+        service = self._get_service()
+        name = f"developers/{developer_id}/users/{email}"
+
+        try:
+            data = service.users().patch(name=name, updateMask=update_mask, body=user).execute()
+            return self._parse_user(developer_id, data)
+
+        except HttpError as e:
+            self._logger.exception("Failed to update user", error=str(e))
+            raise PlayStoreClientError(f"Failed to update user: {e.reason}") from e
+
+    def delete_user(self, developer_id: str, email: str) -> AccessResult:
+        """Remove a user's access to a developer account.
+
+        Args:
+            developer_id: Developer account ID.
+            email: Email of the user to remove.
+
+        Returns:
+            Access result with success status.
+        """
+        self._logger.info("Deleting user", developer_id=developer_id, email=email)
+        service = self._get_service()
+        name = f"developers/{developer_id}/users/{email}"
+
+        try:
+            service.users().delete(name=name).execute()
+
+            return AccessResult(
+                success=True,
+                message=f"User {email} removed successfully",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to delete user", error=str(e))
+            raise PlayStoreClientError(f"Failed to delete user: {e.reason}") from e
+
+    def create_grant(self, developer_id: str, email: str, grant: dict[str, Any]) -> Grant:
+        """Grant a user app-level access.
+
+        Args:
+            developer_id: Developer account ID.
+            email: Email of the user to grant access to.
+            grant: Grant resource body (packageName, appLevelPermissions).
+
+        Returns:
+            The created grant.
+        """
+        self._logger.info("Creating grant", developer_id=developer_id, email=email)
+        service = self._get_service()
+        parent = f"developers/{developer_id}/users/{email}"
+
+        try:
+            data = service.grants().create(parent=parent, body=grant).execute()
+            return self._parse_grant(developer_id, email, data)
+
+        except HttpError as e:
+            self._logger.exception("Failed to create grant", error=str(e))
+            raise PlayStoreClientError(f"Failed to create grant: {e.reason}") from e
+
+    def update_grant(
+        self,
+        developer_id: str,
+        email: str,
+        package_name: str,
+        grant: dict[str, Any],
+        update_mask: str,
+    ) -> Grant:
+        """Update a user's app-level access.
+
+        Args:
+            developer_id: Developer account ID.
+            email: Email of the user the grant belongs to.
+            package_name: App package name the grant applies to.
+            grant: Grant resource body with the fields to update.
+            update_mask: Comma-separated list of fields to update (e.g.
+                "appLevelPermissions").
+
+        Returns:
+            The updated grant.
+        """
+        self._logger.info(
+            "Updating grant",
+            developer_id=developer_id,
+            email=email,
+            package_name=package_name,
+        )
+        service = self._get_service()
+        name = f"developers/{developer_id}/users/{email}/grants/{package_name}"
+
+        try:
+            data = service.grants().patch(name=name, updateMask=update_mask, body=grant).execute()
+            return self._parse_grant(developer_id, email, data)
+
+        except HttpError as e:
+            self._logger.exception("Failed to update grant", error=str(e))
+            raise PlayStoreClientError(f"Failed to update grant: {e.reason}") from e
+
+    def delete_grant(self, developer_id: str, email: str, package_name: str) -> AccessResult:
+        """Remove a user's app-level access.
+
+        Args:
+            developer_id: Developer account ID.
+            email: Email of the user the grant belongs to.
+            package_name: App package name the grant applies to.
+
+        Returns:
+            Access result with success status.
+        """
+        self._logger.info(
+            "Deleting grant",
+            developer_id=developer_id,
+            email=email,
+            package_name=package_name,
+        )
+        service = self._get_service()
+        name = f"developers/{developer_id}/users/{email}/grants/{package_name}"
+
+        try:
+            service.grants().delete(name=name).execute()
+
+            return AccessResult(
+                success=True,
+                message=f"Grant for {package_name} removed successfully",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to delete grant", error=str(e))
+            raise PlayStoreClientError(f"Failed to delete grant: {e.reason}") from e
 
     # =========================================================================
     # Data Safety API

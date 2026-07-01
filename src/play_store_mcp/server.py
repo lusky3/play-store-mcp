@@ -2577,6 +2577,189 @@ def create_device_tier_config(
 
 
 # =============================================================================
+# Account Access Tools (Users & Grants)
+# =============================================================================
+
+
+@mcp.tool()
+def list_users(developer_id: str) -> list[dict[str, Any]]:
+    """List users with access to a developer account.
+
+    Args:
+        developer_id: Developer account ID
+
+    Returns:
+        List of users with their access state and account-level permissions
+    """
+    client = get_client_from_context()
+
+    users = client.list_users(developer_id)
+    return [user.model_dump() for user in users]
+
+
+@mcp.tool()
+def create_user(developer_id: str, user: dict[str, Any]) -> dict[str, Any]:
+    """Grant a user access to a developer account.
+
+    Disabled in read-only mode.
+
+    Args:
+        developer_id: Developer account ID
+        user: User resource body (email, developerAccountPermissions,
+            expirationTime, grants)
+
+    Returns:
+        The created user
+    """
+    if blocked := _read_only_block("create_user"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.create_user(developer_id=developer_id, user=user)
+    return result.model_dump()
+
+
+@mcp.tool()
+def update_user(
+    developer_id: str,
+    email: str,
+    user: dict[str, Any],
+    update_mask: str,
+) -> dict[str, Any]:
+    """Update a user's account access.
+
+    Disabled in read-only mode.
+
+    Args:
+        developer_id: Developer account ID
+        email: Email of the user to update
+        user: User resource body with the fields to update
+        update_mask: Comma-separated list of fields to update (e.g.
+            "developerAccountPermissions,expirationTime")
+
+    Returns:
+        The updated user
+    """
+    if blocked := _read_only_block("update_user"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.update_user(
+        developer_id=developer_id,
+        email=email,
+        user=user,
+        update_mask=update_mask,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def delete_user(developer_id: str, email: str) -> dict[str, Any]:
+    """Remove a user's access to a developer account.
+
+    Disabled in read-only mode.
+
+    Args:
+        developer_id: Developer account ID
+        email: Email of the user to remove
+
+    Returns:
+        Access result with success status
+    """
+    if blocked := _read_only_block("delete_user"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.delete_user(developer_id=developer_id, email=email)
+    return result.model_dump()
+
+
+@mcp.tool()
+def create_grant(developer_id: str, email: str, grant: dict[str, Any]) -> dict[str, Any]:
+    """Grant a user app-level access.
+
+    Disabled in read-only mode.
+
+    Args:
+        developer_id: Developer account ID
+        email: Email of the user to grant access to
+        grant: Grant resource body (packageName, appLevelPermissions)
+
+    Returns:
+        The created grant
+    """
+    if blocked := _read_only_block("create_grant"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.create_grant(developer_id=developer_id, email=email, grant=grant)
+    return result.model_dump()
+
+
+@mcp.tool()
+def update_grant(
+    developer_id: str,
+    email: str,
+    package_name: str,
+    grant: dict[str, Any],
+    update_mask: str,
+) -> dict[str, Any]:
+    """Update a user's app-level access.
+
+    Disabled in read-only mode.
+
+    Args:
+        developer_id: Developer account ID
+        email: Email of the user the grant belongs to
+        package_name: App package name the grant applies to
+        grant: Grant resource body with the fields to update
+        update_mask: Comma-separated list of fields to update (e.g.
+            "appLevelPermissions")
+
+    Returns:
+        The updated grant
+    """
+    if blocked := _read_only_block("update_grant"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.update_grant(
+        developer_id=developer_id,
+        email=email,
+        package_name=package_name,
+        grant=grant,
+        update_mask=update_mask,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def delete_grant(developer_id: str, email: str, package_name: str) -> dict[str, Any]:
+    """Remove a user's app-level access.
+
+    Disabled in read-only mode.
+
+    Args:
+        developer_id: Developer account ID
+        email: Email of the user the grant belongs to
+        package_name: App package name the grant applies to
+
+    Returns:
+        Access result with success status
+    """
+    if blocked := _read_only_block("delete_grant"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.delete_grant(
+        developer_id=developer_id,
+        email=email,
+        package_name=package_name,
+    )
+    return result.model_dump()
+
+
+# =============================================================================
 # Data Safety Tools
 # =============================================================================
 

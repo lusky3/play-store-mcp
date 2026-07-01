@@ -1281,6 +1281,150 @@ create_device_tier_config(
 )
 ```
 
+## Account Access (Users & Grants)
+
+Manage Play Console account access
+([users](https://developers.google.com/android-publisher/api-ref/rest/v3/users)
+and [grants](https://developers.google.com/android-publisher/api-ref/rest/v3/grants)).
+These are **account-level** resources: they are addressed by
+[resource names](https://google.aip.dev/122) under
+`developers/{developerId}` rather than by an app package name. A **user** is a
+person invited to the developer account (with account-wide
+`developerAccountPermissions`); a **grant** gives that user app-level access to a
+single package (`appLevelPermissions`). `list_users` is read-only; every other
+tool here is a write and is disabled in
+[read-only mode](../configuration.md#read-only-mode).
+
+Resource names are built from the parameters you pass:
+
+- User: `developers/{developer_id}/users/{email}`
+- Grant: `developers/{developer_id}/users/{email}/grants/{package_name}`
+
+### list_users
+
+List users with access to a developer account. Read-only (available in read-only mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `developer_id` | string | Yes | Developer account ID |
+
+```python
+list_users("1234567890")
+```
+
+### create_user
+
+Grant a user access to a developer account. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `developer_id` | string | Yes | Developer account ID |
+| `user` | object | Yes | [User](https://developers.google.com/android-publisher/api-ref/rest/v3/users#User) resource body (`email`, `developerAccountPermissions`, `expirationTime`, `grants`) |
+
+```python
+create_user(
+    developer_id="1234567890",
+    user={
+        "email": "teammate@example.com",
+        "developerAccountPermissions": ["CAN_VIEW_FINANCIAL_DATA_GLOBAL"],
+    },
+)
+```
+
+### update_user
+
+Update a user's account access. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `developer_id` | string | Yes | Developer account ID |
+| `email` | string | Yes | Email of the user to update |
+| `user` | object | Yes | User resource body with the fields to update |
+| `update_mask` | string | Yes | Comma-separated list of fields to update (e.g. `developerAccountPermissions,expirationTime`) |
+
+```python
+update_user(
+    developer_id="1234567890",
+    email="teammate@example.com",
+    user={"developerAccountPermissions": ["CAN_MANAGE_ORDERS_GLOBAL"]},
+    update_mask="developerAccountPermissions",
+)
+```
+
+### delete_user
+
+Remove a user's access to a developer account. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `developer_id` | string | Yes | Developer account ID |
+| `email` | string | Yes | Email of the user to remove |
+
+```python
+delete_user(developer_id="1234567890", email="teammate@example.com")
+```
+
+### create_grant
+
+Grant a user app-level access. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `developer_id` | string | Yes | Developer account ID |
+| `email` | string | Yes | Email of the user to grant access to |
+| `grant` | object | Yes | [Grant](https://developers.google.com/android-publisher/api-ref/rest/v3/grants#Grant) resource body (`packageName`, `appLevelPermissions`) |
+
+```python
+create_grant(
+    developer_id="1234567890",
+    email="teammate@example.com",
+    grant={
+        "packageName": "com.example.myapp",
+        "appLevelPermissions": ["CAN_MANAGE_PUBLIC_APKS_GLOBAL"],
+    },
+)
+```
+
+### update_grant
+
+Update a user's app-level access. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `developer_id` | string | Yes | Developer account ID |
+| `email` | string | Yes | Email of the user the grant belongs to |
+| `package_name` | string | Yes | App package name the grant applies to |
+| `grant` | object | Yes | Grant resource body with the fields to update |
+| `update_mask` | string | Yes | Comma-separated list of fields to update (e.g. `appLevelPermissions`) |
+
+```python
+update_grant(
+    developer_id="1234567890",
+    email="teammate@example.com",
+    package_name="com.example.myapp",
+    grant={"appLevelPermissions": ["CAN_VIEW_APP_QUALITY_GLOBAL"]},
+    update_mask="appLevelPermissions",
+)
+```
+
+### delete_grant
+
+Remove a user's app-level access. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `developer_id` | string | Yes | Developer account ID |
+| `email` | string | Yes | Email of the user the grant belongs to |
+| `package_name` | string | Yes | App package name the grant applies to |
+
+```python
+delete_grant(
+    developer_id="1234567890",
+    email="teammate@example.com",
+    package_name="com.example.myapp",
+)
+```
+
 ## Data Safety
 
 ### set_data_safety

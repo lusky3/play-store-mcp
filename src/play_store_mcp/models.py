@@ -474,6 +474,41 @@ class DeviceTierConfig(BaseModel):
     )
 
 
+class User(BaseModel):
+    """A Play Console user with account access (users resource)."""
+
+    developer_id: str = Field(..., description="Developer account ID")
+    email: str | None = Field(None, description="User's email address")
+    access_state: str | None = Field(
+        None, description="Current access state (e.g. INVITED, ACCESS_GRANTED)"
+    )
+    expiration_time: str | None = Field(
+        None, description="Time the user's access expires (RFC3339)"
+    )
+    developer_account_permissions: list[str] = Field(
+        default_factory=list, description="Account-wide permissions granted to the user"
+    )
+
+
+class Grant(BaseModel):
+    """An app-level access grant for a user (grants resource)."""
+
+    developer_id: str = Field(..., description="Developer account ID")
+    email: str = Field(..., description="Email of the user the grant belongs to")
+    package_name: str | None = Field(None, description="App package name the grant applies to")
+    app_level_permissions: list[str] = Field(
+        default_factory=list, description="App-level permissions granted to the user"
+    )
+
+
+class AccessResult(BaseModel):
+    """Result of a user/grant write that returns an empty response (delete)."""
+
+    success: bool = Field(..., description="Whether the operation succeeded")
+    message: str = Field(..., description="Status message")
+    error: str | None = Field(None, description="Error details if failed")
+
+
 class DataSafetyResult(BaseModel):
     """Result of updating an app's data safety labels (applications.dataSafety)."""
 
