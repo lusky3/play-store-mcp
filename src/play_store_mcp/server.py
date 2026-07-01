@@ -1227,6 +1227,330 @@ def batch_delete_one_time_products(
 
 
 # =============================================================================
+# One-Time Product Purchase Option Tools
+# =============================================================================
+
+
+@mcp.tool()
+def batch_delete_purchase_options(
+    package_name: str,
+    product_id: str,
+    requests: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Delete multiple purchase options from a one-time product in a single operation.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent one-time product ID
+        requests: List of DeletePurchaseOptionRequest bodies (each with purchaseOptionId
+            and optional latencyTolerance)
+
+    Returns:
+        Result with success status
+    """
+    if blocked := _read_only_block("batch_delete_purchase_options"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.batch_delete_purchase_options(
+        package_name=package_name, product_id=product_id, requests=requests
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def batch_update_purchase_option_states(
+    package_name: str,
+    product_id: str,
+    requests: list[dict[str, Any]],
+) -> list[dict[str, Any]] | dict[str, Any]:
+    """Activate or deactivate multiple purchase options in a single operation.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent one-time product ID
+        requests: List of UpdatePurchaseOptionStateRequest bodies (each with a nested
+            activatePurchaseOptionRequest or deactivatePurchaseOptionRequest)
+
+    Returns:
+        List of updated one-time products, or an error object in read-only mode
+    """
+    if blocked := _read_only_block("batch_update_purchase_option_states"):
+        return blocked
+    client = get_client_from_context()
+
+    products = client.batch_update_purchase_option_states(
+        package_name=package_name, product_id=product_id, requests=requests
+    )
+    return [product.model_dump() for product in products]
+
+
+# =============================================================================
+# One-Time Product Purchase Option Offer Tools
+# =============================================================================
+
+
+@mcp.tool()
+def list_purchase_option_offers(
+    package_name: str,
+    product_id: str,
+    purchase_option_id: str,
+) -> list[dict[str, Any]]:
+    """List all offers for a one-time product purchase option.
+
+    Args:
+        package_name: App package name
+        product_id: Parent one-time product ID ('-' wildcard lists across products)
+        purchase_option_id: Parent purchase option ID ('-' wildcard lists across options)
+
+    Returns:
+        List of one-time product offers
+    """
+    client = get_client_from_context()
+
+    offers = client.list_purchase_option_offers(
+        package_name=package_name,
+        product_id=product_id,
+        purchase_option_id=purchase_option_id,
+    )
+    return [offer.model_dump() for offer in offers]
+
+
+@mcp.tool()
+def batch_get_purchase_option_offers(
+    package_name: str,
+    product_id: str,
+    purchase_option_id: str,
+    requests: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Get details for multiple one-time product offers at once.
+
+    Args:
+        package_name: App package name
+        product_id: Parent one-time product ID ('-' wildcard allowed)
+        purchase_option_id: Parent purchase option ID ('-' wildcard allowed)
+        requests: List of GetOneTimeProductOfferRequest bodies
+
+    Returns:
+        List of one-time product offers
+    """
+    client = get_client_from_context()
+
+    offers = client.batch_get_purchase_option_offers(
+        package_name=package_name,
+        product_id=product_id,
+        purchase_option_id=purchase_option_id,
+        requests=requests,
+    )
+    return [offer.model_dump() for offer in offers]
+
+
+@mcp.tool()
+def activate_purchase_option_offer(
+    package_name: str,
+    product_id: str,
+    purchase_option_id: str,
+    offer_id: str,
+) -> dict[str, Any]:
+    """Activate a one-time product offer, making it available to eligible buyers.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent one-time product ID
+        purchase_option_id: Parent purchase option ID
+        offer_id: One-time product offer ID to activate
+
+    Returns:
+        The updated one-time product offer
+    """
+    if blocked := _read_only_block("activate_purchase_option_offer"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.activate_purchase_option_offer(
+        package_name=package_name,
+        product_id=product_id,
+        purchase_option_id=purchase_option_id,
+        offer_id=offer_id,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def deactivate_purchase_option_offer(
+    package_name: str,
+    product_id: str,
+    purchase_option_id: str,
+    offer_id: str,
+) -> dict[str, Any]:
+    """Deactivate a one-time product offer, making it unavailable to new buyers.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent one-time product ID
+        purchase_option_id: Parent purchase option ID
+        offer_id: One-time product offer ID to deactivate
+
+    Returns:
+        The updated one-time product offer
+    """
+    if blocked := _read_only_block("deactivate_purchase_option_offer"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.deactivate_purchase_option_offer(
+        package_name=package_name,
+        product_id=product_id,
+        purchase_option_id=purchase_option_id,
+        offer_id=offer_id,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def cancel_purchase_option_offer(
+    package_name: str,
+    product_id: str,
+    purchase_option_id: str,
+    offer_id: str,
+) -> dict[str, Any]:
+    """Cancel a one-time product offer (e.g. a pre-order offer).
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent one-time product ID
+        purchase_option_id: Parent purchase option ID
+        offer_id: One-time product offer ID to cancel
+
+    Returns:
+        The updated one-time product offer
+    """
+    if blocked := _read_only_block("cancel_purchase_option_offer"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.cancel_purchase_option_offer(
+        package_name=package_name,
+        product_id=product_id,
+        purchase_option_id=purchase_option_id,
+        offer_id=offer_id,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def batch_update_purchase_option_offers(
+    package_name: str,
+    product_id: str,
+    purchase_option_id: str,
+    requests: list[dict[str, Any]],
+) -> list[dict[str, Any]] | dict[str, Any]:
+    """Create or update multiple one-time product offers in a single operation.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent one-time product ID ('-' wildcard allowed)
+        purchase_option_id: Parent purchase option ID ('-' wildcard allowed)
+        requests: List of UpdateOneTimeProductOfferRequest bodies (each with
+            oneTimeProductOffer, updateMask, and optional allowMissing / latencyTolerance)
+
+    Returns:
+        List of updated one-time product offers, or an error object in read-only mode
+    """
+    if blocked := _read_only_block("batch_update_purchase_option_offers"):
+        return blocked
+    client = get_client_from_context()
+
+    offers = client.batch_update_purchase_option_offers(
+        package_name=package_name,
+        product_id=product_id,
+        purchase_option_id=purchase_option_id,
+        requests=requests,
+    )
+    return [offer.model_dump() for offer in offers]
+
+
+@mcp.tool()
+def batch_update_purchase_option_offer_states(
+    package_name: str,
+    product_id: str,
+    purchase_option_id: str,
+    requests: list[dict[str, Any]],
+) -> list[dict[str, Any]] | dict[str, Any]:
+    """Activate, deactivate or cancel multiple one-time product offers in a single operation.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent one-time product ID ('-' wildcard allowed)
+        purchase_option_id: Parent purchase option ID ('-' wildcard allowed)
+        requests: List of UpdateOneTimeProductOfferStateRequest bodies (each with a nested
+            activate/deactivate/cancel one-time product offer request)
+
+    Returns:
+        List of updated one-time product offers, or an error object in read-only mode
+    """
+    if blocked := _read_only_block("batch_update_purchase_option_offer_states"):
+        return blocked
+    client = get_client_from_context()
+
+    offers = client.batch_update_purchase_option_offer_states(
+        package_name=package_name,
+        product_id=product_id,
+        purchase_option_id=purchase_option_id,
+        requests=requests,
+    )
+    return [offer.model_dump() for offer in offers]
+
+
+@mcp.tool()
+def batch_delete_purchase_option_offers(
+    package_name: str,
+    product_id: str,
+    purchase_option_id: str,
+    requests: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Delete multiple one-time product offers in a single operation.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent one-time product ID ('-' wildcard allowed)
+        purchase_option_id: Parent purchase option ID ('-' wildcard allowed)
+        requests: List of DeleteOneTimeProductOfferRequest bodies (each with offerId
+            and optional latencyTolerance)
+
+    Returns:
+        Result with success status
+    """
+    if blocked := _read_only_block("batch_delete_purchase_option_offers"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.batch_delete_purchase_option_offers(
+        package_name=package_name,
+        product_id=product_id,
+        purchase_option_id=purchase_option_id,
+        requests=requests,
+    )
+    return result.model_dump()
+
+
+# =============================================================================
 # Subscription Catalog Tools
 # =============================================================================
 

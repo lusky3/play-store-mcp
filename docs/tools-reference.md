@@ -88,6 +88,21 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 | `batch_update_one_time_products` | Update multiple one-time products at once (write) |
 | `batch_delete_one_time_products` | Delete multiple one-time products at once (write) |
 
+## One-Time Product Offer Tools
+
+| Tool | Description |
+|---|---|
+| [`list_purchase_option_offers`](tools/subscriptions.md#list_purchase_option_offers) | List all offers for a purchase option |
+| [`batch_get_purchase_option_offers`](tools/subscriptions.md#batch_get_purchase_option_offers) | Get details for multiple one-time product offers at once |
+| `batch_delete_purchase_options` | Delete multiple purchase options at once (write) |
+| `batch_update_purchase_option_states` | Activate/deactivate multiple purchase options at once (write) |
+| `activate_purchase_option_offer` | Activate a one-time product offer (write) |
+| `deactivate_purchase_option_offer` | Deactivate a one-time product offer (write) |
+| `cancel_purchase_option_offer` | Cancel a one-time product offer (write) |
+| `batch_update_purchase_option_offers` | Update multiple one-time product offers at once (write) |
+| `batch_update_purchase_option_offer_states` | Activate/deactivate/cancel multiple one-time product offers at once (write) |
+| `batch_delete_purchase_option_offers` | Delete multiple one-time product offers at once (write) |
+
 ## Purchase Management Tools
 
 | Tool | Description |

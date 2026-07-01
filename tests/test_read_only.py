@@ -315,6 +315,76 @@ WRITE_TOOLS = [
             "requests": [{"activateSubscriptionOfferRequest": {"offerId": "intro"}}],
         },
     ),
+    (
+        "batch_delete_purchase_options",
+        {
+            "package_name": "com.example.app",
+            "product_id": "coins_pack",
+            "requests": [{"purchaseOptionId": "opt1"}],
+        },
+    ),
+    (
+        "batch_update_purchase_option_states",
+        {
+            "package_name": "com.example.app",
+            "product_id": "coins_pack",
+            "requests": [{"activatePurchaseOptionRequest": {"purchaseOptionId": "opt1"}}],
+        },
+    ),
+    (
+        "activate_purchase_option_offer",
+        {
+            "package_name": "com.example.app",
+            "product_id": "coins_pack",
+            "purchase_option_id": "opt1",
+            "offer_id": "intro",
+        },
+    ),
+    (
+        "deactivate_purchase_option_offer",
+        {
+            "package_name": "com.example.app",
+            "product_id": "coins_pack",
+            "purchase_option_id": "opt1",
+            "offer_id": "intro",
+        },
+    ),
+    (
+        "cancel_purchase_option_offer",
+        {
+            "package_name": "com.example.app",
+            "product_id": "coins_pack",
+            "purchase_option_id": "opt1",
+            "offer_id": "intro",
+        },
+    ),
+    (
+        "batch_update_purchase_option_offers",
+        {
+            "package_name": "com.example.app",
+            "product_id": "coins_pack",
+            "purchase_option_id": "opt1",
+            "requests": [{"oneTimeProductOffer": {}}],
+        },
+    ),
+    (
+        "batch_update_purchase_option_offer_states",
+        {
+            "package_name": "com.example.app",
+            "product_id": "coins_pack",
+            "purchase_option_id": "opt1",
+            "requests": [{"activateOneTimeProductOfferRequest": {"offerId": "intro"}}],
+        },
+    ),
+    (
+        "batch_delete_purchase_option_offers",
+        {
+            "package_name": "com.example.app",
+            "product_id": "coins_pack",
+            "purchase_option_id": "opt1",
+            "requests": [{"offerId": "intro"}],
+        },
+    ),
 ]
 
 

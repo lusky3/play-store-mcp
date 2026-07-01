@@ -353,6 +353,18 @@ class OneTimeProductActionResult(BaseModel):
     error: str | None = Field(None, description="Error details if failed")
 
 
+class OneTimeProductOffer(BaseModel):
+    """One-time product offer definition (purchaseOptions.offers resource)."""
+
+    package_name: str = Field(..., description="App package name")
+    product_id: str = Field(..., description="Parent one-time product ID")
+    purchase_option_id: str = Field(..., description="Parent purchase option ID")
+    offer_id: str = Field(..., description="One-time product offer ID")
+    state: str | None = Field(None, description="Offer state (e.g. DRAFT, ACTIVE, INACTIVE)")
+    offer_tags: list[str] = Field(default_factory=list, description="Offer tag strings")
+    regions_version: str | None = Field(None, description="Regions catalog version")
+
+
 class ProductPurchaseV2(BaseModel):
     """Status of an in-app product purchase (Purchases.productsv2)."""
 
