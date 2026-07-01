@@ -43,6 +43,9 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 |---|---|
 | [`list_in_app_products`](tools/subscriptions.md#list_in_app_products) | List all in-app products |
 | [`get_in_app_product`](tools/subscriptions.md#get_in_app_product) | Get details of a specific product |
+| [`get_product_purchase`](tools/subscriptions.md#get_product_purchase) | Check status of an in-app product purchase |
+| [`acknowledge_product_purchase`](tools/subscriptions.md#acknowledge_product_purchase) | Acknowledge an in-app product purchase (write) |
+| [`consume_product_purchase`](tools/subscriptions.md#consume_product_purchase) | Consume an in-app product purchase (write) |
 
 ## Testers Tools
 

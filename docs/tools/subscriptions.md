@@ -87,3 +87,54 @@ Get details of a specific in-app product.
 ```python
 get_in_app_product("com.example.myapp", sku="premium_upgrade")
 ```
+
+---
+
+## get_product_purchase
+
+Check the status of a one-time (managed) in-app product purchase using a purchase token from the client app.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | In-app product SKU |
+| `purchase_token` | string | Yes | Purchase token from the client app |
+
+Returns purchase state, consumption state, acknowledgement state, order ID, and region.
+
+```python
+get_product_purchase("com.example.myapp", product_id="premium_upgrade", purchase_token="tok...")
+```
+
+---
+
+## acknowledge_product_purchase
+
+Acknowledge a product purchase. **Purchases not acknowledged within 3 days are automatically refunded.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | In-app product SKU |
+| `purchase_token` | string | Yes | Purchase token from the client app |
+| `developer_payload` | string | No | Optional payload to associate with the purchase |
+
+```python
+acknowledge_product_purchase("com.example.myapp", product_id="premium_upgrade", purchase_token="tok...")
+```
+
+---
+
+## consume_product_purchase
+
+Consume a product purchase so a consumable product can be purchased again. Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | In-app product SKU |
+| `purchase_token` | string | Yes | Purchase token from the client app |
+
+```python
+consume_product_purchase("com.example.myapp", product_id="coins_100", purchase_token="tok...")
+```
