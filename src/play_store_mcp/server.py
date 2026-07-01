@@ -2948,6 +2948,151 @@ def get_expansion_file(
 
 
 # =============================================================================
+# Edit Upload Tools (APKs, bundles, deobfuscation & expansion files)
+# =============================================================================
+
+
+@mcp.tool()
+def list_apks(package_name: str) -> list[dict[str, Any]]:
+    """List the APKs currently uploaded for an app.
+
+    Args:
+        package_name: App package name
+
+    Returns:
+        List of APKs, each with its version code and binary sha1/sha256 hashes
+    """
+    client = get_client_from_context()
+
+    apks = client.list_apks(package_name)
+    return [apk.model_dump() for apk in apks]
+
+
+@mcp.tool()
+def list_bundles(package_name: str) -> list[dict[str, Any]]:
+    """List the Android App Bundles currently uploaded for an app.
+
+    Args:
+        package_name: App package name
+
+    Returns:
+        List of app bundles, each with its version code and sha1/sha256 hashes
+    """
+    client = get_client_from_context()
+
+    bundles = client.list_bundles(package_name)
+    return [bundle.model_dump() for bundle in bundles]
+
+
+@mcp.tool()
+def upload_apk(package_name: str, apk_path: str) -> dict[str, Any]:
+    """Upload an APK to a new edit and commit it.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        apk_path: Local path to the APK file
+
+    Returns:
+        The uploaded APK with its version code and binary sha1/sha256 hashes
+    """
+    if blocked := _read_only_block("upload_apk"):
+        return blocked
+    client = get_client_from_context()
+
+    apk = client.upload_apk(package_name=package_name, apk_path=apk_path)
+    return apk.model_dump()
+
+
+@mcp.tool()
+def upload_bundle(package_name: str, bundle_path: str) -> dict[str, Any]:
+    """Upload an Android App Bundle (.aab) to a new edit and commit it.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        bundle_path: Local path to the app bundle (.aab) file
+
+    Returns:
+        The uploaded app bundle with its version code and sha1/sha256 hashes
+    """
+    if blocked := _read_only_block("upload_bundle"):
+        return blocked
+    client = get_client_from_context()
+
+    bundle = client.upload_bundle(package_name=package_name, bundle_path=bundle_path)
+    return bundle.model_dump()
+
+
+@mcp.tool()
+def upload_deobfuscation_file(
+    package_name: str,
+    version_code: int,
+    file_path: str,
+    deobfuscation_file_type: str = "proguard",
+) -> dict[str, Any]:
+    """Upload a deobfuscation (ProGuard mapping or native symbols) file.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        version_code: APK version code the file applies to
+        file_path: Local path to the deobfuscation file
+        deobfuscation_file_type: Type of file - one of: proguard, nativeCode
+
+    Returns:
+        The uploaded deobfuscation file configuration with its symbol type
+    """
+    if blocked := _read_only_block("upload_deobfuscation_file"):
+        return blocked
+    client = get_client_from_context()
+
+    deobfuscation_file = client.upload_deobfuscation_file(
+        package_name=package_name,
+        version_code=version_code,
+        file_path=file_path,
+        deobfuscation_file_type=deobfuscation_file_type,
+    )
+    return deobfuscation_file.model_dump()
+
+
+@mcp.tool()
+def upload_expansion_file(
+    package_name: str,
+    version_code: int,
+    file_path: str,
+    expansion_file_type: str = "main",
+) -> dict[str, Any]:
+    """Upload an APK expansion file (OBB) to a new edit and commit it.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        version_code: APK version code the file applies to
+        file_path: Local path to the expansion file
+        expansion_file_type: Type of expansion file - one of: main, patch
+
+    Returns:
+        The uploaded expansion file information including size and references
+    """
+    if blocked := _read_only_block("upload_expansion_file"):
+        return blocked
+    client = get_client_from_context()
+
+    expansion_file = client.upload_expansion_file(
+        package_name=package_name,
+        version_code=version_code,
+        file_path=file_path,
+        expansion_file_type=expansion_file_type,
+    )
+    return expansion_file.model_dump()
+
+
+# =============================================================================
 # Validation Tools
 # =============================================================================
 

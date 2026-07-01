@@ -19,11 +19,14 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 
 from play_store_mcp.models import (
+    Apk,
     AppDetails,
     AppRecovery,
     AppRecoveryResult,
     BatchDeploymentResult,
+    Bundle,
     DataSafetyResult,
+    DeobfuscationFile,
     DeploymentResult,
     DeviceTierConfig,
     DownloadResult,
@@ -4083,6 +4086,253 @@ class PlayStoreClient:
             raise PlayStoreClientError(f"Failed to get expansion file: {e.reason}") from e
         finally:
             self._delete_edit(package_name, edit_id)
+
+    # =========================================================================
+    # Edit Uploads API (apks, bundles, deobfuscation files, expansion files)
+    # =========================================================================
+
+    def list_apks(self, package_name: str) -> list[Apk]:
+        """List the APKs currently attached to a new edit.
+
+        Args:
+            package_name: App package name.
+
+        Returns:
+            List of APKs with their version codes and binary hashes.
+        """
+        self._logger.info("Listing APKs", package_name=package_name)
+        service = self._get_service()
+        edit_id = self._create_edit(package_name)
+
+        try:
+            result = service.edits().apks().list(packageName=package_name, editId=edit_id).execute()
+            apks: list[Apk] = []
+            for apk_data in result.get("apks", []):
+                binary = apk_data.get("binary") or {}
+                apks.append(
+                    Apk(
+                        package_name=package_name,
+                        version_code=int(apk_data.get("versionCode", 0)),
+                        sha1=binary.get("sha1"),
+                        sha256=binary.get("sha256"),
+                    )
+                )
+            return apks
+        finally:
+            self._delete_edit(package_name, edit_id)
+
+    def list_bundles(self, package_name: str) -> list[Bundle]:
+        """List the app bundles currently attached to a new edit.
+
+        Args:
+            package_name: App package name.
+
+        Returns:
+            List of app bundles with their version codes and hashes.
+        """
+        self._logger.info("Listing bundles", package_name=package_name)
+        service = self._get_service()
+        edit_id = self._create_edit(package_name)
+
+        try:
+            result = (
+                service.edits().bundles().list(packageName=package_name, editId=edit_id).execute()
+            )
+            return [
+                Bundle(
+                    package_name=package_name,
+                    version_code=int(bundle_data.get("versionCode", 0)),
+                    sha1=bundle_data.get("sha1"),
+                    sha256=bundle_data.get("sha256"),
+                )
+                for bundle_data in result.get("bundles", [])
+            ]
+        finally:
+            self._delete_edit(package_name, edit_id)
+
+    def upload_apk(self, package_name: str, apk_path: str) -> Apk:
+        """Upload an APK to a new edit and commit it.
+
+        Args:
+            package_name: App package name.
+            apk_path: Local path to the APK file.
+
+        Returns:
+            The uploaded APK with its version code and binary hashes.
+        """
+        self._logger.info("Uploading APK", package_name=package_name, apk_path=apk_path)
+        service = self._get_service()
+        edit_id = self._create_edit(package_name)
+
+        try:
+            media = MediaFileUpload(
+                apk_path,
+                mimetype="application/vnd.android.package-archive",
+                resumable=True,
+            )
+            data = (
+                service.edits()
+                .apks()
+                .upload(packageName=package_name, editId=edit_id, media_body=media)
+                .execute()
+            )
+            self._commit_edit(package_name, edit_id)
+            binary = data.get("binary") or {}
+            return Apk(
+                package_name=package_name,
+                version_code=int(data.get("versionCode", 0)),
+                sha1=binary.get("sha1"),
+                sha256=binary.get("sha256"),
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to upload APK", error=str(e))
+            self._delete_edit(package_name, edit_id)
+            raise PlayStoreClientError(f"Failed to upload APK: {e.reason}") from e
+
+    def upload_bundle(self, package_name: str, bundle_path: str) -> Bundle:
+        """Upload an app bundle (.aab) to a new edit and commit it.
+
+        Args:
+            package_name: App package name.
+            bundle_path: Local path to the app bundle (.aab) file.
+
+        Returns:
+            The uploaded app bundle with its version code and hashes.
+        """
+        self._logger.info("Uploading bundle", package_name=package_name, bundle_path=bundle_path)
+        service = self._get_service()
+        edit_id = self._create_edit(package_name)
+
+        try:
+            media = MediaFileUpload(
+                bundle_path,
+                mimetype="application/octet-stream",
+                resumable=True,
+            )
+            data = (
+                service.edits()
+                .bundles()
+                .upload(packageName=package_name, editId=edit_id, media_body=media)
+                .execute()
+            )
+            self._commit_edit(package_name, edit_id)
+            return Bundle(
+                package_name=package_name,
+                version_code=int(data.get("versionCode", 0)),
+                sha1=data.get("sha1"),
+                sha256=data.get("sha256"),
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to upload bundle", error=str(e))
+            self._delete_edit(package_name, edit_id)
+            raise PlayStoreClientError(f"Failed to upload bundle: {e.reason}") from e
+
+    def upload_deobfuscation_file(
+        self,
+        package_name: str,
+        version_code: int,
+        file_path: str,
+        deobfuscation_file_type: str = "proguard",
+    ) -> DeobfuscationFile:
+        """Upload a deobfuscation (mapping/symbol) file for an APK version.
+
+        Args:
+            package_name: App package name.
+            version_code: APK version code the file applies to.
+            file_path: Local path to the deobfuscation file.
+            deobfuscation_file_type: Type of file (proguard or nativeCode).
+
+        Returns:
+            The uploaded deobfuscation file configuration.
+        """
+        self._logger.info(
+            "Uploading deobfuscation file",
+            package_name=package_name,
+            version_code=version_code,
+            type=deobfuscation_file_type,
+        )
+        service = self._get_service()
+        edit_id = self._create_edit(package_name)
+
+        try:
+            media = MediaFileUpload(file_path, mimetype="application/octet-stream", resumable=True)
+            data = (
+                service.edits()
+                .deobfuscationfiles()
+                .upload(
+                    packageName=package_name,
+                    editId=edit_id,
+                    apkVersionCode=version_code,
+                    deobfuscationFileType=deobfuscation_file_type,
+                    media_body=media,
+                )
+                .execute()
+            )
+            self._commit_edit(package_name, edit_id)
+            deobfuscation_file = data.get("deobfuscationFile") or {}
+            return DeobfuscationFile(
+                package_name=package_name,
+                version_code=version_code,
+                symbol_type=deobfuscation_file.get("symbolType"),
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to upload deobfuscation file", error=str(e))
+            self._delete_edit(package_name, edit_id)
+            raise PlayStoreClientError(f"Failed to upload deobfuscation file: {e.reason}") from e
+
+    def upload_expansion_file(
+        self,
+        package_name: str,
+        version_code: int,
+        file_path: str,
+        expansion_file_type: str = "main",
+    ) -> ExpansionFile:
+        """Upload an APK expansion file for an APK version.
+
+        Args:
+            package_name: App package name.
+            version_code: APK version code the file applies to.
+            file_path: Local path to the expansion file.
+            expansion_file_type: Type of expansion file (main or patch).
+
+        Returns:
+            The uploaded expansion file information.
+        """
+        self._logger.info(
+            "Uploading expansion file",
+            package_name=package_name,
+            version_code=version_code,
+            type=expansion_file_type,
+        )
+        service = self._get_service()
+        edit_id = self._create_edit(package_name)
+
+        try:
+            media = MediaFileUpload(file_path, mimetype="application/octet-stream", resumable=True)
+            data = (
+                service.edits()
+                .expansionfiles()
+                .upload(
+                    packageName=package_name,
+                    editId=edit_id,
+                    apkVersionCode=version_code,
+                    expansionFileType=expansion_file_type,
+                    media_body=media,
+                )
+                .execute()
+            )
+            self._commit_edit(package_name, edit_id)
+            expansion_file = data.get("expansionFile") or {}
+            return ExpansionFile(
+                version_code=version_code,
+                expansion_file_type=expansion_file_type,
+                file_size=expansion_file.get("fileSize"),
+                references_version=expansion_file.get("referencesVersion"),
+            )
+        except HttpError as e:
+            self._logger.exception("Failed to upload expansion file", error=str(e))
+            self._delete_edit(package_name, edit_id)
+            raise PlayStoreClientError(f"Failed to upload expansion file: {e.reason}") from e
 
     # =========================================================================
     # External Transactions API (alternative billing)

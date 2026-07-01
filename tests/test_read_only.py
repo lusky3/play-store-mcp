@@ -454,6 +454,16 @@ WRITE_TOOLS = [
         "upload_internal_app_sharing_bundle",
         {"package_name": "com.example.app", "bundle_path": "app.aab"},
     ),
+    ("upload_apk", {"package_name": "com.example.app", "apk_path": "app.apk"}),
+    ("upload_bundle", {"package_name": "com.example.app", "bundle_path": "app.aab"}),
+    (
+        "upload_deobfuscation_file",
+        {"package_name": "com.example.app", "version_code": 1, "file_path": "mapping.txt"},
+    ),
+    (
+        "upload_expansion_file",
+        {"package_name": "com.example.app", "version_code": 1, "file_path": "main.obb"},
+    ),
 ]
 
 

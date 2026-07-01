@@ -1563,3 +1563,124 @@ upload_internal_app_sharing_bundle(
     bundle_path="/path/to/app.aab",
 )
 ```
+
+---
+
+## Edit Uploads (APKs, Bundles, Files)
+
+Tools for inspecting and uploading build artifacts through the edit-transaction
+lifecycle. The `list_*` tools open a temporary edit, read, and abandon it (no
+changes are published). The `upload_*` tools open an edit, upload the artifact,
+and **commit** the edit. The upload tools are **writes** and are disabled in
+read-only mode.
+
+### list_apks
+
+List the APKs currently uploaded for an app.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+
+Each APK includes: `package_name`, `version_code`, `sha1`, `sha256` (the last
+two come from the APK binary hash).
+
+```python
+list_apks(package_name="com.example.myapp")
+```
+
+### list_bundles
+
+List the Android App Bundles currently uploaded for an app.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+
+Each bundle includes: `package_name`, `version_code`, `sha1`, `sha256`.
+
+```python
+list_bundles(package_name="com.example.myapp")
+```
+
+### upload_apk
+
+Upload an APK to a new edit and commit it. **Write.**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `apk_path` | string | Yes | Local path to the APK file |
+
+Returns the uploaded APK with its `version_code` and binary `sha1`/`sha256`.
+
+```python
+upload_apk(
+    package_name="com.example.myapp",
+    apk_path="/path/to/app.apk",
+)
+```
+
+### upload_bundle
+
+Upload an Android App Bundle (`.aab`) to a new edit and commit it. **Write.**
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `bundle_path` | string | Yes | Local path to the app bundle (`.aab`) file |
+
+Returns the uploaded bundle with its `version_code` and `sha1`/`sha256`.
+
+```python
+upload_bundle(
+    package_name="com.example.myapp",
+    bundle_path="/path/to/app.aab",
+)
+```
+
+### upload_deobfuscation_file
+
+Upload a deobfuscation file (ProGuard mapping or native debug symbols) for an
+APK version, then commit the edit. **Write.**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `package_name` | string | Yes | — | App package name |
+| `version_code` | integer | Yes | — | APK version code the file applies to |
+| `file_path` | string | Yes | — | Local path to the deobfuscation file |
+| `deobfuscation_file_type` | string | No | `proguard` | Type: `proguard` or `nativeCode` |
+
+Returns the uploaded configuration with its `symbol_type`.
+
+```python
+upload_deobfuscation_file(
+    package_name="com.example.myapp",
+    version_code=42,
+    file_path="/path/to/mapping.txt",
+    deobfuscation_file_type="proguard",
+)
+```
+
+### upload_expansion_file
+
+Upload an APK expansion file (OBB) for an APK version, then commit the edit.
+**Write.**
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `package_name` | string | Yes | — | App package name |
+| `version_code` | integer | Yes | — | APK version code the file applies to |
+| `file_path` | string | Yes | — | Local path to the expansion file |
+| `expansion_file_type` | string | No | `main` | Type: `main` or `patch` |
+
+Returns the expansion file info including `file_size` and `references_version`.
+
+```python
+upload_expansion_file(
+    package_name="com.example.myapp",
+    version_code=42,
+    file_path="/path/to/main.obb",
+    expansion_file_type="main",
+)
+```
