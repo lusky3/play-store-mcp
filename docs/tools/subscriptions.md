@@ -1431,3 +1431,93 @@ download_generated_apk(
     destination_path="/path/to/base-master.apk",
 )
 ```
+
+## System APK Variants
+
+Manage the APK variants Google Play generates from an app bundle for inclusion
+in a system image
+([systemapks.variants](https://developers.google.com/android-publisher/api-ref/rest/v3/systemapks.variants)).
+`get_system_apk_variant`, `list_system_apk_variants`, and
+`download_system_apk_variant` are read-only and available in
+[read-only mode](../configuration.md#read-only-mode) — `download_system_apk_variant`
+only writes a file to your local machine. `create_system_apk_variant` is a
+write and is disabled in read-only mode.
+
+### get_system_apk_variant
+
+Get a previously created system APK variant, including its `device_spec` and
+`options`. Read-only (available in read-only mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `version_code` | integer | Yes | Version code of the app bundle |
+| `variant_id` | integer | Yes | ID of the system APK variant |
+
+```python
+get_system_apk_variant("com.example.myapp", version_code=42, variant_id=1)
+```
+
+### list_system_apk_variants
+
+List previously created system APK variants for an app bundle version, each with
+its `variant_id`, `device_spec`, and `options`. Read-only (available in
+read-only mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `version_code` | integer | Yes | Version code of the app bundle |
+
+```python
+list_system_apk_variants("com.example.myapp", version_code=42)
+```
+
+### create_system_apk_variant
+
+Create a system APK variant from an already uploaded app bundle. Disabled in
+[read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `version_code` | integer | Yes | Version code of the app bundle |
+| `variant` | object | Yes | Variant resource body (e.g. `deviceSpec` and `options`) |
+
+```python
+create_system_apk_variant(
+    package_name="com.example.myapp",
+    version_code=42,
+    variant={
+        "deviceSpec": {
+            "supportedAbis": ["arm64-v8a"],
+            "supportedLocales": ["en-US"],
+            "screenDensity": 480,
+        },
+        "options": {"uncompressedNativeLibraries": True},
+    },
+)
+```
+
+### download_system_apk_variant
+
+Download a previously created system APK variant to a local file, streaming the
+bytes to disk. Pass a `variant_id` obtained from `list_system_apk_variants`.
+Read-only with respect to Play (available in read-only mode); it writes to the
+local `destination_path`.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `version_code` | integer | Yes | Version code of the app bundle |
+| `variant_id` | integer | Yes | ID of the system APK variant (from `list_system_apk_variants`) |
+| `destination_path` | string | Yes | Local path to write the APK bytes to |
+
+```python
+download_system_apk_variant(
+    package_name="com.example.myapp",
+    version_code=42,
+    variant_id=1,
+    destination_path="/path/to/system.apk",
+)
+```

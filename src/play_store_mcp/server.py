@@ -2805,6 +2805,119 @@ def download_generated_apk(
 
 
 # =============================================================================
+# System APK Variants Tools
+# =============================================================================
+
+
+@mcp.tool()
+def get_system_apk_variant(
+    package_name: str,
+    version_code: int,
+    variant_id: int,
+) -> dict[str, Any]:
+    """Get a previously created system APK variant.
+
+    Args:
+        package_name: App package name
+        version_code: Version code of the app bundle
+        variant_id: ID of the system APK variant
+
+    Returns:
+        System APK variant details including device spec and options
+    """
+    client = get_client_from_context()
+
+    variant = client.get_system_apk_variant(
+        package_name=package_name,
+        version_code=version_code,
+        variant_id=variant_id,
+    )
+    return variant.model_dump()
+
+
+@mcp.tool()
+def list_system_apk_variants(
+    package_name: str,
+    version_code: int,
+) -> list[dict[str, Any]]:
+    """List previously created system APK variants for an app bundle version.
+
+    Args:
+        package_name: App package name
+        version_code: Version code of the app bundle
+
+    Returns:
+        List of system APK variants with their IDs, device specs, and options
+    """
+    client = get_client_from_context()
+
+    variants = client.list_system_apk_variants(
+        package_name=package_name,
+        version_code=version_code,
+    )
+    return [variant.model_dump() for variant in variants]
+
+
+@mcp.tool()
+def create_system_apk_variant(
+    package_name: str,
+    version_code: int,
+    variant: dict[str, Any],
+) -> dict[str, Any]:
+    """Create a system APK variant from an uploaded app bundle.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        version_code: Version code of the app bundle
+        variant: Variant resource body (e.g. `deviceSpec` and `options`)
+
+    Returns:
+        The created system APK variant
+    """
+    if blocked := _read_only_block("create_system_apk_variant"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.create_system_apk_variant(
+        package_name=package_name,
+        version_code=version_code,
+        variant=variant,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def download_system_apk_variant(
+    package_name: str,
+    version_code: int,
+    variant_id: int,
+    destination_path: str,
+) -> dict[str, Any]:
+    """Download a previously created system APK variant to a local file.
+
+    Args:
+        package_name: App package name
+        version_code: Version code of the app bundle
+        variant_id: ID of the system APK variant (from `list_system_apk_variants`)
+        destination_path: Local path to write the APK bytes to
+
+    Returns:
+        Download result with success status and destination path
+    """
+    client = get_client_from_context()
+
+    result = client.download_system_apk_variant(
+        package_name=package_name,
+        version_code=version_code,
+        variant_id=variant_id,
+        destination_path=destination_path,
+    )
+    return result.model_dump()
+
+
+# =============================================================================
 # Expansion Files Tools
 # =============================================================================
 

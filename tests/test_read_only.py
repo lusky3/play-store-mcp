@@ -438,6 +438,14 @@ WRITE_TOOLS = [
             "targeting": {"targetingUpdate": {"allUsers": {}}},
         },
     ),
+    (
+        "create_system_apk_variant",
+        {
+            "package_name": "com.example.app",
+            "version_code": 42,
+            "variant": {"deviceSpec": {"screenDensity": 480}},
+        },
+    ),
 ]
 
 

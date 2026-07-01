@@ -50,6 +50,7 @@ from play_store_mcp.models import (
     SubscriptionOffer,
     SubscriptionProduct,
     SubscriptionPurchase,
+    SystemApkVariant,
     TesterInfo,
     TrackInfo,
     ValidationResult,
@@ -4677,3 +4678,197 @@ class PlayStoreClient:
         except HttpError as e:
             self._logger.exception("Failed to download generated APK", error=str(e))
             raise PlayStoreClientError(f"Failed to download generated APK: {e.reason}") from e
+
+    # =========================================================================
+    # System APK Variants API
+    # =========================================================================
+
+    @staticmethod
+    def _parse_system_apk_variant(
+        package_name: str,
+        version_code: int,
+        data: dict[str, Any],
+    ) -> SystemApkVariant:
+        """Parse a Variant API resource into a SystemApkVariant model."""
+        return SystemApkVariant(
+            package_name=package_name,
+            version_code=version_code,
+            variant_id=data.get("variantId"),
+            device_spec=data.get("deviceSpec"),
+            options=data.get("options"),
+        )
+
+    def get_system_apk_variant(
+        self,
+        package_name: str,
+        version_code: int,
+        variant_id: int,
+    ) -> SystemApkVariant:
+        """Get a previously created system APK variant.
+
+        Args:
+            package_name: App package name.
+            version_code: Version code of the app bundle.
+            variant_id: ID of the system APK variant.
+
+        Returns:
+            The system APK variant.
+        """
+        self._logger.info(
+            "Getting system APK variant",
+            package_name=package_name,
+            version_code=version_code,
+            variant_id=variant_id,
+        )
+        service = self._get_service()
+
+        try:
+            data = (
+                service.systemapks()
+                .variants()
+                .get(
+                    packageName=package_name,
+                    versionCode=version_code,
+                    variantId=variant_id,
+                )
+                .execute()
+            )
+            return self._parse_system_apk_variant(package_name, version_code, data)
+
+        except HttpError as e:
+            self._logger.exception("Failed to get system APK variant", error=str(e))
+            raise PlayStoreClientError(f"Failed to get system APK variant: {e.reason}") from e
+
+    def list_system_apk_variants(
+        self,
+        package_name: str,
+        version_code: int,
+    ) -> list[SystemApkVariant]:
+        """List previously created system APK variants for an app bundle version.
+
+        Args:
+            package_name: App package name.
+            version_code: Version code of the app bundle.
+
+        Returns:
+            List of system APK variants.
+        """
+        self._logger.info(
+            "Listing system APK variants",
+            package_name=package_name,
+            version_code=version_code,
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.systemapks()
+                .variants()
+                .list(packageName=package_name, versionCode=version_code)
+                .execute()
+            )
+
+            return [
+                self._parse_system_apk_variant(package_name, version_code, variant_data)
+                for variant_data in result.get("variants", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception("Failed to list system APK variants", error=str(e))
+            raise PlayStoreClientError(f"Failed to list system APK variants: {e.reason}") from e
+
+    def create_system_apk_variant(
+        self,
+        package_name: str,
+        version_code: int,
+        variant: dict[str, Any],
+    ) -> SystemApkVariant:
+        """Create a system APK variant from an uploaded app bundle.
+
+        Args:
+            package_name: App package name.
+            version_code: Version code of the app bundle.
+            variant: Variant resource body (e.g. ``deviceSpec`` and ``options``).
+
+        Returns:
+            The created system APK variant.
+        """
+        self._logger.info(
+            "Creating system APK variant",
+            package_name=package_name,
+            version_code=version_code,
+        )
+        service = self._get_service()
+
+        try:
+            data = (
+                service.systemapks()
+                .variants()
+                .create(
+                    packageName=package_name,
+                    versionCode=version_code,
+                    body=variant,
+                )
+                .execute()
+            )
+            return self._parse_system_apk_variant(package_name, version_code, data)
+
+        except HttpError as e:
+            self._logger.exception("Failed to create system APK variant", error=str(e))
+            raise PlayStoreClientError(f"Failed to create system APK variant: {e.reason}") from e
+
+    def download_system_apk_variant(
+        self,
+        package_name: str,
+        version_code: int,
+        variant_id: int,
+        destination_path: str,
+    ) -> DownloadResult:
+        """Download a previously created system APK variant to a local file.
+
+        Args:
+            package_name: App package name.
+            version_code: Version code of the app bundle.
+            variant_id: ID of the system APK variant (from
+                :meth:`list_system_apk_variants`).
+            destination_path: Local path to stream the APK bytes to.
+
+        Returns:
+            Download result with success status and destination path.
+        """
+        self._logger.info(
+            "Downloading system APK variant",
+            package_name=package_name,
+            version_code=version_code,
+            variant_id=variant_id,
+            destination_path=destination_path,
+        )
+        service = self._get_service()
+
+        try:
+            request = (
+                service.systemapks()
+                .variants()
+                .download(
+                    packageName=package_name,
+                    versionCode=version_code,
+                    variantId=variant_id,
+                    alt="media",
+                )
+            )
+
+            with Path(destination_path).open("wb") as fh:
+                downloader = MediaIoBaseDownload(fh, request)
+                done = False
+                while not done:
+                    _status, done = downloader.next_chunk()
+
+            return DownloadResult(
+                success=True,
+                destination_path=destination_path,
+                message=f"Downloaded system APK variant to {destination_path}",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to download system APK variant", error=str(e))
+            raise PlayStoreClientError(f"Failed to download system APK variant: {e.reason}") from e
