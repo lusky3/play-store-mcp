@@ -138,6 +138,40 @@ def _validate_rollout(pct: float) -> str | None:
     return None
 
 
+def _env_read_only() -> bool:
+    """Return True if PLAY_STORE_MCP_READ_ONLY is set to a truthy value."""
+    return os.environ.get("PLAY_STORE_MCP_READ_ONLY", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+# When True, all write/mutating tools are disabled. Initialized from the
+# environment at import time; may be overridden by the --read-only CLI flag.
+READ_ONLY: bool = _env_read_only()
+
+READ_ONLY_ERROR = (
+    "Server is running in read-only mode; write operations are disabled. "
+    "Unset PLAY_STORE_MCP_READ_ONLY (or omit --read-only) to enable writes."
+)
+
+
+def set_read_only(value: bool) -> None:
+    """Set the process-wide read-only flag."""
+    global READ_ONLY
+    READ_ONLY = value
+
+
+def _read_only_block(operation: str) -> dict[str, Any] | None:
+    """Return an error object if read-only mode blocks a write, else None."""
+    if READ_ONLY:
+        logger.warning("Blocked write operation in read-only mode", operation=operation)
+        return {"error": f"{READ_ONLY_ERROR} (attempted: {operation})"}
+    return None
+
+
 # Initialize the MCP server
 mcp = FastMCP(
     "Play Store MCP Server",
@@ -176,6 +210,8 @@ def deploy_app(
     Returns:
         Deployment result with success status and details
     """
+    if blocked := _read_only_block("deploy_app"):
+        return blocked
     if err := _validate_deploy_file(file_path):
         return {"error": err}
     if err := _validate_rollout(rollout_percentage):
@@ -216,6 +252,8 @@ def deploy_app_multilang(
     Returns:
         Deployment result with success status and details
     """
+    if blocked := _read_only_block("deploy_app_multilang"):
+        return blocked
     if err := _validate_deploy_file(file_path):
         return {"error": err}
     if err := _validate_rollout(rollout_percentage):
@@ -254,6 +292,8 @@ def promote_release(
     Returns:
         Promotion result with success status and details
     """
+    if blocked := _read_only_block("promote_release"):
+        return blocked
     if err := _validate_rollout(rollout_percentage):
         return {"error": err}
 
@@ -305,6 +345,8 @@ def halt_release(
     Returns:
         Result with success status and details
     """
+    if blocked := _read_only_block("halt_release"):
+        return blocked
     client = get_client_from_context()
 
     result = client.halt_release(
@@ -337,6 +379,8 @@ def update_rollout(
     Returns:
         Result with success status and details
     """
+    if blocked := _read_only_block("update_rollout"):
+        return blocked
     if err := _validate_rollout(rollout_percentage):
         return {"error": err}
 
@@ -420,6 +464,8 @@ def reply_to_review(
     Returns:
         Result with success status
     """
+    if blocked := _read_only_block("reply_to_review"):
+        return blocked
     client = get_client_from_context()
 
     result = client.reply_to_review(
@@ -638,6 +684,8 @@ def update_listing(
     Returns:
         Update result with success status
     """
+    if blocked := _read_only_block("update_listing"):
+        return blocked
     client = get_client_from_context()
 
     result = client.update_listing(
@@ -708,6 +756,8 @@ def update_testers(
     Returns:
         Update result with success status
     """
+    if blocked := _read_only_block("update_testers"):
+        return blocked
     client = get_client_from_context()
 
     result = client.update_testers(package_name, track, google_groups)
@@ -867,6 +917,8 @@ def batch_deploy(
     Returns:
         Batch deployment result with individual results for each track
     """
+    if blocked := _read_only_block("batch_deploy"):
+        return blocked
     if err := _validate_deploy_file(file_path):
         return {"error": err}
 
@@ -1044,16 +1096,25 @@ def main(argv: list[str] | None = None) -> None:
         default=os.environ.get("GOOGLE_PLAY_STORE_CREDENTIALS"),
         help="Path to service account JSON key or JSON content (default: GOOGLE_PLAY_STORE_CREDENTIALS env var)",
     )
+    parser.add_argument(
+        "--read-only",
+        action="store_true",
+        default=_env_read_only(),
+        help="Disable all write operations (or set PLAY_STORE_MCP_READ_ONLY=1)",
+    )
     args = parser.parse_args(argv)
 
     if args.credentials:
         os.environ["GOOGLE_PLAY_STORE_CREDENTIALS"] = args.credentials
+
+    set_read_only(args.read_only)
 
     logger.info(
         "Starting Play Store MCP Server",
         transport=args.transport,
         host=args.host if args.transport != "stdio" else None,
         port=args.port if args.transport != "stdio" else None,
+        read_only=READ_ONLY,
     )
 
     if args.transport != "stdio":
