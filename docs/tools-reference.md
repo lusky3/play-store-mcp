@@ -136,6 +136,15 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 | [`list_generated_apks`](tools/subscriptions.md#list_generated_apks) | List the APKs Google Play generated from an app bundle version |
 | [`download_generated_apk`](tools/subscriptions.md#download_generated_apk) | Download a single generated APK to a local file |
 
+## System APK Variants Tools
+
+| Tool | Description |
+|---|---|
+| [`get_system_apk_variant`](tools/subscriptions.md#get_system_apk_variant) | Get a previously created system APK variant |
+| [`list_system_apk_variants`](tools/subscriptions.md#list_system_apk_variants) | List previously created system APK variants for an app bundle version |
+| `create_system_apk_variant` | Create a system APK variant from an uploaded app bundle (write) |
+| [`download_system_apk_variant`](tools/subscriptions.md#download_system_apk_variant) | Download a system APK variant to a local file |
+
 ## App Management Tools
 
 | Tool | Description |

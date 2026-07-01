@@ -465,6 +465,18 @@ class GeneratedApksDownload(BaseModel):
     )
 
 
+class SystemApkVariant(BaseModel):
+    """A system APK variant (systemapks.variants resource)."""
+
+    package_name: str = Field(..., description="App package name")
+    version_code: int = Field(..., description="Version code of the App Bundle")
+    variant_id: int | None = Field(None, description="ID of the system APK variant")
+    device_spec: dict[str, Any] | None = Field(
+        None, description="Device spec used to generate the APK"
+    )
+    options: dict[str, Any] | None = Field(None, description="Options applied to the generated APK")
+
+
 class DownloadResult(BaseModel):
     """Result of downloading a file to a local path."""
 
