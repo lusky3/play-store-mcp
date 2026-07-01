@@ -1702,31 +1702,10 @@ class PlayStoreClient:
         try:
             result = service.inappproducts().list(packageName=package_name).execute()
 
-            products: list[InAppProduct] = []
-            for product_data in result.get("inappproduct", []):
-                # Get default price if available
-                default_price = None
-                if "defaultPrice" in product_data:
-                    default_price = product_data["defaultPrice"]
-
-                # Get localized listings
-                listings = product_data.get("listings", {})
-                default_listing = listings.get(product_data.get("defaultLanguage", "en-US"), {})
-
-                products.append(
-                    InAppProduct(
-                        sku=product_data.get("sku", ""),
-                        package_name=package_name,
-                        product_type=product_data.get("purchaseType", "managedProduct"),
-                        status=product_data.get("status"),
-                        default_language=product_data.get("defaultLanguage"),
-                        title=default_listing.get("title"),
-                        description=default_listing.get("description"),
-                        default_price=default_price,
-                    )
-                )
-
-            return products
+            return [
+                self._parse_in_app_product(package_name, product_data)
+                for product_data in result.get("inappproduct", [])
+            ]
 
         except HttpError as e:
             self._logger.exception("Failed to list in-app products", error=str(e))
