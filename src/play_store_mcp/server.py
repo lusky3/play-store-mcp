@@ -1380,7 +1380,7 @@ def batch_update_base_plan_states(
     package_name: str,
     product_id: str,
     requests: list[dict[str, Any]],
-) -> dict[str, Any]:
+) -> list[dict[str, Any]] | dict[str, Any]:
     """Activate or deactivate multiple base plans in a single operation.
 
     Disabled in read-only mode.
@@ -1392,18 +1392,18 @@ def batch_update_base_plan_states(
             activateBasePlanRequest or deactivateBasePlanRequest)
 
     Returns:
-        The updated subscription product
+        The updated subscriptions, one per request
     """
     if blocked := _read_only_block("batch_update_base_plan_states"):
         return blocked
     client = get_client_from_context()
 
-    result = client.batch_update_base_plan_states(
+    results = client.batch_update_base_plan_states(
         package_name=package_name,
         product_id=product_id,
         requests=requests,
     )
-    return result.model_dump()
+    return [result.model_dump() for result in results]
 
 
 # =============================================================================

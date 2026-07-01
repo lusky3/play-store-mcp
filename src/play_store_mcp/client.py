@@ -2377,11 +2377,8 @@ class PlayStoreClient:
         package_name: str,
         product_id: str,
         requests: list[dict[str, Any]],
-    ) -> SubscriptionProduct:
+    ) -> list[SubscriptionProduct]:
         """Activate or deactivate multiple base plans in a single operation.
-
-        The API returns one updated subscription per request in order; this
-        returns the first one (all requests here target the same subscription).
 
         Args:
             package_name: App package name.
@@ -2390,7 +2387,7 @@ class PlayStoreClient:
                 nested activateBasePlanRequest or deactivateBasePlanRequest).
 
         Returns:
-            The updated subscription product.
+            The updated subscriptions, one per request in order.
         """
         self._logger.info(
             "Batch updating base plan states",
@@ -2412,9 +2409,10 @@ class PlayStoreClient:
                 )
                 .execute()
             )
-            subscriptions = result.get("subscriptions", [])
-            first = subscriptions[0] if subscriptions else {}
-            return self._parse_subscription(package_name, first)
+            return [
+                self._parse_subscription(package_name, sub)
+                for sub in result.get("subscriptions", [])
+            ]
 
         except HttpError as e:
             self._logger.exception("Failed to batch update base plan states", error=str(e))

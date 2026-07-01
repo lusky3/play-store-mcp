@@ -224,8 +224,7 @@ def test_batch_update_base_plan_states_success():
     requests = [{"activateBasePlanRequest": {"basePlanId": "monthly"}}]
     result = client.batch_update_base_plan_states("com.example.app", "premium_monthly", requests)
 
-    assert isinstance(result, SubscriptionProduct)
-    assert result.product_id == "premium_monthly"
+    assert [s.product_id for s in result] == ["premium_monthly"]
     _base_plans(service).batchUpdateStates.assert_called_once_with(
         packageName="com.example.app",
         productId="premium_monthly",
@@ -242,9 +241,7 @@ def test_batch_update_base_plan_states_empty():
         "com.example.app", "premium_monthly", [{"activateBasePlanRequest": {}}]
     )
 
-    assert isinstance(result, SubscriptionProduct)
-    assert result.product_id == ""
-    assert result.base_plans == []
+    assert result == []
 
 
 def test_batch_update_base_plan_states_http_error():
@@ -360,15 +357,15 @@ def test_tool_batch_migrate_base_plan_prices(monkeypatch):
 def test_tool_batch_update_base_plan_states(monkeypatch):
     monkeypatch.setattr(server, "READ_ONLY", False)
     mc = MagicMock()
-    mc.batch_update_base_plan_states.return_value = SubscriptionProduct(
-        product_id="premium_monthly", package_name="com.example.app"
-    )
+    mc.batch_update_base_plan_states.return_value = [
+        SubscriptionProduct(product_id="premium_monthly", package_name="com.example.app")
+    ]
     monkeypatch.setattr(server, "get_client_from_context", lambda: mc)
 
     requests = [{"activateBasePlanRequest": {"basePlanId": "monthly"}}]
     result = server.batch_update_base_plan_states("com.example.app", "premium_monthly", requests)
 
-    assert result["product_id"] == "premium_monthly"
+    assert [s["product_id"] for s in result] == ["premium_monthly"]
     mc.batch_update_base_plan_states.assert_called_once_with(
         package_name="com.example.app",
         product_id="premium_monthly",
