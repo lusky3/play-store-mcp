@@ -22,6 +22,7 @@ from play_store_mcp.models import (
     AppDetails,
     BatchDeploymentResult,
     DeploymentResult,
+    DeviceTierConfig,
     ExpansionFile,
     ExternalTransaction,
     InAppProduct,
@@ -4207,3 +4208,116 @@ class PlayStoreClient:
         except HttpError as e:
             self._logger.exception("Failed to refund external transaction", error=str(e))
             raise PlayStoreClientError(f"Failed to refund external transaction: {e.reason}") from e
+
+    # =========================================================================
+    # Device Tier Configs API
+    # =========================================================================
+
+    @staticmethod
+    def _parse_device_tier_config(package_name: str, data: dict[str, Any]) -> DeviceTierConfig:
+        """Parse a DeviceTierConfig API resource into a DeviceTierConfig model."""
+        return DeviceTierConfig(
+            package_name=package_name,
+            device_tier_config_id=data.get("deviceTierConfigId"),
+            device_groups=data.get("deviceGroups", []),
+            device_tier_set=data.get("deviceTierSet"),
+            user_country_sets=data.get("userCountrySets", []),
+        )
+
+    def get_device_tier_config(
+        self,
+        package_name: str,
+        device_tier_config_id: str,
+    ) -> DeviceTierConfig:
+        """Get a device tier config.
+
+        Args:
+            package_name: App package name.
+            device_tier_config_id: Device tier config ID.
+
+        Returns:
+            The device tier config.
+        """
+        self._logger.info(
+            "Getting device tier config",
+            package_name=package_name,
+            device_tier_config_id=device_tier_config_id,
+        )
+        service = self._get_service()
+
+        try:
+            data = (
+                service.applications()
+                .deviceTierConfigs()
+                .get(packageName=package_name, deviceTierConfigId=device_tier_config_id)
+                .execute()
+            )
+            return self._parse_device_tier_config(package_name, data)
+
+        except HttpError as e:
+            self._logger.exception("Failed to get device tier config", error=str(e))
+            raise PlayStoreClientError(f"Failed to get device tier config: {e.reason}") from e
+
+    def list_device_tier_configs(self, package_name: str) -> list[DeviceTierConfig]:
+        """List device tier configs for an app.
+
+        Args:
+            package_name: App package name.
+
+        Returns:
+            List of device tier configs.
+        """
+        self._logger.info("Listing device tier configs", package_name=package_name)
+        service = self._get_service()
+
+        try:
+            result = (
+                service.applications().deviceTierConfigs().list(packageName=package_name).execute()
+            )
+
+            return [
+                self._parse_device_tier_config(package_name, config_data)
+                for config_data in result.get("deviceTierConfigs", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception("Failed to list device tier configs", error=str(e))
+            raise PlayStoreClientError(f"Failed to list device tier configs: {e.reason}") from e
+
+    def create_device_tier_config(
+        self,
+        package_name: str,
+        config: dict[str, Any],
+        allow_unknown_devices: bool = False,
+    ) -> DeviceTierConfig:
+        """Create a new device tier config.
+
+        Args:
+            package_name: App package name.
+            config: DeviceTierConfig resource body (deviceGroups, deviceTierSet,
+                userCountrySets).
+            allow_unknown_devices: If True, accept device IDs unknown to Play's
+                catalog rather than rejecting them.
+
+        Returns:
+            The created device tier config.
+        """
+        self._logger.info("Creating device tier config", package_name=package_name)
+        service = self._get_service()
+
+        try:
+            data = (
+                service.applications()
+                .deviceTierConfigs()
+                .create(
+                    packageName=package_name,
+                    allowUnknownDevices=allow_unknown_devices,
+                    body=config,
+                )
+                .execute()
+            )
+            return self._parse_device_tier_config(package_name, data)
+
+        except HttpError as e:
+            self._logger.exception("Failed to create device tier config", error=str(e))
+            raise PlayStoreClientError(f"Failed to create device tier config: {e.reason}") from e

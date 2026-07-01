@@ -402,3 +402,19 @@ class ExternalTransaction(BaseModel):
         None, description="Original transaction amount before tax (Price)"
     )
     test_purchase: bool = Field(False, description="Whether this is a test purchase")
+
+
+class DeviceTierConfig(BaseModel):
+    """Device tier config (applications.deviceTierConfigs resource)."""
+
+    package_name: str = Field(..., description="App package name")
+    device_tier_config_id: str | None = Field(None, description="Device tier config ID")
+    device_groups: list[dict[str, Any]] = Field(
+        default_factory=list, description="Device group definitions"
+    )
+    device_tier_set: dict[str, Any] | None = Field(
+        None, description="Set of device tiers for the app"
+    )
+    user_country_sets: list[dict[str, Any]] = Field(
+        default_factory=list, description="User country set definitions"
+    )

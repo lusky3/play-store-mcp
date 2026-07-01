@@ -2501,6 +2501,82 @@ def refund_external_transaction(
 
 
 # =============================================================================
+# Device Tier Config Tools
+# =============================================================================
+
+
+@mcp.tool()
+def get_device_tier_config(
+    package_name: str,
+    device_tier_config_id: str,
+) -> dict[str, Any]:
+    """Get a device tier config.
+
+    Args:
+        package_name: App package name
+        device_tier_config_id: Device tier config ID
+
+    Returns:
+        Device tier config details including device groups, tier set, and country sets
+    """
+    client = get_client_from_context()
+
+    config = client.get_device_tier_config(
+        package_name=package_name,
+        device_tier_config_id=device_tier_config_id,
+    )
+    return config.model_dump()
+
+
+@mcp.tool()
+def list_device_tier_configs(package_name: str) -> list[dict[str, Any]]:
+    """List all device tier configs for an app.
+
+    Args:
+        package_name: App package name
+
+    Returns:
+        List of device tier configs with device groups, tier set, and country sets
+    """
+    client = get_client_from_context()
+
+    configs = client.list_device_tier_configs(package_name)
+    return [config.model_dump() for config in configs]
+
+
+@mcp.tool()
+def create_device_tier_config(
+    package_name: str,
+    config: dict[str, Any],
+    allow_unknown_devices: bool = False,
+) -> dict[str, Any]:
+    """Create a new device tier config.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        config: DeviceTierConfig resource body (deviceGroups, deviceTierSet,
+            userCountrySets)
+        allow_unknown_devices: Accept device IDs unknown to Play's catalog rather
+            than rejecting them (default: False)
+
+    Returns:
+        The created device tier config
+    """
+    if blocked := _read_only_block("create_device_tier_config"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.create_device_tier_config(
+        package_name=package_name,
+        config=config,
+        allow_unknown_devices=allow_unknown_devices,
+    )
+    return result.model_dump()
+
+
+# =============================================================================
 # Expansion Files Tools
 # =============================================================================
 

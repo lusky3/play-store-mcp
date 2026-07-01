@@ -121,6 +121,14 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 | `create_external_transaction` | Create an external transaction (write) |
 | `refund_external_transaction` | Refund an external transaction (write) |
 
+## Device Tier Config Tools
+
+| Tool | Description |
+|---|---|
+| [`get_device_tier_config`](tools/subscriptions.md#get_device_tier_config) | Get a device tier config |
+| [`list_device_tier_configs`](tools/subscriptions.md#list_device_tier_configs) | List device tier configs for an app |
+| `create_device_tier_config` | Create a device tier config (write) |
+
 ## Testers Tools
 
 | Tool | Description |

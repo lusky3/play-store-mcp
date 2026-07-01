@@ -1212,3 +1212,71 @@ refund_external_transaction(
     refund={"refundTime": "2026-01-02T00:00:00Z", "fullRefund": {}},
 )
 ```
+
+## Device Tier Configs
+
+Manage device tier configs
+([applications.deviceTierConfigs](https://developers.google.com/android-publisher/api-ref/rest/v3/applications.deviceTierConfigs)).
+A device tier config groups devices (by RAM, system features, etc.) and assigns
+them to tiers so you can ship device-targeted content. `get_device_tier_config`
+and `list_device_tier_configs` are read-only; `create_device_tier_config` is a
+write and is disabled in [read-only mode](../configuration.md#read-only-mode).
+
+The `config` parameter is a
+[DeviceTierConfig](https://developers.google.com/android-publisher/api-ref/rest/v3/applications.deviceTierConfigs#DeviceTierConfig)
+resource body (`deviceGroups`, `deviceTierSet`, `userCountrySets`). Device tier
+configs are immutable and cannot be updated or deleted once created — create a
+new one to make changes.
+
+### get_device_tier_config
+
+Get a device tier config. Read-only (available in read-only mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `device_tier_config_id` | string | Yes | Device tier config ID |
+
+```python
+get_device_tier_config("com.example.myapp", device_tier_config_id="12345")
+```
+
+### list_device_tier_configs
+
+List device tier configs for an app. Read-only (available in read-only mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+
+```python
+list_device_tier_configs("com.example.myapp")
+```
+
+### create_device_tier_config
+
+Create a device tier config. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `package_name` | string | Yes | — | App package name |
+| `config` | object | Yes | — | DeviceTierConfig resource body (`deviceGroups`, `deviceTierSet`, `userCountrySets`) |
+| `allow_unknown_devices` | boolean | No | `false` | Accept device IDs unknown to Play's catalog rather than rejecting them |
+
+```python
+create_device_tier_config(
+    package_name="com.example.myapp",
+    config={
+        "deviceGroups": [
+            {
+                "name": "high_ram",
+                "deviceSelectors": [{"deviceRam": {"minBytes": "6000000000"}}],
+            }
+        ],
+        "deviceTierSet": {
+            "deviceTiers": [{"level": 1, "deviceGroupNames": ["high_ram"]}]
+        },
+    },
+    allow_unknown_devices=False,
+)
+```

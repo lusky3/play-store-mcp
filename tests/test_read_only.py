@@ -401,6 +401,13 @@ WRITE_TOOLS = [
             "refund": {"fullRefund": {}},
         },
     ),
+    (
+        "create_device_tier_config",
+        {
+            "package_name": "com.example.app",
+            "config": {"deviceGroups": [{"name": "high"}]},
+        },
+    ),
 ]
 
 
