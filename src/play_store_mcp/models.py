@@ -386,3 +386,19 @@ class ProductPurchaseV2(BaseModel):
         None, description="Obfuscated external profile ID"
     )
     test_purchase: bool = Field(False, description="Whether this is a test purchase")
+
+
+class ExternalTransaction(BaseModel):
+    """External (alternative billing) transaction (externaltransactions resource)."""
+
+    package_name: str = Field(..., description="App package name")
+    external_transaction_id: str = Field(..., description="External transaction ID")
+    transaction_state: str | None = Field(None, description="Current transaction state")
+    create_time: str | None = Field(None, description="Time the transaction was created (RFC3339)")
+    current_pre_tax_amount: dict[str, Any] | None = Field(
+        None, description="Current transaction amount before tax (Price)"
+    )
+    original_pre_tax_amount: dict[str, Any] | None = Field(
+        None, description="Original transaction amount before tax (Price)"
+    )
+    test_purchase: bool = Field(False, description="Whether this is a test purchase")

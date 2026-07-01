@@ -2416,6 +2416,91 @@ def batch_get_orders(
 
 
 # =============================================================================
+# External Transactions Tools
+# =============================================================================
+
+
+@mcp.tool()
+def get_external_transaction(
+    package_name: str,
+    external_transaction_id: str,
+) -> dict[str, Any]:
+    """Get an external (alternative billing) transaction.
+
+    Args:
+        package_name: App package name
+        external_transaction_id: External transaction ID
+
+    Returns:
+        External transaction details including state, amounts, and create time
+    """
+    client = get_client_from_context()
+
+    transaction = client.get_external_transaction(
+        package_name=package_name,
+        external_transaction_id=external_transaction_id,
+    )
+    return transaction.model_dump()
+
+
+@mcp.tool()
+def create_external_transaction(
+    package_name: str,
+    external_transaction_id: str,
+    transaction: dict[str, Any],
+) -> dict[str, Any]:
+    """Create an external (alternative billing) transaction.
+
+    Args:
+        package_name: App package name
+        external_transaction_id: External transaction ID to assign
+        transaction: ExternalTransaction resource body
+
+    Returns:
+        The created external transaction
+    """
+    if blocked := _read_only_block("create_external_transaction"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.create_external_transaction(
+        package_name=package_name,
+        external_transaction_id=external_transaction_id,
+        transaction=transaction,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def refund_external_transaction(
+    package_name: str,
+    external_transaction_id: str,
+    refund: dict[str, Any],
+) -> dict[str, Any]:
+    """Refund an external (alternative billing) transaction.
+
+    Args:
+        package_name: App package name
+        external_transaction_id: External transaction ID to refund
+        refund: RefundExternalTransactionRequest body (e.g. refundTime plus
+            fullRefund or partialRefund)
+
+    Returns:
+        The refunded external transaction
+    """
+    if blocked := _read_only_block("refund_external_transaction"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.refund_external_transaction(
+        package_name=package_name,
+        external_transaction_id=external_transaction_id,
+        refund=refund,
+    )
+    return result.model_dump()
+
+
+# =============================================================================
 # Expansion Files Tools
 # =============================================================================
 

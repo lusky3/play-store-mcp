@@ -23,6 +23,7 @@ from play_store_mcp.models import (
     BatchDeploymentResult,
     DeploymentResult,
     ExpansionFile,
+    ExternalTransaction,
     InAppProduct,
     InAppProductActionResult,
     Listing,
@@ -4074,3 +4075,135 @@ class PlayStoreClient:
             raise PlayStoreClientError(f"Failed to get expansion file: {e.reason}") from e
         finally:
             self._delete_edit(package_name, edit_id)
+
+    # =========================================================================
+    # External Transactions API (alternative billing)
+    # =========================================================================
+
+    @staticmethod
+    def _parse_external_transaction(
+        package_name: str,
+        external_transaction_id: str,
+        data: dict[str, Any],
+    ) -> ExternalTransaction:
+        """Parse an ExternalTransaction API resource into an ExternalTransaction model.
+
+        The API's externalTransactionId is the full resource-name suffix; we prefer
+        the caller-supplied external_transaction_id for a stable, plain identifier.
+        """
+        return ExternalTransaction(
+            package_name=package_name,
+            external_transaction_id=external_transaction_id,
+            transaction_state=data.get("transactionState"),
+            create_time=data.get("createTime"),
+            current_pre_tax_amount=data.get("currentPreTaxAmount"),
+            original_pre_tax_amount=data.get("originalPreTaxAmount"),
+            test_purchase="testPurchase" in data,
+        )
+
+    def get_external_transaction(
+        self,
+        package_name: str,
+        external_transaction_id: str,
+    ) -> ExternalTransaction:
+        """Get an external (alternative billing) transaction.
+
+        Args:
+            package_name: App package name.
+            external_transaction_id: External transaction ID.
+
+        Returns:
+            The external transaction.
+        """
+        self._logger.info(
+            "Getting external transaction",
+            package_name=package_name,
+            external_transaction_id=external_transaction_id,
+        )
+        service = self._get_service()
+        name = f"applications/{package_name}/externalTransactions/{external_transaction_id}"
+
+        try:
+            data = service.externaltransactions().getexternaltransaction(name=name).execute()
+            return self._parse_external_transaction(package_name, external_transaction_id, data)
+
+        except HttpError as e:
+            self._logger.exception("Failed to get external transaction", error=str(e))
+            raise PlayStoreClientError(f"Failed to get external transaction: {e.reason}") from e
+
+    def create_external_transaction(
+        self,
+        package_name: str,
+        external_transaction_id: str,
+        transaction: dict[str, Any],
+    ) -> ExternalTransaction:
+        """Create an external (alternative billing) transaction.
+
+        Args:
+            package_name: App package name.
+            external_transaction_id: External transaction ID to assign.
+            transaction: ExternalTransaction resource body.
+
+        Returns:
+            The created external transaction.
+        """
+        self._logger.info(
+            "Creating external transaction",
+            package_name=package_name,
+            external_transaction_id=external_transaction_id,
+        )
+        service = self._get_service()
+        parent = f"applications/{package_name}"
+
+        try:
+            data = (
+                service.externaltransactions()
+                .createexternaltransaction(
+                    parent=parent,
+                    externalTransactionId=external_transaction_id,
+                    body=transaction,
+                )
+                .execute()
+            )
+            return self._parse_external_transaction(package_name, external_transaction_id, data)
+
+        except HttpError as e:
+            self._logger.exception("Failed to create external transaction", error=str(e))
+            raise PlayStoreClientError(f"Failed to create external transaction: {e.reason}") from e
+
+    def refund_external_transaction(
+        self,
+        package_name: str,
+        external_transaction_id: str,
+        refund: dict[str, Any],
+    ) -> ExternalTransaction:
+        """Refund an external (alternative billing) transaction.
+
+        Args:
+            package_name: App package name.
+            external_transaction_id: External transaction ID to refund.
+            refund: RefundExternalTransactionRequest body (e.g. refundTime plus
+                fullRefund or partialRefund).
+
+        Returns:
+            The refunded external transaction.
+        """
+        self._logger.info(
+            "Refunding external transaction",
+            package_name=package_name,
+            external_transaction_id=external_transaction_id,
+        )
+        service = self._get_service()
+        name = f"applications/{package_name}/externalTransactions/{external_transaction_id}"
+
+        try:
+            data = (
+                service.externaltransactions()
+                .refundexternaltransaction(name=name, body=refund)
+                .execute()
+            )
+            return self._parse_external_transaction(package_name, external_transaction_id, data)
+
+        except HttpError as e:
+            self._logger.exception("Failed to refund external transaction", error=str(e))
+            raise PlayStoreClientError(f"Failed to refund external transaction: {e.reason}") from e

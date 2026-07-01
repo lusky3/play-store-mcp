@@ -113,6 +113,14 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 | [`defer_subscription_purchase`](tools/subscriptions.md#defer_subscription_purchase) | Defer a subscription's next renewal (write) |
 | [`revoke_subscription_purchase`](tools/subscriptions.md#revoke_subscription_purchase) | Revoke/refund a subscription (write) |
 
+## External Transactions Tools
+
+| Tool | Description |
+|---|---|
+| [`get_external_transaction`](tools/subscriptions.md#get_external_transaction) | Get an external (alternative billing) transaction |
+| `create_external_transaction` | Create an external transaction (write) |
+| `refund_external_transaction` | Refund an external transaction (write) |
+
 ## Testers Tools
 
 | Tool | Description |

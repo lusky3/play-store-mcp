@@ -385,6 +385,22 @@ WRITE_TOOLS = [
             "requests": [{"offerId": "intro"}],
         },
     ),
+    (
+        "create_external_transaction",
+        {
+            "package_name": "com.example.app",
+            "external_transaction_id": "tx123",
+            "transaction": {"originalPreTaxAmount": {"currencyCode": "USD", "units": "1"}},
+        },
+    ),
+    (
+        "refund_external_transaction",
+        {
+            "package_name": "com.example.app",
+            "external_transaction_id": "tx123",
+            "refund": {"fullRefund": {}},
+        },
+    ),
 ]
 
 

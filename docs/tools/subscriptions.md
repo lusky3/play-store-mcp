@@ -1143,3 +1143,72 @@ Revoke (refund) a subscription. **Write / money.**
 | `package_name` | string | Yes | App package name |
 | `purchase_token` | string | Yes | Purchase token |
 | `refund_type` | string | No | `full` (default) or `prorated` |
+
+## External Transactions
+
+Manage external (alternative billing) transactions
+([externaltransactions](https://developers.google.com/android-publisher/api-ref/rest/v3/externaltransactions)).
+`get_external_transaction` is read-only; `create_external_transaction` and
+`refund_external_transaction` are writes and are disabled in
+[read-only mode](../configuration.md#read-only-mode).
+
+The `transaction` parameter is an
+[ExternalTransaction](https://developers.google.com/android-publisher/api-ref/rest/v3/externaltransactions#ExternalTransaction)
+resource body; the `refund` parameter is a
+[RefundExternalTransactionRequest](https://developers.google.com/android-publisher/api-ref/rest/v3/externaltransactions/refundexternaltransaction#request-body)
+body. The client builds the `applications/{packageName}/externalTransactions/{externalTransactionId}`
+resource name for you from `package_name` and `external_transaction_id`.
+
+### get_external_transaction
+
+Get an external transaction. Read-only (available in read-only mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `external_transaction_id` | string | Yes | External transaction ID |
+
+```python
+get_external_transaction("com.example.myapp", external_transaction_id="tx123")
+```
+
+### create_external_transaction
+
+Create an external transaction. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `external_transaction_id` | string | Yes | External transaction ID to assign |
+| `transaction` | object | Yes | ExternalTransaction resource body |
+
+```python
+create_external_transaction(
+    package_name="com.example.myapp",
+    external_transaction_id="tx123",
+    transaction={
+        "originalPreTaxAmount": {"currencyCode": "USD", "units": "1", "nanos": 990000000},
+        "originalTaxAmount": {"currencyCode": "USD", "units": "0", "nanos": 100000000},
+        "transactionTime": "2026-01-01T00:00:00Z",
+        "oneTimeTransaction": {"externalTransactionToken": "token123"},
+    },
+)
+```
+
+### refund_external_transaction
+
+Refund an external transaction. **Write / money.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `external_transaction_id` | string | Yes | External transaction ID to refund |
+| `refund` | object | Yes | RefundExternalTransactionRequest body (`refundTime` plus `fullRefund` or `partialRefund`) |
+
+```python
+refund_external_transaction(
+    package_name="com.example.myapp",
+    external_transaction_id="tx123",
+    refund={"refundTime": "2026-01-02T00:00:00Z", "fullRefund": {}},
+)
+```
