@@ -48,6 +48,7 @@ from play_store_mcp.models import (
     ListingUpdateResult,
     Order,
     ProductPurchase,
+    ProductPurchaseOperationResult,
     RefundResult,
     RegionPrice,
     Release,
@@ -3373,6 +3374,59 @@ class PlayStoreClient:
                 success=False,
                 email="",
                 message=f"Failed to acknowledge purchase: {e.reason}",
+                error=str(e),
+            )
+
+    def consume_product_purchase(
+        self,
+        package_name: str,
+        product_id: str,
+        token: str,
+    ) -> ProductPurchaseOperationResult:
+        """Consume a one-time in-app product purchase.
+
+        Consuming a purchase makes the product available for repurchase. This
+        should only be used for consumable in-app products after entitlement is
+        granted.
+
+        Args:
+            package_name: App package name.
+            product_id: Product SKU.
+            token: Purchase token from the client.
+
+        Returns:
+            Operation result.
+        """
+        self._logger.info(
+            "Consuming product purchase",
+            package_name=package_name,
+            product_id=product_id,
+        )
+        service = self._get_service()
+
+        try:
+            service.purchases().products().consume(
+                packageName=package_name,
+                productId=product_id,
+                token=token,
+            ).execute()
+
+            return ProductPurchaseOperationResult(
+                success=True,
+                package_name=package_name,
+                product_id=product_id,
+                purchase_token=token,
+                message=f"Successfully consumed purchase of {product_id}",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to consume purchase", error=str(e))
+            return ProductPurchaseOperationResult(
+                success=False,
+                package_name=package_name,
+                product_id=product_id,
+                purchase_token=token,
+                message=f"Failed to consume purchase: {e.reason}",
                 error=str(e),
             )
 

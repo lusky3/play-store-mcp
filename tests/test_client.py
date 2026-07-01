@@ -100,6 +100,35 @@ class TestGetAppDetails:
         assert details.developer_email == "dev@example.com"
 
 
+class TestProductPurchases:
+    """Test one-time in-app product purchase methods."""
+
+    def test_consume_product_purchase_success(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """Consumes a one-time in-app product purchase via the official API."""
+        mock_products = _mock_service.purchases.return_value.products.return_value
+        mock_products.consume.return_value.execute.return_value = {}
+
+        result = client.consume_product_purchase(
+            package_name="com.example.app",
+            product_id="coins_100",
+            token="purchase-token",
+        )
+
+        assert result.success is True
+        assert result.package_name == "com.example.app"
+        assert result.product_id == "coins_100"
+        assert result.purchase_token == "purchase-token"
+        mock_products.consume.assert_called_once_with(
+            packageName="com.example.app",
+            productId="coins_100",
+            token="purchase-token",
+        )
+
+
 class TestDeployApp:
     """Test deploy_app method."""
 

@@ -220,6 +220,7 @@ Add to your `claude_desktop_config.json`:
 | --- | --- |
 | `list_in_app_products` | List all in-app products for an app |
 | `get_in_app_product` | Get details of a specific in-app product |
+| `consume_product_purchase` | Consume a one-time in-app product purchase so it can be repurchased |
 
 ### Testers Management Tools
 

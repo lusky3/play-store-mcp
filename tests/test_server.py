@@ -47,6 +47,7 @@ class TestServerTools:
             "get_vitals_metrics",
             "list_in_app_products",
             "get_in_app_product",
+            "consume_product_purchase",
             "get_listing",
             "update_listing",
             "batch_update_listings",

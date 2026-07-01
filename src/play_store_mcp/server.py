@@ -1466,6 +1466,34 @@ def acknowledge_product_purchase(
     return result.model_dump()
 
 
+@mcp.tool()
+def consume_product_purchase(
+    package_name: str,
+    product_id: str,
+    token: str,
+) -> dict[str, Any]:
+    """Consume a one-time in-app product purchase.
+
+    Use this after granting entitlement for consumable products so the user can
+    buy the same product again.
+
+    Args:
+        package_name: App package name (e.g., com.example.myapp)
+        product_id: The product SKU (in-app product ID)
+        token: The purchase token returned from the client-side purchase
+
+    Returns:
+        Operation result with success status
+    """
+    client = get_client_from_context()
+    result = client.consume_product_purchase(
+        package_name=package_name,
+        product_id=product_id,
+        token=token,
+    )
+    return result.model_dump()
+
+
 # =============================================================================
 # Purchases - Subscriptions v2 Tools
 # =============================================================================

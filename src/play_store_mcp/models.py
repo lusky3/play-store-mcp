@@ -428,6 +428,17 @@ class ProductPurchase(BaseModel):
     quantity: int | None = Field(None, description="Purchase quantity")
 
 
+class ProductPurchaseOperationResult(BaseModel):
+    """Result of a one-time in-app product purchase operation."""
+
+    success: bool = Field(..., description="Whether operation succeeded")
+    package_name: str = Field(..., description="App package name")
+    product_id: str = Field(..., description="Product ID")
+    purchase_token: str = Field(..., description="Purchase token")
+    message: str = Field(..., description="Status message")
+    error: str | None = Field(None, description="Error details if failed")
+
+
 class SubscriptionPurchaseV2(BaseModel):
     """Subscription purchase status (v2 API)."""
 
@@ -551,6 +562,10 @@ class AcquisitionFunnelResult(BaseModel):
     package_name: str = Field(..., description="App package name")
     start_date: str = Field(..., description="Start date YYYY-MM-DD")
     end_date: str = Field(..., description="End date YYYY-MM-DD")
+    stages: list[AcquisitionFunnelStage] = Field(
+        default_factory=list,
+        description="Funnel stages and traffic-source breakdown",
+    )
 
 
 # ---------------------------------------------------------------------------

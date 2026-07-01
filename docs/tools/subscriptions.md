@@ -87,3 +87,25 @@ Get details of a specific in-app product.
 ```python
 get_in_app_product("com.example.myapp", sku="premium_upgrade")
 ```
+
+---
+
+## consume_product_purchase
+
+Consume a one-time in-app product purchase after granting entitlement, making the consumable product available for repurchase.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | In-app product SKU |
+| `token` | string | Yes | Purchase token from the client app |
+
+Returns: `success`, `package_name`, `product_id`, `purchase_token`, `message`, `error`
+
+```python
+consume_product_purchase(
+    package_name="com.example.myapp",
+    product_id="coins_100",
+    token="token-from-client-app"
+)
+```
