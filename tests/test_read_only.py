@@ -154,6 +154,31 @@ WRITE_TOOLS = [
         "batch_delete_in_app_products",
         {"package_name": "com.example.app", "skus": ["sku1", "sku2"]},
     ),
+    (
+        "create_subscription",
+        {
+            "package_name": "com.example.app",
+            "product_id": "premium_monthly",
+            "subscription": {"productId": "premium_monthly"},
+        },
+    ),
+    (
+        "patch_subscription",
+        {
+            "package_name": "com.example.app",
+            "product_id": "premium_monthly",
+            "subscription": {"productId": "premium_monthly"},
+            "update_mask": "basePlans",
+        },
+    ),
+    (
+        "delete_subscription",
+        {"package_name": "com.example.app", "product_id": "premium_monthly"},
+    ),
+    (
+        "batch_update_subscriptions",
+        {"package_name": "com.example.app", "requests": [{"subscription": {}}]},
+    ),
 ]
 
 

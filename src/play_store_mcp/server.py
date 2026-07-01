@@ -1052,6 +1052,171 @@ def batch_delete_in_app_products(
 
 
 # =============================================================================
+# Subscription Catalog Tools
+# =============================================================================
+
+
+@mcp.tool()
+def get_subscription(
+    package_name: str,
+    product_id: str,
+) -> dict[str, Any]:
+    """Get details of a specific subscription product.
+
+    Args:
+        package_name: App package name
+        product_id: Subscription product ID
+
+    Returns:
+        Subscription product details including base plans
+    """
+    client = get_client_from_context()
+
+    subscription = client.get_subscription(package_name, product_id)
+    return subscription.model_dump()
+
+
+@mcp.tool()
+def create_subscription(
+    package_name: str,
+    product_id: str,
+    subscription: dict[str, Any],
+    regions_version: str = "2022/02",
+) -> dict[str, Any]:
+    """Create a new subscription product in the catalog.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Subscription product ID
+        subscription: Subscription resource body (e.g. basePlans, listings)
+        regions_version: Version of available regions for regional prices (default: "2022/02")
+
+    Returns:
+        The created subscription product
+    """
+    if blocked := _read_only_block("create_subscription"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.create_subscription(
+        package_name=package_name,
+        product_id=product_id,
+        subscription=subscription,
+        regions_version=regions_version,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def patch_subscription(
+    package_name: str,
+    product_id: str,
+    subscription: dict[str, Any],
+    update_mask: str,
+    regions_version: str = "2022/02",
+) -> dict[str, Any]:
+    """Partially update an existing subscription product.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Subscription product ID
+        subscription: Partial Subscription resource body with fields to change
+        update_mask: Comma-separated list of fields to update
+        regions_version: Version of available regions for regional prices (default: "2022/02")
+
+    Returns:
+        The patched subscription product
+    """
+    if blocked := _read_only_block("patch_subscription"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.patch_subscription(
+        package_name=package_name,
+        product_id=product_id,
+        subscription=subscription,
+        update_mask=update_mask,
+        regions_version=regions_version,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def delete_subscription(
+    package_name: str,
+    product_id: str,
+) -> dict[str, Any]:
+    """Delete a subscription product from the catalog.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Subscription product ID
+
+    Returns:
+        Result with success status
+    """
+    if blocked := _read_only_block("delete_subscription"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.delete_subscription(package_name=package_name, product_id=product_id)
+    return result.model_dump()
+
+
+@mcp.tool()
+def batch_get_subscriptions(
+    package_name: str,
+    product_ids: list[str],
+) -> list[dict[str, Any]]:
+    """Get details for multiple subscription products at once.
+
+    Args:
+        package_name: App package name
+        product_ids: List of subscription product IDs to retrieve
+
+    Returns:
+        List of subscription products
+    """
+    client = get_client_from_context()
+
+    subscriptions = client.batch_get_subscriptions(
+        package_name=package_name, product_ids=product_ids
+    )
+    return [sub.model_dump() for sub in subscriptions]
+
+
+@mcp.tool()
+def batch_update_subscriptions(
+    package_name: str,
+    requests: list[dict[str, Any]],
+) -> list[dict[str, Any]] | dict[str, Any]:
+    """Update multiple subscription products in a single operation.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        requests: List of UpdateSubscriptionRequest bodies (each with subscription,
+            updateMask, and optional regionsVersion)
+
+    Returns:
+        List of updated subscription products, or an error object in read-only mode
+    """
+    if blocked := _read_only_block("batch_update_subscriptions"):
+        return blocked
+    client = get_client_from_context()
+
+    subscriptions = client.batch_update_subscriptions(package_name=package_name, requests=requests)
+    return [sub.model_dump() for sub in subscriptions]
+
+
+# =============================================================================
 # Store Listings Tools
 # =============================================================================
 

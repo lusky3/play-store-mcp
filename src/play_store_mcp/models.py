@@ -295,6 +295,18 @@ class SubscriptionActionResult(BaseModel):
     error: str | None = Field(None, description="Error details if failed")
 
 
+class SubscriptionCatalogResult(BaseModel):
+    """Result of a delete action on a subscription catalog product."""
+
+    success: bool = Field(..., description="Whether the action succeeded")
+    package_name: str = Field(..., description="App package name")
+    product_id: str | None = Field(
+        None, description="Subscription product ID (None for batch operations)"
+    )
+    message: str = Field(..., description="Status message")
+    error: str | None = Field(None, description="Error details if failed")
+
+
 class ProductPurchaseV2(BaseModel):
     """Status of an in-app product purchase (Purchases.productsv2)."""
 

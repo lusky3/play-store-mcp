@@ -36,6 +36,7 @@ from play_store_mcp.models import (
     Review,
     ReviewReplyResult,
     SubscriptionActionResult,
+    SubscriptionCatalogResult,
     SubscriptionProduct,
     SubscriptionPurchase,
     TesterInfo,
@@ -1932,6 +1933,224 @@ class PlayStoreClient:
         except HttpError as e:
             self._logger.exception("Failed to batch delete in-app products", error=str(e))
             raise PlayStoreClientError(f"Failed to batch delete in-app products: {e.reason}") from e
+
+    # =========================================================================
+    # Subscription Catalog API
+    # =========================================================================
+
+    @staticmethod
+    def _parse_subscription(package_name: str, data: dict[str, Any]) -> SubscriptionProduct:
+        """Parse a Subscription API resource into a SubscriptionProduct model."""
+        return SubscriptionProduct(
+            product_id=data.get("productId", ""),
+            package_name=package_name,
+            status=None,
+            base_plans=data.get("basePlans", []),
+        )
+
+    def get_subscription(self, package_name: str, product_id: str) -> SubscriptionProduct:
+        """Get details of a specific subscription product.
+
+        Args:
+            package_name: App package name.
+            product_id: Subscription product ID.
+
+        Returns:
+            Subscription product details.
+        """
+        self._logger.info("Getting subscription", package_name=package_name, product_id=product_id)
+        service = self._get_service()
+
+        try:
+            data = (
+                service.monetization()
+                .subscriptions()
+                .get(packageName=package_name, productId=product_id)
+                .execute()
+            )
+            return self._parse_subscription(package_name, data)
+
+        except HttpError as e:
+            self._logger.exception("Failed to get subscription", error=str(e))
+            raise PlayStoreClientError(f"Failed to get subscription: {e.reason}") from e
+
+    def create_subscription(
+        self,
+        package_name: str,
+        product_id: str,
+        subscription: dict[str, Any],
+        regions_version: str = "2022/02",
+    ) -> SubscriptionProduct:
+        """Create a new subscription product.
+
+        Args:
+            package_name: App package name.
+            product_id: Subscription product ID (query param).
+            subscription: Subscription resource body.
+            regions_version: Version of available regions to use for regional prices.
+
+        Returns:
+            The created subscription product.
+        """
+        self._logger.info("Creating subscription", package_name=package_name, product_id=product_id)
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .subscriptions()
+                .create(
+                    packageName=package_name,
+                    productId=product_id,
+                    regionsVersion_version=regions_version,
+                    body=subscription,
+                )
+                .execute()
+            )
+            return self._parse_subscription(package_name, result)
+
+        except HttpError as e:
+            self._logger.exception("Failed to create subscription", error=str(e))
+            raise PlayStoreClientError(f"Failed to create subscription: {e.reason}") from e
+
+    def patch_subscription(
+        self,
+        package_name: str,
+        product_id: str,
+        subscription: dict[str, Any],
+        update_mask: str,
+        regions_version: str = "2022/02",
+    ) -> SubscriptionProduct:
+        """Partially update an existing subscription product.
+
+        Args:
+            package_name: App package name.
+            product_id: Subscription product ID.
+            subscription: Partial Subscription resource body.
+            update_mask: Comma-separated list of fields to update.
+            regions_version: Version of available regions to use for regional prices.
+
+        Returns:
+            The patched subscription product.
+        """
+        self._logger.info("Patching subscription", package_name=package_name, product_id=product_id)
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .subscriptions()
+                .patch(
+                    packageName=package_name,
+                    productId=product_id,
+                    updateMask=update_mask,
+                    regionsVersion_version=regions_version,
+                    body=subscription,
+                )
+                .execute()
+            )
+            return self._parse_subscription(package_name, result)
+
+        except HttpError as e:
+            self._logger.exception("Failed to patch subscription", error=str(e))
+            raise PlayStoreClientError(f"Failed to patch subscription: {e.reason}") from e
+
+    def delete_subscription(self, package_name: str, product_id: str) -> SubscriptionCatalogResult:
+        """Delete a subscription product.
+
+        Args:
+            package_name: App package name.
+            product_id: Subscription product ID.
+
+        Returns:
+            Action result with success status.
+        """
+        self._logger.info("Deleting subscription", package_name=package_name, product_id=product_id)
+        service = self._get_service()
+
+        try:
+            service.monetization().subscriptions().delete(
+                packageName=package_name, productId=product_id
+            ).execute()
+
+            return SubscriptionCatalogResult(
+                success=True,
+                package_name=package_name,
+                product_id=product_id,
+                message=f"Subscription {product_id} deleted successfully",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to delete subscription", error=str(e))
+            raise PlayStoreClientError(f"Failed to delete subscription: {e.reason}") from e
+
+    def batch_get_subscriptions(
+        self, package_name: str, product_ids: list[str]
+    ) -> list[SubscriptionProduct]:
+        """Get details for multiple subscription products.
+
+        Args:
+            package_name: App package name.
+            product_ids: List of subscription product IDs to retrieve.
+
+        Returns:
+            List of subscription products.
+        """
+        self._logger.info(
+            "Batch getting subscriptions", package_name=package_name, count=len(product_ids)
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .subscriptions()
+                .batchGet(packageName=package_name, productIds=product_ids)
+                .execute()
+            )
+
+            return [
+                self._parse_subscription(package_name, data)
+                for data in result.get("subscriptions", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception("Failed to batch get subscriptions", error=str(e))
+            raise PlayStoreClientError(f"Failed to batch get subscriptions: {e.reason}") from e
+
+    def batch_update_subscriptions(
+        self, package_name: str, requests: list[dict[str, Any]]
+    ) -> list[SubscriptionProduct]:
+        """Update multiple subscription products in a single operation.
+
+        Args:
+            package_name: App package name.
+            requests: List of UpdateSubscriptionRequest bodies.
+
+        Returns:
+            List of updated subscription products.
+        """
+        self._logger.info(
+            "Batch updating subscriptions", package_name=package_name, count=len(requests)
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .subscriptions()
+                .batchUpdate(packageName=package_name, body={"requests": requests})
+                .execute()
+            )
+
+            return [
+                self._parse_subscription(package_name, data)
+                for data in result.get("subscriptions", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception("Failed to batch update subscriptions", error=str(e))
+            raise PlayStoreClientError(f"Failed to batch update subscriptions: {e.reason}") from e
 
     # =========================================================================
     # Store Listings API

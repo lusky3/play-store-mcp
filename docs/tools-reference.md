@@ -35,6 +35,12 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 | Tool | Description |
 |---|---|
 | [`list_subscriptions`](tools/subscriptions.md#list_subscriptions) | List subscription products |
+| [`get_subscription`](tools/subscriptions.md#get_subscription) | Get details of a specific subscription product |
+| [`batch_get_subscriptions`](tools/subscriptions.md#batch_get_subscriptions) | Get details for multiple subscription products at once |
+| `create_subscription` | Create a new subscription product (write) |
+| `patch_subscription` | Partially update a subscription product (write) |
+| `delete_subscription` | Delete a subscription product (write) |
+| `batch_update_subscriptions` | Update multiple subscription products at once (write) |
 | [`get_subscription_status`](tools/subscriptions.md#get_subscription_status) | Check subscription purchase status |
 | [`list_voided_purchases`](tools/subscriptions.md#list_voided_purchases) | List voided purchases |
 

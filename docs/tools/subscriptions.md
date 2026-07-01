@@ -59,6 +59,134 @@ list_voided_purchases("com.example.myapp", max_results=50)
 
 ---
 
+## Subscription Catalog Management
+
+Create, patch, and delete subscription products (`monetization.subscriptions`) in
+your catalog. All tools here except `get_subscription` and
+`batch_get_subscriptions` are writes and are disabled in
+[read-only mode](../configuration.md#read-only-mode).
+
+The `subscription` parameter is a
+[Subscription](https://developers.google.com/android-publisher/api-ref/rest/v3/monetization.subscriptions)
+resource body — for example `basePlans` and `listings`. Write operations take a
+`regions_version` (default `"2022/02"`) identifying the version of available
+regions used for regional prices.
+
+### get_subscription
+
+Get details of a specific subscription product. Read-only (available in read-only mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Subscription product ID |
+
+```python
+get_subscription("com.example.myapp", product_id="premium_monthly")
+```
+
+### create_subscription
+
+Create a new subscription product. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `package_name` | string | Yes | — | App package name |
+| `product_id` | string | Yes | — | Subscription product ID |
+| `subscription` | object | Yes | — | Subscription resource body |
+| `regions_version` | string | No | `"2022/02"` | Version of available regions for regional prices |
+
+```python
+create_subscription(
+    package_name="com.example.myapp",
+    product_id="premium_monthly",
+    subscription={
+        "basePlans": [
+            {
+                "basePlanId": "monthly",
+                "autoRenewingBasePlanType": {"billingPeriodDuration": "P1M"},
+            }
+        ],
+        "listings": [{"languageCode": "en-US", "title": "Premium Monthly"}],
+    },
+)
+```
+
+### patch_subscription
+
+Partially update an existing subscription product. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `package_name` | string | Yes | — | App package name |
+| `product_id` | string | Yes | — | Subscription product ID |
+| `subscription` | object | Yes | — | Partial Subscription body with only the fields to change |
+| `update_mask` | string | Yes | — | Comma-separated list of fields to update |
+| `regions_version` | string | No | `"2022/02"` | Version of available regions for regional prices |
+
+```python
+patch_subscription(
+    package_name="com.example.myapp",
+    product_id="premium_monthly",
+    subscription={"listings": [{"languageCode": "en-US", "title": "Premium (Monthly)"}]},
+    update_mask="listings",
+)
+```
+
+### delete_subscription
+
+Delete a subscription product from the catalog. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Subscription product ID |
+
+```python
+delete_subscription("com.example.myapp", product_id="premium_monthly")
+```
+
+### batch_get_subscriptions
+
+Get details for multiple subscription products at once. Read-only (available in read-only mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_ids` | array of string | Yes | Subscription product IDs to retrieve (up to 100) |
+
+```python
+batch_get_subscriptions("com.example.myapp", product_ids=["premium_monthly", "premium_yearly"])
+```
+
+### batch_update_subscriptions
+
+Update multiple subscription products in a single operation. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `requests` | array of object | Yes | UpdateSubscriptionRequest bodies (each with `subscription`, `updateMask`, and optional `regionsVersion`) |
+
+```python
+batch_update_subscriptions(
+    package_name="com.example.myapp",
+    requests=[
+        {
+            "subscription": {
+                "packageName": "com.example.myapp",
+                "productId": "premium_monthly",
+                "listings": [{"languageCode": "en-US", "title": "Premium Monthly"}],
+            },
+            "updateMask": "listings",
+            "regionsVersion": {"version": "2022/02"},
+        }
+    ],
+)
+```
+
+---
+
 ## list_in_app_products
 
 List all in-app products (managed products) for an app.
