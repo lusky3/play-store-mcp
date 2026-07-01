@@ -307,6 +307,21 @@ class SubscriptionCatalogResult(BaseModel):
     error: str | None = Field(None, description="Error details if failed")
 
 
+class SubscriptionOffer(BaseModel):
+    """Subscription offer definition (basePlans.offers resource)."""
+
+    package_name: str = Field(..., description="App package name")
+    product_id: str = Field(..., description="Parent subscription product ID")
+    base_plan_id: str = Field(..., description="Parent base plan ID")
+    offer_id: str = Field(..., description="Subscription offer ID")
+    state: str | None = Field(None, description="Offer state (e.g. DRAFT, ACTIVE, INACTIVE)")
+    offer_tags: list[str] = Field(default_factory=list, description="Offer tag strings")
+    phases: list[dict[str, Any]] = Field(
+        default_factory=list, description="Offer phase definitions"
+    )
+    regions_version: str | None = Field(None, description="Regions catalog version")
+
+
 class ProductPurchaseV2(BaseModel):
     """Status of an in-app product purchase (Purchases.productsv2)."""
 

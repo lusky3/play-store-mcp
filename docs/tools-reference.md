@@ -47,6 +47,16 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 | `migrate_base_plan_prices` | Migrate subscribers to current base plan prices (write) |
 | `batch_migrate_base_plan_prices` | Migrate prices for multiple base plans at once (write) |
 | `batch_update_base_plan_states` | Activate/deactivate multiple base plans at once (write) |
+| [`get_subscription_offer`](tools/subscriptions.md#get_subscription_offer) | Get details of a specific subscription offer |
+| [`list_subscription_offers`](tools/subscriptions.md#list_subscription_offers) | List all offers for a base plan |
+| [`batch_get_subscription_offers`](tools/subscriptions.md#batch_get_subscription_offers) | Get details for multiple subscription offers at once |
+| `create_subscription_offer` | Create a new subscription offer (write) |
+| `patch_subscription_offer` | Partially update a subscription offer (write) |
+| `activate_subscription_offer` | Activate a subscription offer (write) |
+| `deactivate_subscription_offer` | Deactivate a subscription offer (write) |
+| `delete_subscription_offer` | Delete a subscription offer (write) |
+| `batch_update_subscription_offers` | Update multiple subscription offers at once (write) |
+| `batch_update_subscription_offer_states` | Activate/deactivate multiple subscription offers at once (write) |
 | [`get_subscription_status`](tools/subscriptions.md#get_subscription_status) | Check subscription purchase status |
 | [`list_voided_purchases`](tools/subscriptions.md#list_voided_purchases) | List voided purchases |
 
