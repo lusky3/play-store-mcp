@@ -319,6 +319,233 @@ batch_update_base_plan_states(
 
 ---
 
+## Subscription Offers
+
+Manage offers within a base plan
+(`monetization.subscriptions.basePlans.offers`). The read tools
+(`get_subscription_offer`, `list_subscription_offers`, and
+`batch_get_subscription_offers`) are available in read-only mode; all other
+tools here are writes and are disabled in
+[read-only mode](../configuration.md#read-only-mode).
+
+The `offer` parameter is a
+[SubscriptionOffer](https://developers.google.com/android-publisher/api-ref/rest/v3/monetization.subscriptions.basePlans.offers)
+resource body — for example `phases`, `regionalConfigs`, `offerTags`, and
+`targeting`. Create/patch operations take a `regions_version` (default
+`"2022/02"`) identifying the version of available regions used for regional
+prices. Offer-returning tools include: `offer_id`, `base_plan_id`, `state`,
+`offer_tags`, `phases`, `regions_version`.
+
+### get_subscription_offer
+
+Get details of a specific subscription offer. Read-only (available in read-only mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent subscription product ID |
+| `base_plan_id` | string | Yes | Parent base plan ID |
+| `offer_id` | string | Yes | Subscription offer ID |
+
+```python
+get_subscription_offer("com.example.myapp", product_id="premium", base_plan_id="monthly", offer_id="intro")
+```
+
+### list_subscription_offers
+
+List all offers for a base plan. Read-only (available in read-only mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent subscription product ID |
+| `base_plan_id` | string | Yes | Parent base plan ID (`-` wildcard lists offers across base plans) |
+
+```python
+list_subscription_offers("com.example.myapp", product_id="premium", base_plan_id="monthly")
+```
+
+### create_subscription_offer
+
+Create a new subscription offer. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `package_name` | string | Yes | — | App package name |
+| `product_id` | string | Yes | — | Parent subscription product ID |
+| `base_plan_id` | string | Yes | — | Parent base plan ID |
+| `offer_id` | string | Yes | — | Subscription offer ID |
+| `offer` | object | Yes | — | SubscriptionOffer resource body |
+| `regions_version` | string | No | `"2022/02"` | Version of available regions for regional prices |
+
+```python
+create_subscription_offer(
+    package_name="com.example.myapp",
+    product_id="premium",
+    base_plan_id="monthly",
+    offer_id="intro",
+    offer={
+        "phases": [
+            {
+                "duration": "P1M",
+                "recurrenceCount": 1,
+                "regionalConfigs": [
+                    {"regionCode": "US", "price": {"priceMicros": "0", "currency": "USD"}}
+                ],
+            }
+        ],
+        "offerTags": [{"tag": "intro"}],
+    },
+)
+```
+
+### patch_subscription_offer
+
+Partially update an existing subscription offer. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `package_name` | string | Yes | — | App package name |
+| `product_id` | string | Yes | — | Parent subscription product ID |
+| `base_plan_id` | string | Yes | — | Parent base plan ID |
+| `offer_id` | string | Yes | — | Subscription offer ID |
+| `offer` | object | Yes | — | Partial SubscriptionOffer body with only the fields to change |
+| `update_mask` | string | Yes | — | Comma-separated list of fields to update |
+| `regions_version` | string | No | `"2022/02"` | Version of available regions for regional prices |
+
+```python
+patch_subscription_offer(
+    package_name="com.example.myapp",
+    product_id="premium",
+    base_plan_id="monthly",
+    offer_id="intro",
+    offer={"offerTags": [{"tag": "promo"}]},
+    update_mask="offerTags",
+)
+```
+
+### activate_subscription_offer
+
+Activate an offer, making it available to eligible subscribers. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent subscription product ID |
+| `base_plan_id` | string | Yes | Parent base plan ID |
+| `offer_id` | string | Yes | Subscription offer ID to activate |
+
+```python
+activate_subscription_offer("com.example.myapp", product_id="premium", base_plan_id="monthly", offer_id="intro")
+```
+
+### deactivate_subscription_offer
+
+Deactivate an offer so it is unavailable to new subscribers. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent subscription product ID |
+| `base_plan_id` | string | Yes | Parent base plan ID |
+| `offer_id` | string | Yes | Subscription offer ID to deactivate |
+
+```python
+deactivate_subscription_offer("com.example.myapp", product_id="premium", base_plan_id="monthly", offer_id="intro")
+```
+
+### delete_subscription_offer
+
+Delete an offer (must be inactive with no active subscribers). **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent subscription product ID |
+| `base_plan_id` | string | Yes | Parent base plan ID |
+| `offer_id` | string | Yes | Subscription offer ID to delete |
+
+```python
+delete_subscription_offer("com.example.myapp", product_id="premium", base_plan_id="monthly", offer_id="intro")
+```
+
+### batch_get_subscription_offers
+
+Get details for multiple offers in a single operation. Read-only (available in read-only mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent subscription product ID |
+| `base_plan_id` | string | Yes | Parent base plan ID (`-` wildcard allowed) |
+| `requests` | array of object | Yes | GetSubscriptionOfferRequest bodies |
+
+```python
+batch_get_subscription_offers(
+    package_name="com.example.myapp",
+    product_id="premium",
+    base_plan_id="monthly",
+    requests=[{"offerId": "intro"}, {"offerId": "winback"}],
+)
+```
+
+### batch_update_subscription_offers
+
+Update multiple offers in a single operation. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent subscription product ID |
+| `base_plan_id` | string | Yes | Parent base plan ID (`-` wildcard allowed) |
+| `requests` | array of object | Yes | UpdateSubscriptionOfferRequest bodies (each with `subscriptionOffer`, `updateMask`, and optional `regionsVersion`) |
+
+```python
+batch_update_subscription_offers(
+    package_name="com.example.myapp",
+    product_id="premium",
+    base_plan_id="monthly",
+    requests=[
+        {
+            "subscriptionOffer": {
+                "packageName": "com.example.myapp",
+                "productId": "premium",
+                "basePlanId": "monthly",
+                "offerId": "intro",
+                "offerTags": [{"tag": "promo"}],
+            },
+            "updateMask": "offerTags",
+            "regionsVersion": {"version": "2022/02"},
+        }
+    ],
+)
+```
+
+### batch_update_subscription_offer_states
+
+Activate or deactivate multiple offers in a single operation. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `product_id` | string | Yes | Parent subscription product ID |
+| `base_plan_id` | string | Yes | Parent base plan ID (`-` wildcard allowed) |
+| `requests` | array of object | Yes | UpdateSubscriptionOfferStateRequest bodies (each with a nested `activateSubscriptionOfferRequest` or `deactivateSubscriptionOfferRequest`) |
+
+```python
+batch_update_subscription_offer_states(
+    package_name="com.example.myapp",
+    product_id="premium",
+    base_plan_id="monthly",
+    requests=[
+        {"activateSubscriptionOfferRequest": {"offerId": "intro"}},
+        {"deactivateSubscriptionOfferRequest": {"offerId": "winback"}},
+    ],
+)
+```
+
+---
+
 ## list_in_app_products
 
 List all in-app products (managed products) for an app.

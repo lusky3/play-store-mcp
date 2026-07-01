@@ -228,6 +228,72 @@ WRITE_TOOLS = [
             "requests": [{"activateBasePlanRequest": {"basePlanId": "monthly"}}],
         },
     ),
+    (
+        "create_subscription_offer",
+        {
+            "package_name": "com.example.app",
+            "product_id": "premium_monthly",
+            "base_plan_id": "monthly",
+            "offer_id": "intro",
+            "offer": {"offerId": "intro"},
+        },
+    ),
+    (
+        "patch_subscription_offer",
+        {
+            "package_name": "com.example.app",
+            "product_id": "premium_monthly",
+            "base_plan_id": "monthly",
+            "offer_id": "intro",
+            "offer": {"offerId": "intro"},
+            "update_mask": "phases",
+        },
+    ),
+    (
+        "activate_subscription_offer",
+        {
+            "package_name": "com.example.app",
+            "product_id": "premium_monthly",
+            "base_plan_id": "monthly",
+            "offer_id": "intro",
+        },
+    ),
+    (
+        "deactivate_subscription_offer",
+        {
+            "package_name": "com.example.app",
+            "product_id": "premium_monthly",
+            "base_plan_id": "monthly",
+            "offer_id": "intro",
+        },
+    ),
+    (
+        "delete_subscription_offer",
+        {
+            "package_name": "com.example.app",
+            "product_id": "premium_monthly",
+            "base_plan_id": "monthly",
+            "offer_id": "intro",
+        },
+    ),
+    (
+        "batch_update_subscription_offers",
+        {
+            "package_name": "com.example.app",
+            "product_id": "premium_monthly",
+            "base_plan_id": "monthly",
+            "requests": [{"subscriptionOffer": {}}],
+        },
+    ),
+    (
+        "batch_update_subscription_offer_states",
+        {
+            "package_name": "com.example.app",
+            "product_id": "premium_monthly",
+            "base_plan_id": "monthly",
+            "requests": [{"activateSubscriptionOfferRequest": {"offerId": "intro"}}],
+        },
+    ),
 ]
 
 

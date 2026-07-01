@@ -37,6 +37,7 @@ from play_store_mcp.models import (
     ReviewReplyResult,
     SubscriptionActionResult,
     SubscriptionCatalogResult,
+    SubscriptionOffer,
     SubscriptionProduct,
     SubscriptionPurchase,
     TesterInfo,
@@ -2418,6 +2419,521 @@ class PlayStoreClient:
             self._logger.exception("Failed to batch update base plan states", error=str(e))
             raise PlayStoreClientError(
                 f"Failed to batch update base plan states: {e.reason}"
+            ) from e
+
+    # =========================================================================
+    # Subscription Offers API
+    # =========================================================================
+
+    @staticmethod
+    def _parse_subscription_offer(offer_data: dict[str, Any]) -> SubscriptionOffer:
+        """Parse a SubscriptionOffer API resource into a SubscriptionOffer model."""
+        return SubscriptionOffer(
+            package_name=offer_data.get("packageName", ""),
+            product_id=offer_data.get("productId", ""),
+            base_plan_id=offer_data.get("basePlanId", ""),
+            offer_id=offer_data.get("offerId", ""),
+            state=offer_data.get("state"),
+            offer_tags=[
+                tag["tag"] for tag in offer_data.get("offerTags", []) if tag.get("tag") is not None
+            ],
+            phases=offer_data.get("phases", []),
+            regions_version=offer_data.get("regionsVersion", {}).get("version"),
+        )
+
+    def get_subscription_offer(
+        self, package_name: str, product_id: str, base_plan_id: str, offer_id: str
+    ) -> SubscriptionOffer:
+        """Get details of a specific subscription offer.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent subscription product ID.
+            base_plan_id: Parent base plan ID.
+            offer_id: Subscription offer ID.
+
+        Returns:
+            The subscription offer details.
+        """
+        self._logger.info(
+            "Getting subscription offer",
+            package_name=package_name,
+            product_id=product_id,
+            base_plan_id=base_plan_id,
+            offer_id=offer_id,
+        )
+        service = self._get_service()
+
+        try:
+            data = (
+                service.monetization()
+                .subscriptions()
+                .basePlans()
+                .offers()
+                .get(
+                    packageName=package_name,
+                    productId=product_id,
+                    basePlanId=base_plan_id,
+                    offerId=offer_id,
+                )
+                .execute()
+            )
+            return self._parse_subscription_offer(data)
+
+        except HttpError as e:
+            self._logger.exception("Failed to get subscription offer", error=str(e))
+            raise PlayStoreClientError(f"Failed to get subscription offer: {e.reason}") from e
+
+    def list_subscription_offers(
+        self, package_name: str, product_id: str, base_plan_id: str
+    ) -> list[SubscriptionOffer]:
+        """List all offers for a subscription base plan.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent subscription product ID.
+            base_plan_id: Parent base plan ID ('-' wildcard allowed).
+
+        Returns:
+            List of subscription offers.
+        """
+        self._logger.info(
+            "Listing subscription offers",
+            package_name=package_name,
+            product_id=product_id,
+            base_plan_id=base_plan_id,
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .subscriptions()
+                .basePlans()
+                .offers()
+                .list(
+                    packageName=package_name,
+                    productId=product_id,
+                    basePlanId=base_plan_id,
+                )
+                .execute()
+            )
+            return [
+                self._parse_subscription_offer(offer)
+                for offer in result.get("subscriptionOffers", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception("Failed to list subscription offers", error=str(e))
+            raise PlayStoreClientError(f"Failed to list subscription offers: {e.reason}") from e
+
+    def create_subscription_offer(
+        self,
+        package_name: str,
+        product_id: str,
+        base_plan_id: str,
+        offer_id: str,
+        offer: dict[str, Any],
+        regions_version: str = "2022/02",
+    ) -> SubscriptionOffer:
+        """Create a new subscription offer.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent subscription product ID.
+            base_plan_id: Parent base plan ID.
+            offer_id: Subscription offer ID (query param).
+            offer: SubscriptionOffer resource body.
+            regions_version: Version of available regions to use for regional prices.
+
+        Returns:
+            The created subscription offer.
+        """
+        self._logger.info(
+            "Creating subscription offer",
+            package_name=package_name,
+            product_id=product_id,
+            base_plan_id=base_plan_id,
+            offer_id=offer_id,
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .subscriptions()
+                .basePlans()
+                .offers()
+                .create(
+                    packageName=package_name,
+                    productId=product_id,
+                    basePlanId=base_plan_id,
+                    offerId=offer_id,
+                    regionsVersion_version=regions_version,
+                    body=offer,
+                )
+                .execute()
+            )
+            return self._parse_subscription_offer(result)
+
+        except HttpError as e:
+            self._logger.exception("Failed to create subscription offer", error=str(e))
+            raise PlayStoreClientError(f"Failed to create subscription offer: {e.reason}") from e
+
+    def patch_subscription_offer(
+        self,
+        package_name: str,
+        product_id: str,
+        base_plan_id: str,
+        offer_id: str,
+        offer: dict[str, Any],
+        update_mask: str,
+        regions_version: str = "2022/02",
+    ) -> SubscriptionOffer:
+        """Partially update an existing subscription offer.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent subscription product ID.
+            base_plan_id: Parent base plan ID.
+            offer_id: Subscription offer ID.
+            offer: Partial SubscriptionOffer resource body.
+            update_mask: Comma-separated list of fields to update.
+            regions_version: Version of available regions to use for regional prices.
+
+        Returns:
+            The patched subscription offer.
+        """
+        self._logger.info(
+            "Patching subscription offer",
+            package_name=package_name,
+            product_id=product_id,
+            base_plan_id=base_plan_id,
+            offer_id=offer_id,
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .subscriptions()
+                .basePlans()
+                .offers()
+                .patch(
+                    packageName=package_name,
+                    productId=product_id,
+                    basePlanId=base_plan_id,
+                    offerId=offer_id,
+                    updateMask=update_mask,
+                    regionsVersion_version=regions_version,
+                    body=offer,
+                )
+                .execute()
+            )
+            return self._parse_subscription_offer(result)
+
+        except HttpError as e:
+            self._logger.exception("Failed to patch subscription offer", error=str(e))
+            raise PlayStoreClientError(f"Failed to patch subscription offer: {e.reason}") from e
+
+    def activate_subscription_offer(
+        self, package_name: str, product_id: str, base_plan_id: str, offer_id: str
+    ) -> SubscriptionOffer:
+        """Activate a subscription offer.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent subscription product ID.
+            base_plan_id: Parent base plan ID.
+            offer_id: Subscription offer ID to activate.
+
+        Returns:
+            The updated subscription offer.
+        """
+        self._logger.info(
+            "Activating subscription offer",
+            package_name=package_name,
+            product_id=product_id,
+            base_plan_id=base_plan_id,
+            offer_id=offer_id,
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .subscriptions()
+                .basePlans()
+                .offers()
+                .activate(
+                    packageName=package_name,
+                    productId=product_id,
+                    basePlanId=base_plan_id,
+                    offerId=offer_id,
+                    body={
+                        "packageName": package_name,
+                        "productId": product_id,
+                        "basePlanId": base_plan_id,
+                        "offerId": offer_id,
+                    },
+                )
+                .execute()
+            )
+            return self._parse_subscription_offer(result)
+
+        except HttpError as e:
+            self._logger.exception("Failed to activate subscription offer", error=str(e))
+            raise PlayStoreClientError(f"Failed to activate subscription offer: {e.reason}") from e
+
+    def deactivate_subscription_offer(
+        self, package_name: str, product_id: str, base_plan_id: str, offer_id: str
+    ) -> SubscriptionOffer:
+        """Deactivate a subscription offer.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent subscription product ID.
+            base_plan_id: Parent base plan ID.
+            offer_id: Subscription offer ID to deactivate.
+
+        Returns:
+            The updated subscription offer.
+        """
+        self._logger.info(
+            "Deactivating subscription offer",
+            package_name=package_name,
+            product_id=product_id,
+            base_plan_id=base_plan_id,
+            offer_id=offer_id,
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .subscriptions()
+                .basePlans()
+                .offers()
+                .deactivate(
+                    packageName=package_name,
+                    productId=product_id,
+                    basePlanId=base_plan_id,
+                    offerId=offer_id,
+                    body={
+                        "packageName": package_name,
+                        "productId": product_id,
+                        "basePlanId": base_plan_id,
+                        "offerId": offer_id,
+                    },
+                )
+                .execute()
+            )
+            return self._parse_subscription_offer(result)
+
+        except HttpError as e:
+            self._logger.exception("Failed to deactivate subscription offer", error=str(e))
+            raise PlayStoreClientError(
+                f"Failed to deactivate subscription offer: {e.reason}"
+            ) from e
+
+    def delete_subscription_offer(
+        self, package_name: str, product_id: str, base_plan_id: str, offer_id: str
+    ) -> SubscriptionCatalogResult:
+        """Delete a subscription offer.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent subscription product ID.
+            base_plan_id: Parent base plan ID.
+            offer_id: Subscription offer ID to delete.
+
+        Returns:
+            Action result with success status.
+        """
+        self._logger.info(
+            "Deleting subscription offer",
+            package_name=package_name,
+            product_id=product_id,
+            base_plan_id=base_plan_id,
+            offer_id=offer_id,
+        )
+        service = self._get_service()
+
+        try:
+            service.monetization().subscriptions().basePlans().offers().delete(
+                packageName=package_name,
+                productId=product_id,
+                basePlanId=base_plan_id,
+                offerId=offer_id,
+            ).execute()
+
+            return SubscriptionCatalogResult(
+                success=True,
+                package_name=package_name,
+                product_id=offer_id,
+                message=f"Subscription offer {offer_id} deleted successfully",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to delete subscription offer", error=str(e))
+            raise PlayStoreClientError(f"Failed to delete subscription offer: {e.reason}") from e
+
+    def batch_get_subscription_offers(
+        self,
+        package_name: str,
+        product_id: str,
+        base_plan_id: str,
+        requests: list[dict[str, Any]],
+    ) -> list[SubscriptionOffer]:
+        """Get details for multiple subscription offers in a single operation.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent subscription product ID.
+            base_plan_id: Parent base plan ID ('-' wildcard allowed).
+            requests: List of GetSubscriptionOfferRequest bodies.
+
+        Returns:
+            List of subscription offers.
+        """
+        self._logger.info(
+            "Batch getting subscription offers",
+            package_name=package_name,
+            product_id=product_id,
+            base_plan_id=base_plan_id,
+            count=len(requests),
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .subscriptions()
+                .basePlans()
+                .offers()
+                .batchGet(
+                    packageName=package_name,
+                    productId=product_id,
+                    basePlanId=base_plan_id,
+                    body={"requests": requests},
+                )
+                .execute()
+            )
+            return [
+                self._parse_subscription_offer(offer)
+                for offer in result.get("subscriptionOffers", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception("Failed to batch get subscription offers", error=str(e))
+            raise PlayStoreClientError(
+                f"Failed to batch get subscription offers: {e.reason}"
+            ) from e
+
+    def batch_update_subscription_offers(
+        self,
+        package_name: str,
+        product_id: str,
+        base_plan_id: str,
+        requests: list[dict[str, Any]],
+    ) -> list[SubscriptionOffer]:
+        """Update multiple subscription offers in a single operation.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent subscription product ID.
+            base_plan_id: Parent base plan ID ('-' wildcard allowed).
+            requests: List of UpdateSubscriptionOfferRequest bodies.
+
+        Returns:
+            List of updated subscription offers.
+        """
+        self._logger.info(
+            "Batch updating subscription offers",
+            package_name=package_name,
+            product_id=product_id,
+            base_plan_id=base_plan_id,
+            count=len(requests),
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .subscriptions()
+                .basePlans()
+                .offers()
+                .batchUpdate(
+                    packageName=package_name,
+                    productId=product_id,
+                    basePlanId=base_plan_id,
+                    body={"requests": requests},
+                )
+                .execute()
+            )
+            return [
+                self._parse_subscription_offer(offer)
+                for offer in result.get("subscriptionOffers", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception("Failed to batch update subscription offers", error=str(e))
+            raise PlayStoreClientError(
+                f"Failed to batch update subscription offers: {e.reason}"
+            ) from e
+
+    def batch_update_subscription_offer_states(
+        self,
+        package_name: str,
+        product_id: str,
+        base_plan_id: str,
+        requests: list[dict[str, Any]],
+    ) -> list[SubscriptionOffer]:
+        """Activate or deactivate multiple subscription offers in a single operation.
+
+        Args:
+            package_name: App package name.
+            product_id: Parent subscription product ID.
+            base_plan_id: Parent base plan ID ('-' wildcard allowed).
+            requests: List of UpdateSubscriptionOfferStateRequest bodies (each with a
+                nested activateSubscriptionOfferRequest or
+                deactivateSubscriptionOfferRequest).
+
+        Returns:
+            The updated subscription offers, one per request in order.
+        """
+        self._logger.info(
+            "Batch updating subscription offer states",
+            package_name=package_name,
+            product_id=product_id,
+            base_plan_id=base_plan_id,
+            count=len(requests),
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.monetization()
+                .subscriptions()
+                .basePlans()
+                .offers()
+                .batchUpdateStates(
+                    packageName=package_name,
+                    productId=product_id,
+                    basePlanId=base_plan_id,
+                    body={"requests": requests},
+                )
+                .execute()
+            )
+            return [
+                self._parse_subscription_offer(offer)
+                for offer in result.get("subscriptionOffers", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception("Failed to batch update subscription offer states", error=str(e))
+            raise PlayStoreClientError(
+                f"Failed to batch update subscription offer states: {e.reason}"
             ) from e
 
     # =========================================================================

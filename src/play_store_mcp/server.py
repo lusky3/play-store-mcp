@@ -1407,6 +1407,344 @@ def batch_update_base_plan_states(
 
 
 # =============================================================================
+# Subscription Offer Tools
+# =============================================================================
+
+
+@mcp.tool()
+def get_subscription_offer(
+    package_name: str,
+    product_id: str,
+    base_plan_id: str,
+    offer_id: str,
+) -> dict[str, Any]:
+    """Get details of a specific subscription offer.
+
+    Args:
+        package_name: App package name
+        product_id: Parent subscription product ID
+        base_plan_id: Parent base plan ID
+        offer_id: Subscription offer ID
+
+    Returns:
+        The subscription offer details
+    """
+    client = get_client_from_context()
+
+    offer = client.get_subscription_offer(
+        package_name=package_name,
+        product_id=product_id,
+        base_plan_id=base_plan_id,
+        offer_id=offer_id,
+    )
+    return offer.model_dump()
+
+
+@mcp.tool()
+def list_subscription_offers(
+    package_name: str,
+    product_id: str,
+    base_plan_id: str,
+) -> list[dict[str, Any]]:
+    """List all offers for a subscription base plan.
+
+    Args:
+        package_name: App package name
+        product_id: Parent subscription product ID
+        base_plan_id: Parent base plan ID ('-' wildcard lists offers across base plans)
+
+    Returns:
+        List of subscription offers
+    """
+    client = get_client_from_context()
+
+    offers = client.list_subscription_offers(
+        package_name=package_name,
+        product_id=product_id,
+        base_plan_id=base_plan_id,
+    )
+    return [offer.model_dump() for offer in offers]
+
+
+@mcp.tool()
+def create_subscription_offer(
+    package_name: str,
+    product_id: str,
+    base_plan_id: str,
+    offer_id: str,
+    offer: dict[str, Any],
+    regions_version: str = "2022/02",
+) -> dict[str, Any]:
+    """Create a new subscription offer.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent subscription product ID
+        base_plan_id: Parent base plan ID
+        offer_id: Subscription offer ID
+        offer: SubscriptionOffer resource body (e.g. phases, regionalConfigs, targeting)
+        regions_version: Version of available regions for regional prices (default: "2022/02")
+
+    Returns:
+        The created subscription offer
+    """
+    if blocked := _read_only_block("create_subscription_offer"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.create_subscription_offer(
+        package_name=package_name,
+        product_id=product_id,
+        base_plan_id=base_plan_id,
+        offer_id=offer_id,
+        offer=offer,
+        regions_version=regions_version,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def patch_subscription_offer(
+    package_name: str,
+    product_id: str,
+    base_plan_id: str,
+    offer_id: str,
+    offer: dict[str, Any],
+    update_mask: str,
+    regions_version: str = "2022/02",
+) -> dict[str, Any]:
+    """Partially update an existing subscription offer.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent subscription product ID
+        base_plan_id: Parent base plan ID
+        offer_id: Subscription offer ID
+        offer: Partial SubscriptionOffer resource body with fields to change
+        update_mask: Comma-separated list of fields to update
+        regions_version: Version of available regions for regional prices (default: "2022/02")
+
+    Returns:
+        The patched subscription offer
+    """
+    if blocked := _read_only_block("patch_subscription_offer"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.patch_subscription_offer(
+        package_name=package_name,
+        product_id=product_id,
+        base_plan_id=base_plan_id,
+        offer_id=offer_id,
+        offer=offer,
+        update_mask=update_mask,
+        regions_version=regions_version,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def activate_subscription_offer(
+    package_name: str,
+    product_id: str,
+    base_plan_id: str,
+    offer_id: str,
+) -> dict[str, Any]:
+    """Activate a subscription offer, making it available to eligible subscribers.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent subscription product ID
+        base_plan_id: Parent base plan ID
+        offer_id: Subscription offer ID to activate
+
+    Returns:
+        The updated subscription offer
+    """
+    if blocked := _read_only_block("activate_subscription_offer"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.activate_subscription_offer(
+        package_name=package_name,
+        product_id=product_id,
+        base_plan_id=base_plan_id,
+        offer_id=offer_id,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def deactivate_subscription_offer(
+    package_name: str,
+    product_id: str,
+    base_plan_id: str,
+    offer_id: str,
+) -> dict[str, Any]:
+    """Deactivate a subscription offer, making it unavailable to new subscribers.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent subscription product ID
+        base_plan_id: Parent base plan ID
+        offer_id: Subscription offer ID to deactivate
+
+    Returns:
+        The updated subscription offer
+    """
+    if blocked := _read_only_block("deactivate_subscription_offer"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.deactivate_subscription_offer(
+        package_name=package_name,
+        product_id=product_id,
+        base_plan_id=base_plan_id,
+        offer_id=offer_id,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def delete_subscription_offer(
+    package_name: str,
+    product_id: str,
+    base_plan_id: str,
+    offer_id: str,
+) -> dict[str, Any]:
+    """Delete a subscription offer.
+
+    Only inactive offers with no active subscribers can be deleted.
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent subscription product ID
+        base_plan_id: Parent base plan ID
+        offer_id: Subscription offer ID to delete
+
+    Returns:
+        Result with success status
+    """
+    if blocked := _read_only_block("delete_subscription_offer"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.delete_subscription_offer(
+        package_name=package_name,
+        product_id=product_id,
+        base_plan_id=base_plan_id,
+        offer_id=offer_id,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def batch_get_subscription_offers(
+    package_name: str,
+    product_id: str,
+    base_plan_id: str,
+    requests: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Get details for multiple subscription offers in a single operation.
+
+    Args:
+        package_name: App package name
+        product_id: Parent subscription product ID
+        base_plan_id: Parent base plan ID ('-' wildcard allowed)
+        requests: List of GetSubscriptionOfferRequest bodies
+
+    Returns:
+        List of subscription offers
+    """
+    client = get_client_from_context()
+
+    offers = client.batch_get_subscription_offers(
+        package_name=package_name,
+        product_id=product_id,
+        base_plan_id=base_plan_id,
+        requests=requests,
+    )
+    return [offer.model_dump() for offer in offers]
+
+
+@mcp.tool()
+def batch_update_subscription_offers(
+    package_name: str,
+    product_id: str,
+    base_plan_id: str,
+    requests: list[dict[str, Any]],
+) -> list[dict[str, Any]] | dict[str, Any]:
+    """Update multiple subscription offers in a single operation.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent subscription product ID
+        base_plan_id: Parent base plan ID ('-' wildcard allowed)
+        requests: List of UpdateSubscriptionOfferRequest bodies (each with
+            subscriptionOffer, updateMask, and optional regionsVersion)
+
+    Returns:
+        List of updated subscription offers, or an error object in read-only mode
+    """
+    if blocked := _read_only_block("batch_update_subscription_offers"):
+        return blocked
+    client = get_client_from_context()
+
+    offers = client.batch_update_subscription_offers(
+        package_name=package_name,
+        product_id=product_id,
+        base_plan_id=base_plan_id,
+        requests=requests,
+    )
+    return [offer.model_dump() for offer in offers]
+
+
+@mcp.tool()
+def batch_update_subscription_offer_states(
+    package_name: str,
+    product_id: str,
+    base_plan_id: str,
+    requests: list[dict[str, Any]],
+) -> list[dict[str, Any]] | dict[str, Any]:
+    """Activate or deactivate multiple subscription offers in a single operation.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        product_id: Parent subscription product ID
+        base_plan_id: Parent base plan ID ('-' wildcard allowed)
+        requests: List of UpdateSubscriptionOfferStateRequest bodies (each with a
+            nested activateSubscriptionOfferRequest or deactivateSubscriptionOfferRequest)
+
+    Returns:
+        The updated subscription offers, one per request
+    """
+    if blocked := _read_only_block("batch_update_subscription_offer_states"):
+        return blocked
+    client = get_client_from_context()
+
+    offers = client.batch_update_subscription_offer_states(
+        package_name=package_name,
+        product_id=product_id,
+        base_plan_id=base_plan_id,
+        requests=requests,
+    )
+    return [offer.model_dump() for offer in offers]
+
+
+# =============================================================================
 # Store Listings Tools
 # =============================================================================
 
