@@ -134,6 +134,19 @@ export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
 play-store-mcp --transport streamable-http --host 0.0.0.0 --port 8000
 ```
 
+### Read-Only Mode
+
+To point the server at a live Play Console without any risk of mutating it, run
+in read-only mode. All write tools (deploy, promote, halt, rollout, reply to
+reviews, listing/tester updates) return an error instead of calling the API;
+read tools are unaffected.
+
+```bash
+play-store-mcp --read-only
+# or
+export PLAY_STORE_MCP_READ_ONLY=1
+```
+
 ## 🔧 MCP Client Configuration
 
 ### Claude Desktop
@@ -303,6 +316,7 @@ Add to `.kiro/settings/mcp.json`:
 | `GOOGLE_PLAY_STORE_CREDENTIALS` | Inline JSON credentials string | Alternative to file path |
 | `PLAY_STORE_MCP_LOG_LEVEL` | Log level (DEBUG, INFO, WARNING, ERROR) | No (default: INFO) |
 | `PLAY_STORE_MCP_DISABLE_DNS_REBINDING` | Disable DNS rebinding protection (for cloud/reverse-proxy deployments) | No |
+| `PLAY_STORE_MCP_READ_ONLY` | Disable all write operations (deploy, promote, rollout, reply, listing/tester updates) | No (default: off) |
 
 ## 🧪 Development
 
