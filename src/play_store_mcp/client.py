@@ -16,7 +16,7 @@ import structlog
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-from googleapiclient.http import MediaFileUpload
+from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 
 from play_store_mcp.models import (
     AppDetails,
@@ -26,8 +26,10 @@ from play_store_mcp.models import (
     DataSafetyResult,
     DeploymentResult,
     DeviceTierConfig,
+    DownloadResult,
     ExpansionFile,
     ExternalTransaction,
+    GeneratedApksDownload,
     InAppProduct,
     InAppProductActionResult,
     Listing,
@@ -4543,3 +4545,135 @@ class PlayStoreClient:
         except HttpError as e:
             self._logger.exception("Failed to add app recovery targeting", error=str(e))
             raise PlayStoreClientError(f"Failed to add app recovery targeting: {e.reason}") from e
+
+    # =========================================================================
+    # Generated APKs API
+    # =========================================================================
+
+    def list_generated_apks(
+        self,
+        package_name: str,
+        version_code: int,
+    ) -> list[GeneratedApksDownload]:
+        """List the downloadable APKs generated from an app bundle version.
+
+        Google Play generates split, standalone, universal, asset-pack-slice,
+        and recovery APKs from an uploaded app bundle. This flattens the
+        per-signing-key response into one item per downloadable APK.
+
+        Args:
+            package_name: App package name.
+            version_code: Version code of the app bundle.
+
+        Returns:
+            List of downloadable generated APKs, each with its download ID and type.
+        """
+        self._logger.info(
+            "Listing generated APKs",
+            package_name=package_name,
+            version_code=version_code,
+        )
+        service = self._get_service()
+
+        try:
+            result = (
+                service.generatedapks()
+                .list(packageName=package_name, versionCode=version_code)
+                .execute()
+            )
+
+            downloads: list[GeneratedApksDownload] = []
+            for entry in result.get("generatedApks", []):
+                # Each signing-key entry holds several sub-lists (plus optional
+                # unprotected variants) and a single universal APK object; every
+                # sub-entry carries a "downloadId". Flatten them all.
+                list_fields: list[tuple[str, str]] = [
+                    ("generatedSplitApks", "split"),
+                    ("unprotectedGeneratedSplitApks", "split"),
+                    ("generatedStandaloneApks", "standalone"),
+                    ("unprotectedGeneratedStandaloneApks", "standalone"),
+                    ("generatedAssetPackSlices", "asset_pack_slice"),
+                    ("generatedRecoveryModules", "recovery"),
+                ]
+                for field_name, apk_type in list_fields:
+                    for sub in entry.get(field_name, []):
+                        download_id = sub.get("downloadId")
+                        if download_id:
+                            downloads.append(
+                                GeneratedApksDownload(
+                                    package_name=package_name,
+                                    version_code=version_code,
+                                    download_id=download_id,
+                                    apk_type=apk_type,
+                                )
+                            )
+
+                universal = entry.get("generatedUniversalApk") or {}
+                universal_download_id = universal.get("downloadId")
+                if universal_download_id:
+                    downloads.append(
+                        GeneratedApksDownload(
+                            package_name=package_name,
+                            version_code=version_code,
+                            download_id=universal_download_id,
+                            apk_type="universal",
+                        )
+                    )
+
+            return downloads
+
+        except HttpError as e:
+            self._logger.exception("Failed to list generated APKs", error=str(e))
+            raise PlayStoreClientError(f"Failed to list generated APKs: {e.reason}") from e
+
+    def download_generated_apk(
+        self,
+        package_name: str,
+        version_code: int,
+        download_id: str,
+        destination_path: str,
+    ) -> DownloadResult:
+        """Download a single generated APK to a local file.
+
+        Args:
+            package_name: App package name.
+            version_code: Version code of the app bundle.
+            download_id: Download ID identifying the generated APK (from
+                :meth:`list_generated_apks`).
+            destination_path: Local path to stream the APK bytes to.
+
+        Returns:
+            Download result with success status and destination path.
+        """
+        self._logger.info(
+            "Downloading generated APK",
+            package_name=package_name,
+            version_code=version_code,
+            download_id=download_id,
+            destination_path=destination_path,
+        )
+        service = self._get_service()
+
+        try:
+            request = service.generatedapks().download(
+                packageName=package_name,
+                versionCode=version_code,
+                downloadId=download_id,
+                alt="media",
+            )
+
+            with Path(destination_path).open("wb") as fh:
+                downloader = MediaIoBaseDownload(fh, request)
+                done = False
+                while not done:
+                    _status, done = downloader.next_chunk()
+
+            return DownloadResult(
+                success=True,
+                destination_path=destination_path,
+                message=f"Downloaded generated APK to {destination_path}",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to download generated APK", error=str(e))
+            raise PlayStoreClientError(f"Failed to download generated APK: {e.reason}") from e

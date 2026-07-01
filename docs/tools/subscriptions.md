@@ -1384,3 +1384,50 @@ add_app_recovery_targeting(
     targeting={"targetingUpdate": {"allUsers": {}}},
 )
 ```
+
+## Generated APKs
+
+Read the APKs Google Play generates from an uploaded app bundle
+([generatedapks](https://developers.google.com/android-publisher/api-ref/rest/v3/generatedapks)).
+Both tools are read-only and available in
+[read-only mode](../configuration.md#read-only-mode) — `download_generated_apk`
+only writes a file to your local machine, it does not change any Play state.
+
+### list_generated_apks
+
+List the downloadable APKs generated from an app bundle version. Google Play
+produces split, standalone, universal, asset-pack-slice, and recovery APKs; this
+flattens the per-signing-key response into one entry per downloadable APK, each
+with a `download_id` and an `apk_type` (`split`, `standalone`, `universal`,
+`asset_pack_slice`, or `recovery`). Read-only (available in read-only mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `version_code` | integer | Yes | Version code of the app bundle |
+
+```python
+list_generated_apks("com.example.myapp", version_code=42)
+```
+
+### download_generated_apk
+
+Download a single generated APK to a local file, streaming the bytes to disk.
+Pass a `download_id` obtained from `list_generated_apks`. Read-only with respect
+to Play (available in read-only mode); it writes to the local `destination_path`.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `version_code` | integer | Yes | Version code of the app bundle |
+| `download_id` | string | Yes | Download ID of the generated APK (from `list_generated_apks`) |
+| `destination_path` | string | Yes | Local path to write the APK bytes to |
+
+```python
+download_generated_apk(
+    package_name="com.example.myapp",
+    version_code=42,
+    download_id="split-1",
+    destination_path="/path/to/base-master.apk",
+)
+```

@@ -449,3 +449,26 @@ class AppRecoveryResult(BaseModel):
     app_recovery_id: str | None = Field(None, description="App recovery action ID")
     message: str = Field(..., description="Status message")
     error: str | None = Field(None, description="Error details if failed")
+
+
+class GeneratedApksDownload(BaseModel):
+    """A single downloadable generated APK (generatedapks resource)."""
+
+    package_name: str = Field(..., description="App package name")
+    version_code: int = Field(..., description="Bundle version code the APK was generated from")
+    download_id: str = Field(..., description="Download ID identifying the generated APK")
+    apk_type: str = Field(
+        ...,
+        description=(
+            "Kind of generated APK: split, standalone, universal, asset_pack_slice, or recovery"
+        ),
+    )
+
+
+class DownloadResult(BaseModel):
+    """Result of downloading a file to a local path."""
+
+    success: bool = Field(..., description="Whether the download succeeded")
+    destination_path: str = Field(..., description="Local path the file was written to")
+    message: str = Field(..., description="Status message")
+    error: str | None = Field(None, description="Error details if failed")

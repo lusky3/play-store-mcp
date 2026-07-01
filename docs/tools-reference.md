@@ -129,6 +129,13 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 | [`list_device_tier_configs`](tools/subscriptions.md#list_device_tier_configs) | List device tier configs for an app |
 | `create_device_tier_config` | Create a device tier config (write) |
 
+## Generated APKs Tools
+
+| Tool | Description |
+|---|---|
+| [`list_generated_apks`](tools/subscriptions.md#list_generated_apks) | List the APKs Google Play generated from an app bundle version |
+| [`download_generated_apk`](tools/subscriptions.md#download_generated_apk) | Download a single generated APK to a local file |
+
 ## App Management Tools
 
 | Tool | Description |

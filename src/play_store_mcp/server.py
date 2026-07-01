@@ -2744,6 +2744,67 @@ def add_app_recovery_targeting(
 
 
 # =============================================================================
+# Generated APKs Tools
+# =============================================================================
+
+
+@mcp.tool()
+def list_generated_apks(
+    package_name: str,
+    version_code: int,
+) -> list[dict[str, Any]]:
+    """List the APKs Google Play generated from an app bundle version.
+
+    Returns one entry per downloadable generated APK (split, standalone,
+    universal, asset pack slice, or recovery), each with a download ID that can
+    be passed to `download_generated_apk`.
+
+    Args:
+        package_name: App package name
+        version_code: Version code of the app bundle
+
+    Returns:
+        List of downloadable generated APKs with their download IDs and types
+    """
+    client = get_client_from_context()
+
+    downloads = client.list_generated_apks(
+        package_name=package_name,
+        version_code=version_code,
+    )
+    return [download.model_dump() for download in downloads]
+
+
+@mcp.tool()
+def download_generated_apk(
+    package_name: str,
+    version_code: int,
+    download_id: str,
+    destination_path: str,
+) -> dict[str, Any]:
+    """Download a single generated APK to a local file.
+
+    Args:
+        package_name: App package name
+        version_code: Version code of the app bundle
+        download_id: Download ID of the generated APK (from `list_generated_apks`)
+        destination_path: Local path to write the APK bytes to
+
+    Returns:
+        Download result with success status and destination path
+    """
+    client = get_client_from_context()
+
+    result = client.download_generated_apk(
+        package_name=package_name,
+        version_code=version_code,
+        download_id=download_id,
+        destination_path=destination_path,
+    )
+    return result.model_dump()
+
+
+# =============================================================================
 # Expansion Files Tools
 # =============================================================================
 
