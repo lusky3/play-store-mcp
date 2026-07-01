@@ -427,3 +427,25 @@ class DataSafetyResult(BaseModel):
     package_name: str = Field(..., description="App package name")
     message: str = Field(..., description="Status message")
     error: str | None = Field(None, description="Error details if failed")
+
+
+class AppRecovery(BaseModel):
+    """App recovery action (applications.appRecoveries resource)."""
+
+    package_name: str = Field(..., description="App package name")
+    app_recovery_id: str | None = Field(None, description="App recovery action ID")
+    status: str | None = Field(None, description="Recovery action status")
+    targeting: dict[str, Any] | None = Field(
+        None, description="Targeting criteria for the recovery action"
+    )
+    create_time: str | None = Field(None, description="Time the recovery action was created")
+
+
+class AppRecoveryResult(BaseModel):
+    """Result of a deploy/cancel/add-targeting action on an app recovery action."""
+
+    success: bool = Field(..., description="Whether the action succeeded")
+    package_name: str = Field(..., description="App package name")
+    app_recovery_id: str | None = Field(None, description="App recovery action ID")
+    message: str = Field(..., description="Status message")
+    error: str | None = Field(None, description="Error details if failed")

@@ -2610,6 +2610,140 @@ def set_data_safety(
 
 
 # =============================================================================
+# App Recovery Tools
+# =============================================================================
+
+
+@mcp.tool()
+def list_app_recoveries(package_name: str) -> list[dict[str, Any]]:
+    """List all app recovery actions for an app.
+
+    Args:
+        package_name: App package name
+
+    Returns:
+        List of app recovery actions with ID, status, targeting, and create time
+    """
+    client = get_client_from_context()
+
+    recoveries = client.list_app_recoveries(package_name)
+    return [recovery.model_dump() for recovery in recoveries]
+
+
+@mcp.tool()
+def create_app_recovery(
+    package_name: str,
+    recovery: dict[str, Any],
+) -> dict[str, Any]:
+    """Create a draft app recovery action.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        recovery: CreateDraftAppRecoveryRequest resource body (e.g.
+            `remoteInAppUpdate` plus `targeting`)
+
+    Returns:
+        The created app recovery action
+    """
+    if blocked := _read_only_block("create_app_recovery"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.create_app_recovery(
+        package_name=package_name,
+        recovery=recovery,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def deploy_app_recovery(
+    package_name: str,
+    app_recovery_id: str,
+) -> dict[str, Any]:
+    """Deploy an app recovery action to users.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        app_recovery_id: App recovery action ID
+
+    Returns:
+        The result of the deploy action
+    """
+    if blocked := _read_only_block("deploy_app_recovery"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.deploy_app_recovery(
+        package_name=package_name,
+        app_recovery_id=app_recovery_id,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def cancel_app_recovery(
+    package_name: str,
+    app_recovery_id: str,
+) -> dict[str, Any]:
+    """Cancel an app recovery action.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        app_recovery_id: App recovery action ID
+
+    Returns:
+        The result of the cancel action
+    """
+    if blocked := _read_only_block("cancel_app_recovery"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.cancel_app_recovery(
+        package_name=package_name,
+        app_recovery_id=app_recovery_id,
+    )
+    return result.model_dump()
+
+
+@mcp.tool()
+def add_app_recovery_targeting(
+    package_name: str,
+    app_recovery_id: str,
+    targeting: dict[str, Any],
+) -> dict[str, Any]:
+    """Add targeting to an app recovery action.
+
+    Disabled in read-only mode.
+
+    Args:
+        package_name: App package name
+        app_recovery_id: App recovery action ID
+        targeting: AddTargetingRequest resource body (e.g. a `targetingUpdate`
+            object)
+
+    Returns:
+        The result of the add-targeting action
+    """
+    if blocked := _read_only_block("add_app_recovery_targeting"):
+        return blocked
+    client = get_client_from_context()
+
+    result = client.add_app_recovery_targeting(
+        package_name=package_name,
+        app_recovery_id=app_recovery_id,
+        targeting=targeting,
+    )
+    return result.model_dump()
+
+
+# =============================================================================
 # Expansion Files Tools
 # =============================================================================
 

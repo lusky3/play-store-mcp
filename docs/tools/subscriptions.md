@@ -1298,3 +1298,89 @@ set_data_safety(
     safety_labels={"safetyLabels": "<contents of Data Safety CSV>"},
 )
 ```
+
+## App Recovery
+
+Manage app recovery actions
+([applications.appRecoveries](https://developers.google.com/android-publisher/api-ref/rest/v3/applications.appRecoveries)).
+An app recovery action lets you push a Remote In-App Update to devices already
+running a released version, so you can recover from a bad rollout without
+shipping a new release. `list_app_recoveries` is read-only; `create_app_recovery`,
+`deploy_app_recovery`, `cancel_app_recovery`, and `add_app_recovery_targeting`
+are writes and are disabled in
+[read-only mode](../configuration.md#read-only-mode).
+
+### list_app_recoveries
+
+List app recovery actions for an app. Read-only (available in read-only mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+
+```python
+list_app_recoveries("com.example.myapp")
+```
+
+### create_app_recovery
+
+Create a draft app recovery action. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `recovery` | object | Yes | `CreateDraftAppRecoveryRequest` body (e.g. `remoteInAppUpdate` plus `targeting`) |
+
+```python
+create_app_recovery(
+    package_name="com.example.myapp",
+    recovery={
+        "remoteInAppUpdate": {"isRemoteInAppUpdateRequested": True},
+        "targeting": {"allUsers": {}},
+    },
+)
+```
+
+### deploy_app_recovery
+
+Deploy an app recovery action to users. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `app_recovery_id` | string | Yes | App recovery action ID |
+
+```python
+deploy_app_recovery(package_name="com.example.myapp", app_recovery_id="123")
+```
+
+### cancel_app_recovery
+
+Cancel an app recovery action. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `app_recovery_id` | string | Yes | App recovery action ID |
+
+```python
+cancel_app_recovery(package_name="com.example.myapp", app_recovery_id="123")
+```
+
+### add_app_recovery_targeting
+
+Add targeting to an app recovery action. **Write.** Disabled in [read-only mode](../configuration.md#read-only-mode).
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `package_name` | string | Yes | App package name |
+| `app_recovery_id` | string | Yes | App recovery action ID |
+| `targeting` | object | Yes | `AddTargetingRequest` body (e.g. a `targetingUpdate` object) |
+
+```python
+add_app_recovery_targeting(
+    package_name="com.example.myapp",
+    app_recovery_id="123",
+    targeting={"targetingUpdate": {"allUsers": {}}},
+)
+```

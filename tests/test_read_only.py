@@ -415,6 +415,29 @@ WRITE_TOOLS = [
             "safety_labels": {"safetyLabels": "csv"},
         },
     ),
+    (
+        "create_app_recovery",
+        {
+            "package_name": "com.example.app",
+            "recovery": {"remoteInAppUpdate": {"isRemoteInAppUpdateRequested": True}},
+        },
+    ),
+    (
+        "deploy_app_recovery",
+        {"package_name": "com.example.app", "app_recovery_id": "123"},
+    ),
+    (
+        "cancel_app_recovery",
+        {"package_name": "com.example.app", "app_recovery_id": "123"},
+    ),
+    (
+        "add_app_recovery_targeting",
+        {
+            "package_name": "com.example.app",
+            "app_recovery_id": "123",
+            "targeting": {"targetingUpdate": {"allUsers": {}}},
+        },
+    ),
 ]
 
 

@@ -20,6 +20,8 @@ from googleapiclient.http import MediaFileUpload
 
 from play_store_mcp.models import (
     AppDetails,
+    AppRecovery,
+    AppRecoveryResult,
     BatchDeploymentResult,
     DataSafetyResult,
     DeploymentResult,
@@ -4359,3 +4361,185 @@ class PlayStoreClient:
         except HttpError as e:
             self._logger.exception("Failed to update data safety labels", error=str(e))
             raise PlayStoreClientError(f"Failed to update data safety labels: {e.reason}") from e
+
+    # =========================================================================
+    # App Recovery API
+    # =========================================================================
+
+    @staticmethod
+    def _parse_app_recovery(package_name: str, data: dict[str, Any]) -> AppRecovery:
+        """Parse an AppRecoveryAction API resource into an AppRecovery model."""
+        return AppRecovery(
+            package_name=package_name,
+            app_recovery_id=data.get("recoveryId") or data.get("appRecoveryId"),
+            status=data.get("recoveryStatus") or data.get("status"),
+            targeting=data.get("targeting"),
+            create_time=data.get("createTime"),
+        )
+
+    def list_app_recoveries(self, package_name: str) -> list[AppRecovery]:
+        """List app recovery actions for an app.
+
+        Args:
+            package_name: App package name.
+
+        Returns:
+            List of app recovery actions.
+        """
+        self._logger.info("Listing app recoveries", package_name=package_name)
+        service = self._get_service()
+
+        try:
+            result = service.apprecovery().list(packageName=package_name).execute()
+
+            return [
+                self._parse_app_recovery(package_name, recovery_data)
+                for recovery_data in result.get("recoveryActions", [])
+            ]
+
+        except HttpError as e:
+            self._logger.exception("Failed to list app recoveries", error=str(e))
+            raise PlayStoreClientError(f"Failed to list app recoveries: {e.reason}") from e
+
+    def create_app_recovery(
+        self,
+        package_name: str,
+        recovery: dict[str, Any],
+    ) -> AppRecovery:
+        """Create a draft app recovery action.
+
+        Args:
+            package_name: App package name.
+            recovery: CreateDraftAppRecoveryRequest resource body (e.g.
+                ``remoteInAppUpdate`` plus ``targeting``).
+
+        Returns:
+            The created app recovery action.
+        """
+        self._logger.info("Creating app recovery", package_name=package_name)
+        service = self._get_service()
+
+        try:
+            data = service.apprecovery().create(packageName=package_name, body=recovery).execute()
+            return self._parse_app_recovery(package_name, data)
+
+        except HttpError as e:
+            self._logger.exception("Failed to create app recovery", error=str(e))
+            raise PlayStoreClientError(f"Failed to create app recovery: {e.reason}") from e
+
+    def deploy_app_recovery(
+        self,
+        package_name: str,
+        app_recovery_id: str,
+    ) -> AppRecoveryResult:
+        """Deploy an app recovery action to users.
+
+        Args:
+            package_name: App package name.
+            app_recovery_id: App recovery action ID.
+
+        Returns:
+            The result of the deploy action.
+        """
+        self._logger.info(
+            "Deploying app recovery",
+            package_name=package_name,
+            app_recovery_id=app_recovery_id,
+        )
+        service = self._get_service()
+
+        try:
+            service.apprecovery().deploy(
+                packageName=package_name,
+                appRecoveryId=app_recovery_id,
+                body={},
+            ).execute()
+            return AppRecoveryResult(
+                success=True,
+                package_name=package_name,
+                app_recovery_id=app_recovery_id,
+                message="App recovery deployed",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to deploy app recovery", error=str(e))
+            raise PlayStoreClientError(f"Failed to deploy app recovery: {e.reason}") from e
+
+    def cancel_app_recovery(
+        self,
+        package_name: str,
+        app_recovery_id: str,
+    ) -> AppRecoveryResult:
+        """Cancel an app recovery action.
+
+        Args:
+            package_name: App package name.
+            app_recovery_id: App recovery action ID.
+
+        Returns:
+            The result of the cancel action.
+        """
+        self._logger.info(
+            "Canceling app recovery",
+            package_name=package_name,
+            app_recovery_id=app_recovery_id,
+        )
+        service = self._get_service()
+
+        try:
+            service.apprecovery().cancel(
+                packageName=package_name,
+                appRecoveryId=app_recovery_id,
+                body={},
+            ).execute()
+            return AppRecoveryResult(
+                success=True,
+                package_name=package_name,
+                app_recovery_id=app_recovery_id,
+                message="App recovery canceled",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to cancel app recovery", error=str(e))
+            raise PlayStoreClientError(f"Failed to cancel app recovery: {e.reason}") from e
+
+    def add_app_recovery_targeting(
+        self,
+        package_name: str,
+        app_recovery_id: str,
+        targeting: dict[str, Any],
+    ) -> AppRecoveryResult:
+        """Add targeting to an app recovery action.
+
+        Args:
+            package_name: App package name.
+            app_recovery_id: App recovery action ID.
+            targeting: AddTargetingRequest resource body (e.g. a
+                ``targetingUpdate`` object).
+
+        Returns:
+            The result of the add-targeting action.
+        """
+        self._logger.info(
+            "Adding app recovery targeting",
+            package_name=package_name,
+            app_recovery_id=app_recovery_id,
+        )
+        service = self._get_service()
+
+        try:
+            service.apprecovery().addTargeting(
+                packageName=package_name,
+                appRecoveryId=app_recovery_id,
+                body=targeting,
+            ).execute()
+            return AppRecoveryResult(
+                success=True,
+                package_name=package_name,
+                app_recovery_id=app_recovery_id,
+                message="App recovery targeting added",
+            )
+
+        except HttpError as e:
+            self._logger.exception("Failed to add app recovery targeting", error=str(e))
+            raise PlayStoreClientError(f"Failed to add app recovery targeting: {e.reason}") from e

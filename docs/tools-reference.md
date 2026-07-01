@@ -134,6 +134,11 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 | Tool | Description |
 |---|---|
 | `set_data_safety` | Write an app's data safety labels declaration (write) |
+| [`list_app_recoveries`](tools/subscriptions.md#list_app_recoveries) | List app recovery actions for an app |
+| `create_app_recovery` | Create a draft app recovery action (write) |
+| `deploy_app_recovery` | Deploy an app recovery action to users (write) |
+| `cancel_app_recovery` | Cancel an app recovery action (write) |
+| `add_app_recovery_targeting` | Add targeting to an app recovery action (write) |
 
 ## Testers Tools
 
