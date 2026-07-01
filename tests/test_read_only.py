@@ -137,6 +137,23 @@ WRITE_TOOLS = [
         "revoke_subscription_purchase",
         {"package_name": "com.example.app", "purchase_token": "tok"},
     ),
+    (
+        "create_in_app_product",
+        {"package_name": "com.example.app", "product": {"sku": "sku1"}},
+    ),
+    (
+        "update_in_app_product",
+        {"package_name": "com.example.app", "sku": "sku1", "product": {"sku": "sku1"}},
+    ),
+    (
+        "patch_in_app_product",
+        {"package_name": "com.example.app", "sku": "sku1", "product": {"status": "active"}},
+    ),
+    ("delete_in_app_product", {"package_name": "com.example.app", "sku": "sku1"}),
+    (
+        "batch_delete_in_app_products",
+        {"package_name": "com.example.app", "skus": ["sku1", "sku2"]},
+    ),
 ]
 
 
