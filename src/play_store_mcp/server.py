@@ -2800,18 +2800,19 @@ def set_data_safety(
 
 
 @mcp.tool()
-def list_app_recoveries(package_name: str) -> list[dict[str, Any]]:
-    """List all app recovery actions for an app.
+def list_app_recoveries(package_name: str, version_code: int) -> list[dict[str, Any]]:
+    """List all app recovery actions for an app version.
 
     Args:
         package_name: App package name
+        version_code: App version code the recovery actions target
 
     Returns:
         List of app recovery actions with ID, status, targeting, and create time
     """
     client = get_client_from_context()
 
-    recoveries = client.list_app_recoveries(package_name)
+    recoveries = client.list_app_recoveries(package_name, version_code)
     return [recovery.model_dump() for recovery in recoveries]
 
 

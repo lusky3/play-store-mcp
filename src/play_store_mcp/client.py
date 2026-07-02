@@ -5302,20 +5302,26 @@ class PlayStoreClient:
             create_time=data.get("createTime"),
         )
 
-    def list_app_recoveries(self, package_name: str) -> list[AppRecovery]:
-        """List app recovery actions for an app.
+    def list_app_recoveries(self, package_name: str, version_code: int) -> list[AppRecovery]:
+        """List app recovery actions for an app version.
 
         Args:
             package_name: App package name.
+            version_code: App version code the recovery actions target (required
+                by the API).
 
         Returns:
             List of app recovery actions.
         """
-        self._logger.info("Listing app recoveries", package_name=package_name)
+        self._logger.info(
+            "Listing app recoveries", package_name=package_name, version_code=version_code
+        )
         service = self._get_service()
 
         try:
-            result = self._execute(service.apprecovery().list(packageName=package_name))
+            result = self._execute(
+                service.apprecovery().list(packageName=package_name, versionCode=version_code)
+            )
 
             return [
                 self._parse_app_recovery(package_name, recovery_data)

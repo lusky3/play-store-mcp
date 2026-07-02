@@ -84,7 +84,7 @@ def test_list_app_recoveries_success():
     }
     client = _client(service)
 
-    result = client.list_app_recoveries("com.example.app")
+    result = client.list_app_recoveries("com.example.app", 8)
 
     assert [r.app_recovery_id for r in result] == ["123", "456"]
     assert result[0].status == "RECOVERY_STATUS_DRAFT"
@@ -92,7 +92,7 @@ def test_list_app_recoveries_success():
     assert result[0].create_time == "2026-01-01T00:00:00Z"
     assert result[1].status is None
     assert result[1].targeting is None
-    _rec(service).list.assert_called_once_with(packageName="com.example.app")
+    _rec(service).list.assert_called_once_with(packageName="com.example.app", versionCode=8)
 
 
 def test_list_app_recoveries_empty():
@@ -100,7 +100,7 @@ def test_list_app_recoveries_empty():
     _rec(service).list.return_value.execute.return_value = {}
     client = _client(service)
 
-    result = client.list_app_recoveries("com.example.app")
+    result = client.list_app_recoveries("com.example.app", 8)
 
     assert result == []
 
@@ -111,7 +111,7 @@ def test_list_app_recoveries_http_error():
     client = _client(service)
 
     with pytest.raises(PlayStoreClientError, match="Failed to list app recoveries"):
-        client.list_app_recoveries("com.example.app")
+        client.list_app_recoveries("com.example.app", 8)
 
 
 # ---------------------------------------------------------------------------
@@ -250,7 +250,7 @@ def test_tool_list_app_recoveries(monkeypatch):
     ]
     monkeypatch.setattr(server, "get_client_from_context", lambda: mc)
 
-    result = server.list_app_recoveries("com.example.app")
+    result = server.list_app_recoveries("com.example.app", 8)
 
     assert result == [
         {
@@ -261,7 +261,7 @@ def test_tool_list_app_recoveries(monkeypatch):
             "create_time": None,
         }
     ]
-    mc.list_app_recoveries.assert_called_once_with("com.example.app")
+    mc.list_app_recoveries.assert_called_once_with("com.example.app", 8)
 
 
 def test_tool_create_app_recovery(monkeypatch):
