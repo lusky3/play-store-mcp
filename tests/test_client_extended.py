@@ -1266,11 +1266,11 @@ class TestEditFailures:
         client: PlayStoreClient,
         _mock_service: MagicMock,
     ) -> None:
-        """Test _create_edit failure propagates."""
+        """Test _create_edit failure is wrapped in PlayStoreClientError."""
         mock_edits = _mock_service.edits.return_value
         mock_edits.insert.return_value.execute.side_effect = _make_http_error(403, "forbidden")
 
-        with pytest.raises(HttpError):
+        with pytest.raises(PlayStoreClientError, match="Failed to create edit"):
             client._create_edit("com.example.app")
 
     def test_commit_edit_failure(

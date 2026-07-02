@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import base64
 import binascii
 import ipaddress
 import json
 import logging
 import os
+import secrets
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -3580,6 +3582,58 @@ async def health_check(request: Request) -> JSONResponse:  # noqa: ARG001
     return JSONResponse({"status": "healthy", "service": "play-store-mcp"})
 
 
+def _authorize_credentials_request(request: Request) -> JSONResponse | None:
+    """Authorize a POST to the /credentials management endpoint.
+
+    If PLAY_STORE_MCP_ADMIN_TOKEN is set, an ``Authorization: Bearer <token>``
+    header matching it (constant-time comparison) is required, and the request
+    is accepted from any host. This is the correct mode behind a reverse proxy,
+    where ``request.client.host`` is the proxy address and cannot be trusted as
+    a "localhost" signal.
+
+    If no admin token is configured, the endpoint accepts loopback (localhost)
+    peers only — the historical behavior.
+
+    Returns an error ``JSONResponse`` if the request is not authorized, else None.
+    """
+    admin_token = os.environ.get("PLAY_STORE_MCP_ADMIN_TOKEN")
+    if admin_token:
+        provided = request.headers.get("authorization", "")
+        expected = f"Bearer {admin_token}"
+        # Compare as bytes: secrets.compare_digest raises TypeError on non-ASCII
+        # str operands, and Starlette decodes header values as latin-1, so a
+        # crafted header could otherwise turn a 401 into an uncaught 500.
+        if not (
+            provided and secrets.compare_digest(provided.encode("utf-8"), expected.encode("utf-8"))
+        ):
+            return JSONResponse(
+                {"success": False, "error": "Missing or invalid admin token"},
+                status_code=401,
+            )
+        return None
+
+    # No admin token configured: only allow loopback peers.
+    client_host = request.client.host if request.client else None
+    try:
+        is_loopback = client_host is not None and ipaddress.ip_address(client_host).is_loopback
+    except ValueError:
+        is_loopback = False
+    if not is_loopback:
+        return JSONResponse(
+            {
+                "success": False,
+                "error": (
+                    "This endpoint is only accessible from localhost. Set "
+                    "PLAY_STORE_MCP_ADMIN_TOKEN and send an 'Authorization: Bearer' header "
+                    "to allow authenticated access (required when running behind a proxy, "
+                    "where the peer address is the proxy and not the real client)."
+                ),
+            },
+            status_code=403,
+        )
+    return None
+
+
 @mcp.custom_route("/credentials", methods=["POST"])
 async def update_credentials(request: Request) -> JSONResponse:
     """Update Google Play Store credentials via HTTP POST.
@@ -3597,18 +3651,12 @@ async def update_credentials(request: Request) -> JSONResponse:
     Returns:
         JSON response with success status
     """
-    # Management endpoint: only allow requests from localhost
-    client_host = request.client.host if request.client else None
-    try:
-        is_loopback = client_host is not None and ipaddress.ip_address(client_host).is_loopback
-    except ValueError:
-        is_loopback = False
-    if not is_loopback:
-        return JSONResponse(
-            {"success": False, "error": "This endpoint is only accessible from localhost"},
-            status_code=403,
-        )
+    # Management endpoint: authorize by admin token (if configured) or localhost.
+    auth_error = _authorize_credentials_request(request)
+    if auth_error is not None:
+        return auth_error
 
+    new_client: PlayStoreClient | None = None
     try:
         body = await request.json()
 
@@ -3660,12 +3708,22 @@ async def update_credentials(request: Request) -> JSONResponse:
                     status_code=400,
                 )
 
-        # Validate credentials by attempting to get service
-        try:
-            _ = new_client._get_service()
-        except PlayStoreClientError as e:
+        if (
+            new_client is None
+        ):  # pragma: no cover - defensive; branches above always assign or return
             return JSONResponse(
-                {"success": False, "error": f"Invalid credentials: {e}"},
+                {"success": False, "error": "No credentials could be parsed from the request"},
+                status_code=400,
+            )
+
+        # Validate credentials by attempting to build the service. This does
+        # blocking network I/O, so run it off the event loop.
+        try:
+            await asyncio.to_thread(new_client._get_service)
+        except PlayStoreClientError:
+            logger.warning("Credential validation failed for /credentials request")
+            return JSONResponse(
+                {"success": False, "error": "Invalid credentials"},
                 status_code=401,
             )
 
@@ -3686,10 +3744,10 @@ async def update_credentials(request: Request) -> JSONResponse:
             {"success": False, "error": "Invalid JSON in request body"},
             status_code=400,
         )
-    except Exception as e:
-        logger.exception("Error updating credentials", error=str(e))
+    except Exception:
+        logger.exception("Error updating credentials")
         return JSONResponse(
-            {"success": False, "error": f"Internal error: {e}"},
+            {"success": False, "error": "Internal server error"},
             status_code=500,
         )
 

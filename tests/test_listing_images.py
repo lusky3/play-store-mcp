@@ -195,7 +195,7 @@ def test_list_images_http_error_still_abandons_edit():
     _images(service).list.return_value.execute.side_effect = _make_http_error()
     client = _client(service)
 
-    with pytest.raises(HttpError):
+    with pytest.raises(PlayStoreClientError, match="Failed to list images"):
         client.list_images("com.example.app", "en-US", "icon")
 
     _edits(service).delete.assert_called_once_with(packageName="com.example.app", editId="edit-123")

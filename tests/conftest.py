@@ -13,6 +13,13 @@ import pytest
 from play_store_mcp.client import PlayStoreClient
 
 
+@pytest.fixture(autouse=True)
+def _no_backoff_sleep() -> Generator[None, None, None]:
+    """Neutralize retry backoff sleeps so retry paths run instantly in tests."""
+    with patch("play_store_mcp.client.time.sleep"):
+        yield
+
+
 @pytest.fixture
 def _mock_credentials() -> Generator[MagicMock, None, None]:
     """Mock Google credentials."""

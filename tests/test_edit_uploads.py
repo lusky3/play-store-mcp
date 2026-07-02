@@ -126,7 +126,7 @@ def test_list_apks_http_error_still_abandons_edit():
     _edits(service).apks.return_value.list.return_value.execute.side_effect = _make_http_error()
     client = _client(service)
 
-    with pytest.raises(HttpError):
+    with pytest.raises(PlayStoreClientError, match="Failed to list APKs"):
         client.list_apks("com.example.app")
 
     _edits(service).delete.assert_called_once_with(packageName="com.example.app", editId="edit-123")
@@ -167,7 +167,7 @@ def test_list_bundles_http_error_still_abandons_edit():
     _edits(service).bundles.return_value.list.return_value.execute.side_effect = _make_http_error()
     client = _client(service)
 
-    with pytest.raises(HttpError):
+    with pytest.raises(PlayStoreClientError, match="Failed to list bundles"):
         client.list_bundles("com.example.app")
 
     _edits(service).delete.assert_called_once_with(packageName="com.example.app", editId="edit-123")

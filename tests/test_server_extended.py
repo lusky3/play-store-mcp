@@ -1134,7 +1134,9 @@ class TestCredentialsEndpointExtra:
         assert response.status_code == 500
         data = json.loads(response.body)
         assert data["success"] is False
-        assert "Internal error" in data["error"]
+        # Generic message; the raw exception detail must not leak to the client.
+        assert data["error"] == "Internal server error"
+        assert "boom" not in data["error"]
 
     @pytest.mark.asyncio
     async def test_success_without_shared_state(self) -> None:
