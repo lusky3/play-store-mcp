@@ -37,7 +37,7 @@ def _make_http_error(status: int, reason: str = "error") -> HttpError:
 
 
 class TestExecuteRetryThroughOperation:
-    """The retry decorator wraps _execute, so real API calls retry 429/500/503."""
+    """_execute retries via backoff: 429 always; 500/503 only for idempotent methods."""
 
     def test_operation_retries_transient_then_succeeds(
         self,
@@ -45,7 +45,9 @@ class TestExecuteRetryThroughOperation:
         _mock_service: MagicMock,
     ) -> None:
         """Two 503s then a success dict: get_order returns parsed result, 3 calls."""
-        execute = _mock_service.orders.return_value.get.return_value.execute
+        get_req = _mock_service.orders.return_value.get.return_value
+        get_req.method = "GET"  # idempotent → 5xx is retried
+        execute = get_req.execute
         execute.side_effect = [
             _make_http_error(503),
             _make_http_error(503),
@@ -66,7 +68,9 @@ class TestExecuteRetryThroughOperation:
         _mock_service: MagicMock,
     ) -> None:
         """Three consecutive 503s exhaust retries and surface as PlayStoreClientError."""
-        execute = _mock_service.orders.return_value.get.return_value.execute
+        get_req = _mock_service.orders.return_value.get.return_value
+        get_req.method = "GET"  # idempotent → 5xx is retried
+        execute = get_req.execute
         execute.side_effect = [
             _make_http_error(503),
             _make_http_error(503),
@@ -77,6 +81,42 @@ class TestExecuteRetryThroughOperation:
             client.get_order("com.example.app", "order-1")
 
         assert execute.call_count == 3
+
+    def test_non_idempotent_operation_not_retried_on_5xx(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """A POST mutation must NOT retry a 5xx (retrying could duplicate the write)."""
+        ack = _mock_service.purchases.return_value.products.return_value.acknowledge.return_value
+        ack.method = "POST"
+        ack.execute.side_effect = [
+            _make_http_error(503),
+            {},
+        ]
+
+        with pytest.raises(PlayStoreClientError, match="Failed to acknowledge"):
+            client.acknowledge_product_purchase("com.example.app", "sku-1", "tok-1")
+
+        assert ack.execute.call_count == 1
+
+    def test_non_idempotent_operation_retries_on_429(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """A POST mutation still retries 429 (throttled, so never applied)."""
+        ack = _mock_service.purchases.return_value.products.return_value.acknowledge.return_value
+        ack.method = "POST"
+        ack.execute.side_effect = [
+            _make_http_error(429),
+            {},
+        ]
+
+        result = client.acknowledge_product_purchase("com.example.app", "sku-1", "tok-1")
+
+        assert result.success is True
+        assert ack.execute.call_count == 2
 
 
 # =========================================================================

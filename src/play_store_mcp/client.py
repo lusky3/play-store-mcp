@@ -81,6 +81,12 @@ MAX_RETRIES = 3
 INITIAL_BACKOFF = 1.0  # seconds
 MAX_BACKOFF = 32.0  # seconds
 
+# HTTP methods whose requests are safe to retry on an ambiguous server error
+# (500/503): repeating them cannot create a duplicate side effect. Non-idempotent
+# requests (POST: create, upload, acknowledge, consume, refund, revoke, defer,
+# commit, ...) are only retried on 429 (throttled, so never applied).
+_IDEMPOTENT_HTTP_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "PUT", "DELETE"})
+
 # Revocation contexts for subscription refunds (Purchases.subscriptionsv2.revoke)
 _REVOCATION_CONTEXTS: dict[str, dict[str, dict]] = {
     "full": {"fullRefund": {}},
@@ -151,48 +157,64 @@ def _parse_review(review_data: dict[str, Any]) -> Review | None:
     )
 
 
-def retry_with_backoff(func):  # type: ignore[no-untyped-def]
-    """Decorator to retry API calls with exponential backoff.
+def _is_retryable_status(status: int, *, retry_server_errors: bool) -> bool:
+    """Whether an HTTP error status should be retried.
 
-    Retries on transient errors (500, 503) and rate limit errors (429).
+    429 (rate limited) is always retryable: the request was throttled, not
+    applied, so repeating it is safe for any HTTP method. 500/503 are retried
+    only when ``retry_server_errors`` is set (idempotent requests), because the
+    server may have already applied a non-idempotent request before erroring.
+    """
+    if status == 429:
+        return True
+    return retry_server_errors and status in (500, 503)
+
+
+def _run_with_backoff(call, *, retry_server_errors=True):  # type: ignore[no-untyped-def]
+    """Run ``call`` with exponential-backoff retries on transient errors."""
+    retries = 0
+    backoff = INITIAL_BACKOFF
+
+    while retries < MAX_RETRIES:
+        try:
+            return call()
+        except HttpError as e:
+            if not _is_retryable_status(e.resp.status, retry_server_errors=retry_server_errors):
+                raise
+            retries += 1
+            if retries >= MAX_RETRIES:
+                raise
+
+            # Add jitter to prevent thundering herd
+            sleep_time = backoff * (0.5 + random.random())  # noqa: S311 # nosec B311 — non-crypto jitter for retry backoff
+            logger.warning(
+                "API error, retrying",
+                status=e.resp.status,
+                retry=retries,
+                sleep=sleep_time,
+            )
+            time.sleep(sleep_time)
+            backoff = min(backoff * 2, MAX_BACKOFF)
+
+    # The loop above always returns or raises while MAX_RETRIES >= 1. This
+    # guards against a misconfigured MAX_RETRIES so a call can never fall
+    # through and implicitly return None.
+    raise PlayStoreClientError(  # pragma: no cover - only reachable if MAX_RETRIES <= 0
+        "Retry attempts exhausted without a result"
+    )
+
+
+def retry_with_backoff(func):  # type: ignore[no-untyped-def]
+    """Decorator to retry a call on transient errors (429/500/503).
+
+    For idempotent operations only (e.g. building the API service). Individual
+    Play API requests go through ``PlayStoreClient._execute``, which decides
+    whether to retry server errors based on the request's HTTP method.
     """
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):  # type: ignore[no-untyped-def]
-        retries = 0
-        backoff = INITIAL_BACKOFF
-
-        while retries < MAX_RETRIES:
-            try:
-                return func(*args, **kwargs)
-            except HttpError as e:
-                # Retry on server errors and rate limits
-                if e.resp.status in (429, 500, 503):
-                    retries += 1
-                    if retries >= MAX_RETRIES:
-                        raise
-
-                    # Add jitter to prevent thundering herd
-                    sleep_time = backoff * (0.5 + random.random())  # noqa: S311 # nosec B311 — non-crypto jitter for retry backoff
-                    logger.warning(
-                        "API error, retrying",
-                        status=e.resp.status,
-                        retry=retries,
-                        sleep=sleep_time,
-                    )
-                    time.sleep(sleep_time)
-                    backoff = min(backoff * 2, MAX_BACKOFF)
-                else:
-                    raise
-            except Exception:
-                raise
-
-        # The loop above always returns or raises while MAX_RETRIES >= 1.
-        # This guards against a misconfigured MAX_RETRIES so a decorated call
-        # can never fall through and implicitly return None.
-        raise PlayStoreClientError(  # pragma: no cover - only reachable if MAX_RETRIES <= 0
-            "Retry attempts exhausted without a result"
-        )
+        return _run_with_backoff(lambda: func(*args, **kwargs), retry_server_errors=True)
 
     return wrapper
 
@@ -404,16 +426,20 @@ class PlayStoreClient:
             self._logger.exception("Failed to initialize API client", error=str(e))
             raise PlayStoreClientError(f"Failed to initialize API client: {e}") from e
 
-    @retry_with_backoff
     def _execute(self, request: Any) -> Any:
         """Execute a googleapiclient request with retry/backoff.
 
-        All Play API calls go through here so that transient 429/500/503
-        errors are retried with exponential backoff (see ``retry_with_backoff``).
-        Non-transient errors (e.g. 400/403/404) are re-raised immediately for
-        each caller's own ``except HttpError`` handling.
+        All Play API calls go through here. 429 (rate limited) is always
+        retried; 500/503 are retried only for idempotent HTTP methods. A
+        non-idempotent request (POST: create, upload, acknowledge, consume,
+        refund, revoke, defer, commit, ...) is not retried on a 5xx, because
+        the server may have already applied it and a retry could duplicate the
+        side effect. Non-transient errors (e.g. 400/403/404) propagate to each
+        caller's own ``except HttpError`` handling.
         """
-        return request.execute()
+        method = (getattr(request, "method", "") or "").upper()
+        retry_server_errors = method in _IDEMPOTENT_HTTP_METHODS
+        return _run_with_backoff(request.execute, retry_server_errors=retry_server_errors)
 
     def _create_edit(self, package_name: str) -> str:
         """Create a new edit for the package.

@@ -3,6 +3,7 @@
 
 import json
 import sys
+from pathlib import Path
 
 import requests
 
@@ -18,7 +19,7 @@ def update_credentials_from_file(server_url: str, credentials_path: str) -> None
         server_url: Base URL of the MCP server (e.g., http://localhost:8000)
         credentials_path: Path to the service account JSON file
     """
-    with open(credentials_path) as f:
+    with Path(credentials_path).open() as f:
         credentials = json.load(f)
 
     update_credentials_from_json(server_url, credentials)
@@ -67,7 +68,7 @@ def main():
     # update_credentials_from_file(server_url, credentials_file)
     
     # Option 2: Send credentials JSON directly (more secure for remote servers)
-    with open(credentials_file) as f:
+    with Path(credentials_file).open() as f:
         credentials = json.load(f)
     
     update_credentials_from_json(server_url, credentials)
