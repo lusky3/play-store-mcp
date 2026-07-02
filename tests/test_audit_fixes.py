@@ -179,12 +179,12 @@ class TestGetSubscriptionPurchase:
         assert result.auto_renewing is True
         assert result.order_id == "order-9"
 
-    def test_expiry_falls_back_to_first_line_item(
+    def test_no_matching_line_item_yields_no_expiry(
         self,
         client: PlayStoreClient,
         _mock_service: MagicMock,
     ) -> None:
-        """When no line item matches, expiry comes from the first line item."""
+        """When no line item matches the subscription id, expiry is not guessed."""
         self._get_mock(_mock_service).return_value.execute.return_value = {
             "startTime": "2024-10-02T15:01:23Z",
             "lineItems": [
@@ -198,9 +198,9 @@ class TestGetSubscriptionPurchase:
 
         result = client.get_subscription_purchase("com.example.app", "sub_premium", "token-1")
 
-        assert result.expiry_time == datetime(2025, 2, 2, 0, 0, 0, tzinfo=UTC)
-        # No line item matched the requested subscription id, so auto_renewing
-        # must be False even though the (non-matching) plan auto-renews.
+        # No line item matched the requested subscription id, so neither expiry
+        # nor auto-renew is taken from the non-matching product.
+        assert result.expiry_time is None
         assert result.auto_renewing is False
 
 

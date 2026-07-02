@@ -1253,15 +1253,17 @@ class PlayStoreClient:
                 for item in line_items
             )
 
-            # Expiry is per line item; use the one for this subscription, falling
-            # back to the first line item's expiry if the product id isn't matched.
+            # Expiry is per line item; use the one for this subscription. If no
+            # line item matches, the purchase isn't for this subscription id, so
+            # leave expiry unset rather than reporting another product's expiry
+            # (keeps it consistent with auto_renewing above).
             expiry_raw = next(
                 (
                     item.get("expiryTime")
                     for item in line_items
                     if item.get("productId") == subscription_id
                 ),
-                line_items[0].get("expiryTime") if line_items else None,
+                None,
             )
 
             return SubscriptionPurchase(

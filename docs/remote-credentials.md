@@ -138,6 +138,9 @@ else:
 3. **Network isolation**: Run the server in a private network or use VPN
 4. **Credential rotation**: Regularly rotate service account keys and the admin token
 5. **Audit logging**: Monitor credential update requests
+6. **Use a strong token and rate-limit**: Generate a high-entropy token (e.g.
+   `openssl rand -hex 32`) and throttle repeated invalid `Authorization` attempts at the
+   reverse proxy (e.g. nginx `limit_req`), since the endpoint itself does not rate-limit.
 
 ### Example with Authentication
 
