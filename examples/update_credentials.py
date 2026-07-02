@@ -8,25 +8,20 @@ import requests
 
 
 def update_credentials_from_file(server_url: str, credentials_path: str) -> None:
-    """Update server credentials using a credentials file path.
-    
+    """Update server credentials from a local service account JSON file.
+
+    The /credentials endpoint accepts credential *contents* ("credentials" or
+    "credentials_base64"), not a server-side file path, so this loads the file
+    locally and sends its contents.
+
     Args:
         server_url: Base URL of the MCP server (e.g., http://localhost:8000)
         credentials_path: Path to the service account JSON file
     """
-    response = requests.post(
-        f"{server_url}/credentials",
-        json={"credentials_path": credentials_path},
-        timeout=10,
-    )
-    
-    if response.status_code == 200:
-        print("✓ Credentials updated successfully")
-        print(f"  Response: {response.json()}")
-    else:
-        print(f"✗ Failed to update credentials: {response.status_code}")
-        print(f"  Error: {response.json()}")
-        sys.exit(1)
+    with open(credentials_path) as f:
+        credentials = json.load(f)
+
+    update_credentials_from_json(server_url, credentials)
 
 
 def update_credentials_from_json(server_url: str, credentials_json: dict) -> None:
@@ -68,7 +63,7 @@ def main():
     print(f"Using credentials file: {credentials_file}")
     print()
     
-    # Option 1: Send file path (server must have access to the file)
+    # Option 1: Load the file locally and send its contents
     # update_credentials_from_file(server_url, credentials_file)
     
     # Option 2: Send credentials JSON directly (more secure for remote servers)

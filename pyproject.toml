@@ -38,6 +38,10 @@ dependencies = [
     "google-auth>=2.40.0",
     "pydantic>=2.10.0",
     "structlog>=25.0.0",
+    # pyjwt is a transitive dependency (via mcp). Declared directly with a
+    # secure floor so the CVE-2026-32597 fix ships in published metadata,
+    # not just in this repo's lockfile/uv resolution.
+    "pyjwt[crypto]>=2.12.0",
 ]
 
 [project.optional-dependencies]
@@ -190,10 +194,6 @@ exclude_lines = [
     "if __name__ == .__main__.:",
 ]
 
-[tool.uv]
-constraint-dependencies = [
-    "pyjwt>=2.12.0",  # CVE-2026-32597: Insufficient Verification of Data Authenticity
-]
 [tool.bandit]
 skips = ["B101"]
 exclude_dirs = ["tests"]

@@ -9,8 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  build:
-    name: Build Package
+  test:
+    name: Test Before Release
     runs-on: ubuntu-latest
     steps:
       - name: Harden the runner (Audit all outbound calls)
@@ -23,7 +23,44 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
         with:
-          version: "latest"
+          version: "0.11.26"
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.13.2"
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Run ruff check
+        run: uv run ruff check src/ tests/
+
+      - name: Run ruff format check
+        run: uv run ruff format --check src/ tests/
+
+      - name: Run mypy
+        run: uv run mypy src/
+
+      - name: Run tests
+        run: uv run pytest -q
+
+  build:
+    name: Build Package
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+        with:
+          version: "0.11.26"
 
       - name: Set up Python
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0

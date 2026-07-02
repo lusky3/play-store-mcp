@@ -28,7 +28,13 @@ play-store-mcp
 
 The server exposes a `/credentials` endpoint that accepts POST requests with credentials in various formats.
 
-> **Note:** The `/credentials` endpoint only accepts requests from localhost (loopback addresses).
+> **Access control:** By default the `/credentials` endpoint only accepts requests from
+> localhost (loopback addresses). **Behind a reverse proxy this loopback check is not
+> sufficient** — proxied requests arrive from the proxy (a loopback address), so the
+> check would pass for every remote client. When exposing the endpoint through a proxy,
+> set the `PLAY_STORE_MCP_ADMIN_TOKEN` environment variable: with it set, the endpoint
+> requires an `Authorization: Bearer <token>` header (compared in constant time) and
+> accepts authenticated requests from any host.
 
 #### Method 1: Send Credentials JSON Object
 
@@ -125,30 +131,40 @@ else:
 ### Security Considerations
 
 1. **Use HTTPS in production**: Always use HTTPS when sending credentials over the network
-2. **Restrict endpoint access**: Use a reverse proxy (nginx, Apache) to add authentication
+2. **Authenticate the endpoint**: Behind a reverse proxy the built-in localhost check is
+   bypassed (the peer is the proxy), so set `PLAY_STORE_MCP_ADMIN_TOKEN` and require an
+   `Authorization: Bearer` header. Proxy-level auth (e.g. `auth_basic`) is a useful extra
+   layer but must not be the *only* gate.
 3. **Network isolation**: Run the server in a private network or use VPN
-4. **Credential rotation**: Regularly rotate service account keys
+4. **Credential rotation**: Regularly rotate service account keys and the admin token
 5. **Audit logging**: Monitor credential update requests
 
 ### Example with Authentication
 
-Use a reverse proxy like nginx to add basic authentication:
+Set an admin token on the server:
 
-```nginx
-location /credentials {
-    auth_basic "Restricted";
-    auth_basic_user_file /etc/nginx/.htpasswd;
-    proxy_pass http://localhost:8000;
-}
+```bash
+export PLAY_STORE_MCP_ADMIN_TOKEN="$(openssl rand -hex 32)"
+play-store-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 ```
 
-Then update credentials with authentication:
+Then send it with each request:
 
 ```bash
 curl -X POST https://your-server.com/credentials \
-  -u username:password \
+  -H "Authorization: Bearer $PLAY_STORE_MCP_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d @credentials.json
+```
+
+Behind nginx, forward the `Authorization` header to the app (optionally layering
+`auth_basic` on top for defence in depth):
+
+```nginx
+location /credentials {
+    proxy_set_header Authorization $http_authorization;
+    proxy_pass http://localhost:8000;
+}
 ```
 
 ### Troubleshooting

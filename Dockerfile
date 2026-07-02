@@ -4,7 +4,7 @@ FROM python:3.14-alpine@sha256:26730869004e2b9c4b9ad09cab8625e81d256d1ce97e72df5
 WORKDIR /build
 
 # Install uv for fast dependency resolution
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.11.26@sha256:3d868e555f8f1dbc324afa005066cd11e1053fc4743b9808ca8025283e65efa5 /uv /usr/local/bin/uv
 
 COPY pyproject.toml uv.lock README.md ./
 COPY src/ src/

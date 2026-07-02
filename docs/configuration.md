@@ -82,6 +82,7 @@ docker run -p 8000:8000 \
 | `GOOGLE_PLAY_STORE_CREDENTIALS` | Inline JSON credentials string | Alternative to file path | — |
 | `PLAY_STORE_MCP_LOG_LEVEL` | Log level: `DEBUG`, `INFO`, `WARNING`, `ERROR` | No | `INFO` |
 | `PLAY_STORE_MCP_DISABLE_DNS_REBINDING` | Disable DNS rebinding protection (for cloud/reverse-proxy deployments) | No | — |
+| `PLAY_STORE_MCP_ADMIN_TOKEN` | Require `Authorization: Bearer <token>` on the `/credentials` endpoint (needed behind a reverse proxy, where the localhost check is insufficient) | No | — |
 | `PLAY_STORE_MCP_READ_ONLY` | Disable all write operations | No | — |
 
 ## HTTP Transport

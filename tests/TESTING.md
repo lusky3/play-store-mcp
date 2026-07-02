@@ -238,17 +238,21 @@ Tests verify that:
 
 ## Retry Logic Testing
 
-The `@retry_with_backoff` decorator is applied to critical methods but is **not directly tested** in unit tests because:
+The `@retry_with_backoff` decorator retries transient errors (HTTP 429/500/503)
+with exponential backoff. It is applied to `_get_service` and to
+`PlayStoreClient._execute`, and **every** Play API call is routed through
+`_execute`, so all real API operations (deploy, upload, list, purchases,
+subscriptions, etc.) inherit the retry behavior.
 
-1. It would make tests slow (waiting for backoff delays)
-2. It would make tests non-deterministic
-3. The decorator is a cross-cutting concern
+It **is** directly unit-tested:
 
-The retry logic is tested through:
-
-- Manual integration testing
-- Production monitoring
-- Code review of the decorator implementation
+- The decorator itself is tested against dummy functions for the 429/500/503
+  retry paths and the exhaustion path (`tests/test_client_extended.py`).
+- Backoff sleeps are neutralized in tests by the autouse `_no_backoff_sleep`
+  fixture in `tests/conftest.py`, which patches `time.sleep`, so retry paths
+  run instantly and deterministically.
+- Method-level tests assert that operations retry transient errors and then
+  succeed or fail as expected.
 
 ## CI/CD Integration
 
