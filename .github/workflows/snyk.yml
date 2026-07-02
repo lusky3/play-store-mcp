@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Harden the runner (Audit all outbound calls)
-        uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
+        uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
         with:
           egress-policy: audit
 
@@ -30,7 +30,7 @@ jobs:
           version: "0.11.26"
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.13"
 
@@ -41,7 +41,7 @@ jobs:
         run: uv export --no-hashes --no-dev -o requirements.txt
 
       - name: Run Snyk Open Source
-        uses: snyk/actions/python@8e119fbb6c251787721d34ba683ed48eba792766 # master
+        uses: snyk/actions/python@9adf32b1121593767fc3c057af55b55db032dc04 # v1.0.0
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -50,13 +50,13 @@ jobs:
 
       - name: Upload Snyk Open Source SARIF
         if: always() && hashFiles('snyk-open-source.sarif') != ''
-        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
+        uses: github/codeql-action/upload-sarif@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v4.36.3
         with:
           sarif_file: snyk-open-source.sarif
           category: snyk-open-source
 
       - name: Run Snyk Code
-        uses: snyk/actions/python@8e119fbb6c251787721d34ba683ed48eba792766 # master
+        uses: snyk/actions/python@9adf32b1121593767fc3c057af55b55db032dc04 # v1.0.0
         continue-on-error: true
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -66,7 +66,7 @@ jobs:
 
       - name: Upload Snyk Code SARIF
         if: always() && hashFiles('snyk-code.sarif') != ''
-        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
+        uses: github/codeql-action/upload-sarif@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v4.36.3
         with:
           sarif_file: snyk-code.sarif
           category: snyk-code
