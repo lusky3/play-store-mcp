@@ -42,6 +42,9 @@ markdown_extensions:
       alternate_style: true
   - tables
   - attr_list
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
 
 nav:
   - Home: index.md
@@ -59,3 +62,4 @@ nav:
       - Validation: tools/validation.md
   - Remote Credentials: remote-credentials.md
   - Troubleshooting: troubleshooting.md
+  - Changelog: changelog.md
