@@ -167,10 +167,6 @@ All integration tests are read-only. They will never modify your Play Console da
 - ✅ Deploy to multiple tracks simultaneously
 - ✅ Track individual results
 
-#### Vitals
-
-- ✅ Get vitals metrics (placeholder implementation)
-
 ### Server Tests (`test_server.py`)
 
 - ✅ Server module imports correctly
@@ -190,9 +186,7 @@ All integration tests are read-only. They will never modify your Play Console da
 - ✅ Review model (with and without replies)
 - ✅ AppDetails model
 - ✅ SubscriptionProduct model
-- ✅ VitalsOverview model
 - ✅ InAppProduct model
-- ✅ VitalsMetric model
 - ✅ Listing model
 - ✅ TesterInfo model
 - ✅ Order model

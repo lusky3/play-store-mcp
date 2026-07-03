@@ -51,14 +51,19 @@ class TestExecuteRetryThroughOperation:
         execute.side_effect = [
             _make_http_error(503),
             _make_http_error(503),
-            {"productId": "prod-1", "purchaseState": 0, "purchaseToken": "tok-1"},
+            {
+                "orderId": "order-1",
+                "state": "PROCESSED",
+                "lineItems": [{"productId": "prod-1"}],
+                "purchaseToken": "tok-1",
+            },
         ]
 
         order = client.get_order("com.example.app", "order-1")
 
         assert order.order_id == "order-1"
-        assert order.product_id == "prod-1"
-        assert order.purchase_state == 0
+        assert order.state == "PROCESSED"
+        assert order.product_ids == ["prod-1"]
         assert order.purchase_token == "tok-1"
         assert execute.call_count == 3
 
@@ -545,6 +550,124 @@ class TestPagination:
         assert list_mock.call_count == 2
         assert list_mock.call_args_list[0].kwargs["parent"] == "developers/dev-123"
         assert list_mock.call_args_list[1].kwargs["pageToken"] == "tok"
+
+    def test_list_in_app_products_paginates(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """inappproducts.list paginates via tokenPagination.nextPageToken (older shape)."""
+        list_mock = _mock_service.inappproducts.return_value.list
+        list_mock.return_value.execute.side_effect = [
+            {"inappproduct": [{"sku": "p1"}], "tokenPagination": {"nextPageToken": "tok"}},
+            {"inappproduct": [{"sku": "p2"}]},
+        ]
+
+        result = client.list_in_app_products("com.example.app")
+
+        assert [p.sku for p in result] == ["p1", "p2"]
+        assert list_mock.call_count == 2
+        assert list_mock.call_args_list[1].kwargs["token"] == "tok"
+
+    def test_get_reviews_paginates(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """reviews.list paginates via tokenPagination.nextPageToken and combines pages."""
+        list_mock = _mock_service.reviews.return_value.list
+        list_mock.return_value.execute.side_effect = [
+            {
+                "reviews": [{"reviewId": "r1", "comments": [{"userComment": {"text": "a"}}]}],
+                "tokenPagination": {"nextPageToken": "tok"},
+            },
+            {"reviews": [{"reviewId": "r2", "comments": [{"userComment": {"text": "b"}}]}]},
+        ]
+
+        result = client.get_reviews("com.example.app")
+
+        assert [r.review_id for r in result] == ["r1", "r2"]
+        assert list_mock.call_count == 2
+        assert list_mock.call_args_list[1].kwargs["token"] == "tok"
+
+    def test_get_reviews_stops_at_max_results(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """Once max_results reviews are collected, pagination stops and the list is sliced."""
+        list_mock = _mock_service.reviews.return_value.list
+        list_mock.return_value.execute.return_value = {
+            "reviews": [
+                {"reviewId": "r1", "comments": [{"userComment": {"text": "a"}}]},
+                {"reviewId": "r2", "comments": [{"userComment": {"text": "b"}}]},
+            ],
+            "tokenPagination": {"nextPageToken": "tok"},
+        }
+
+        result = client.get_reviews("com.example.app", max_results=1)
+
+        assert [r.review_id for r in result] == ["r1"]
+        assert list_mock.call_count == 1
+
+    def test_list_voided_purchases_paginates(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """voidedpurchases.list paginates via tokenPagination.nextPageToken."""
+        list_mock = _mock_service.purchases.return_value.voidedpurchases.return_value.list
+        list_mock.return_value.execute.side_effect = [
+            {
+                "voidedPurchases": [{"purchaseToken": "t1"}],
+                "tokenPagination": {"nextPageToken": "tok"},
+            },
+            {"voidedPurchases": [{"purchaseToken": "t2"}]},
+        ]
+
+        result = client.list_voided_purchases("com.example.app")
+
+        assert [v.purchase_token for v in result] == ["t1", "t2"]
+        assert list_mock.call_count == 2
+        assert list_mock.call_args_list[1].kwargs["token"] == "tok"
+
+    def test_list_voided_purchases_stops_at_max_results(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """Once max_results voided purchases are collected, pagination stops and slices."""
+        list_mock = _mock_service.purchases.return_value.voidedpurchases.return_value.list
+        list_mock.return_value.execute.return_value = {
+            "voidedPurchases": [{"purchaseToken": "t1"}, {"purchaseToken": "t2"}],
+            "tokenPagination": {"nextPageToken": "tok"},
+        }
+
+        result = client.list_voided_purchases("com.example.app", max_results=1)
+
+        assert [v.purchase_token for v in result] == ["t1"]
+        assert list_mock.call_count == 1
+
+
+class TestOrderParsing:
+    """get_order/batch_get_orders parse the v3 Order resource (lineItems + state)."""
+
+    def test_get_order_falls_back_to_requested_id(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """When the response omits orderId, the requested id is used."""
+        _mock_service.orders.return_value.get.return_value.execute.return_value = {
+            "state": "PROCESSED",
+            "lineItems": [{"productId": "coins"}],
+        }
+
+        order = client.get_order("com.example.app", "GPA.requested")
+
+        assert order.order_id == "GPA.requested"
+        assert order.state == "PROCESSED"
+        assert order.product_ids == ["coins"]
 
 
 # =========================================================================

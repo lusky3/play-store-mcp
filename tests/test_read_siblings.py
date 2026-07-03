@@ -100,8 +100,13 @@ def test_batch_get_orders_success():
     service = MagicMock()
     service.orders.return_value.batchget.return_value.execute.return_value = {
         "orders": [
-            {"orderId": "GPA.1", "productId": "coins", "purchaseToken": "t1"},
-            {"orderId": "GPA.2", "purchaseToken": "t2"},
+            {
+                "orderId": "GPA.1",
+                "state": "PROCESSED",
+                "lineItems": [{"productId": "coins"}],
+                "purchaseToken": "t1",
+            },
+            {"orderId": "GPA.2", "state": "CANCELED", "purchaseToken": "t2"},
         ]
     }
     client = _client(service)
@@ -109,7 +114,9 @@ def test_batch_get_orders_success():
     orders = client.batch_get_orders("com.example.app", ["GPA.1", "GPA.2"])
 
     assert [o.order_id for o in orders] == ["GPA.1", "GPA.2"]
-    assert orders[0].product_id == "coins"
+    assert orders[0].product_ids == ["coins"]
+    assert orders[0].state == "PROCESSED"
+    assert orders[1].product_ids == []
     service.orders.return_value.batchget.assert_called_once_with(
         packageName="com.example.app", orderIds=["GPA.1", "GPA.2"]
     )

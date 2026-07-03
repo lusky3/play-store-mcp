@@ -1401,22 +1401,6 @@ class TestCredentialsJson:
 
 
 # =========================================================================
-# Vitals overview (placeholder implementation)
-# =========================================================================
-
-
-class TestVitalsOverview:
-    """Test get_vitals_overview placeholder implementation."""
-
-    def test_get_vitals_overview(self, client: PlayStoreClient) -> None:
-        """get_vitals_overview returns a placeholder VitalsOverview."""
-        result = client.get_vitals_overview("com.example.app")
-
-        assert result.package_name == "com.example.app"
-        assert "Reporting API" in result.freshness_info
-
-
-# =========================================================================
 # In-app products error paths
 # =========================================================================
 

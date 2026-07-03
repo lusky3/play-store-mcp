@@ -219,13 +219,6 @@ Complete reference for all MCP tools provided by the Play Store MCP server.
 |---|---|
 | [`batch_deploy`](tools/batch.md#batch_deploy) | Deploy to multiple tracks at once |
 
-## Vitals Tools
-
-| Tool | Description |
-|---|---|
-| [`get_vitals_overview`](tools/vitals.md#get_vitals_overview) | Get Android Vitals overview |
-| [`get_vitals_metrics`](tools/vitals.md#get_vitals_metrics) | Get specific vitals metrics |
-
 ---
 
 ## get_order

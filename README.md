@@ -28,7 +28,6 @@ An MCP (Model Context Protocol) server that connects to the Google Play Develope
 - 📈 **Release Management** — Promote releases between tracks, manage staged rollouts
 - 👥 **Tester Management** — Add and manage testers for testing tracks
 - ⭐ **Review Management** — Fetch and reply to user reviews
-- 📊 **Android Vitals** — Monitor crashes, ANRs, and app health metrics
 - 💳 **Subscription Management** — List subscriptions and check purchase status
 - 🛒 **In-App Products** — List and manage in-app products
 - 📦 **Expansion Files** — Manage APK expansion files for large apps
@@ -278,13 +277,6 @@ Add to `.kiro/settings/mcp.json`:
 | --- | --- |
 | `batch_deploy` | Deploy to multiple tracks simultaneously |
 
-### Vitals Tools
-
-| Tool | Description |
-| --- | --- |
-| `get_vitals_overview` | Get Android Vitals overview (crashes, ANRs) |
-| `get_vitals_metrics` | Get specific vitals metrics |
-
 ## 📋 Google Cloud Setup
 
 ### 1. Create a Service Account
@@ -306,7 +298,7 @@ Add to `.kiro/settings/mcp.json`:
    - **Release apps to testing tracks** (for internal/alpha/beta)
    - **Release apps to production** (for production releases)
    - **Reply to reviews** (for review management)
-   - **View app information and download bulk reports** (for vitals)
+   - **View app information and download bulk reports** (for app details and orders)
 
 ## 🔒 Environment Variables
 

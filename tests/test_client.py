@@ -426,22 +426,6 @@ class TestInAppProducts:
         assert product.status == "active"
 
 
-class TestVitalsMetrics:
-    """Test vitals metrics methods."""
-
-    def test_get_vitals_metrics(
-        self,
-        client: PlayStoreClient,
-    ) -> None:
-        """Test getting vitals metrics."""
-        metrics = client.get_vitals_metrics("com.example.app", "crashRate")
-
-        assert len(metrics) > 0
-        assert metrics[0].metric_type == "crashRate"
-        # Note: This is a placeholder implementation
-        assert "Requires Play Developer Reporting API" in str(metrics[0].dimension_value)
-
-
 class TestStoreListings:
     """Test store listings methods."""
 
@@ -580,17 +564,22 @@ class TestOrders:
         """Test getting order details."""
         _mock_service.orders.return_value.get.return_value.execute.return_value = {
             "orderId": "GPA.1234-5678-9012-34567",
-            "packageName": "com.example.app",
-            "productId": "premium_upgrade",
-            "purchaseState": 0,
+            "state": "PROCESSED",
+            "lineItems": [
+                {"productId": "premium_upgrade", "productTitle": "Premium Upgrade"},
+            ],
             "purchaseToken": "token123",
+            "createTime": "2024-10-02T15:01:23Z",
         }
 
         order = client.get_order("com.example.app", "GPA.1234-5678-9012-34567")
 
         assert order.order_id == "GPA.1234-5678-9012-34567"
-        assert order.product_id == "premium_upgrade"
-        assert order.purchase_state == 0
+        assert order.state == "PROCESSED"
+        assert order.product_ids == ["premium_upgrade"]
+        assert order.line_items[0].product_title == "Premium Upgrade"
+        assert order.purchase_token == "token123"
+        assert order.create_time is not None
 
 
 class TestExpansionFiles:
