@@ -813,53 +813,6 @@ def get_product_purchase_v2(
 
 
 # =============================================================================
-# Vitals Tools
-# =============================================================================
-
-
-@mcp.tool()
-def get_vitals_overview(package_name: str) -> dict[str, Any]:
-    """Get Android Vitals overview for an app (placeholder - requires Play Developer Reporting API).
-
-    Returns placeholder data. Full implementation requires the separate
-    Play Developer Reporting API, not the Play Developer API.
-
-    Args:
-        package_name: App package name
-
-    Returns:
-        Vitals overview placeholder
-    """
-    client = get_client_from_context()
-
-    vitals = client.get_vitals_overview(package_name)
-    return vitals.model_dump()
-
-
-@mcp.tool()
-def get_vitals_metrics(
-    package_name: str,
-    metric_type: str = "crashRate",
-) -> list[dict[str, Any]]:
-    """Get specific Android Vitals metrics (placeholder - requires Play Developer Reporting API).
-
-    Returns placeholder data. Full implementation requires the separate
-    Play Developer Reporting API, not the Play Developer API.
-
-    Args:
-        package_name: App package name
-        metric_type: Type of metric to retrieve (crashRate, anrRate, etc.)
-
-    Returns:
-        List of vitals metrics placeholders
-    """
-    client = get_client_from_context()
-
-    metrics = client.get_vitals_metrics(package_name, metric_type)
-    return [metric.model_dump() for metric in metrics]
-
-
-# =============================================================================
 # In-App Products Tools
 # =============================================================================
 

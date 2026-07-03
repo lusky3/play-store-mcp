@@ -12,9 +12,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Planned
-- Consolidate and reduce the MCP tool surface (currently 119 tools) by grouping
+- Consolidate and reduce the MCP tool surface (now 117 tools) by grouping
   related operations, to lower per-request tool-list overhead — with no planned
   loss of functionality.
+
+### Removed
+- **Breaking:** removed the non-functional `get_vitals_overview` and
+  `get_vitals_metrics` tools. They never called an API and returned hardcoded
+  placeholder data; Android Vitals requires the separate Play Developer
+  Reporting API, which is out of scope for this server.
+
+### Fixed
+- `get_order` / `batch_get_orders` now read the real v3 `Order` resource:
+  product IDs from `lineItems[].productId` (exposed as `product_ids` /
+  `line_items`) and status from the `state` string enum. Previously they read
+  non-existent top-level `productId` / `purchaseState` fields, so those values
+  were always null against the live API and order state was lost.
+- `list_in_app_products` now follows `tokenPagination.nextPageToken` instead of
+  returning only the first page (apps with many SKUs were silently truncated).
+- `get_reviews` and `list_voided_purchases` now paginate to `max_results`
+  across pages via `tokenPagination`, rather than returning a single page.
+- `delete_subscription_offer` now returns the parent `product_id` instead of
+  mislabeling the deleted `offer_id` as `product_id`.
+
+### Security
+- APK/AAB downloads (`download_generated_apk`, `download_system_apk_variant`)
+  now write to a temporary file and atomically rename on success, so a failed
+  or unauthorized download can no longer truncate an existing file or leave a
+  partial one at the destination.
 
 ## [0.4.0] - 2026-07-02
 

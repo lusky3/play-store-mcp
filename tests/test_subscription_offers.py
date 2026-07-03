@@ -385,7 +385,8 @@ def test_delete_subscription_offer_success():
 
     assert isinstance(result, SubscriptionCatalogResult)
     assert result.success is True
-    assert result.product_id == "intro"
+    # product_id is the parent subscription product, not the deleted offer id.
+    assert result.product_id == "premium_monthly"
     assert "intro" in result.message
     _offers(service).delete.assert_called_once_with(
         packageName="com.example.app",

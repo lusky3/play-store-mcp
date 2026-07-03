@@ -207,6 +207,31 @@ def test_download_generated_apk_http_error(monkeypatch, tmp_path):
         client.download_generated_apk("com.example.app", 42, "split-1", str(tmp_path / "app.apk"))
 
 
+def test_download_generated_apk_failure_preserves_destination(monkeypatch, tmp_path):
+    """A download failure must not truncate an existing file or leave a partial one."""
+    service = MagicMock()
+    _gak(service).download.return_value = MagicMock()
+    client = _client(service)
+
+    # Fail mid-stream, after the temp file has been opened.
+    downloader_instance = MagicMock()
+    downloader_instance.next_chunk.side_effect = _make_http_error("interrupted")
+    monkeypatch.setattr(
+        client_module, "MediaIoBaseDownload", MagicMock(return_value=downloader_instance)
+    )
+
+    destination = tmp_path / "existing.apk"
+    destination.write_bytes(b"original-contents")
+
+    with pytest.raises(PlayStoreClientError, match="Failed to download generated APK"):
+        client.download_generated_apk("com.example.app", 42, "split-1", str(destination))
+
+    # The pre-existing file is untouched and no partial/temp file is left behind.
+    assert destination.read_bytes() == b"original-contents"
+    leftovers = [p.name for p in tmp_path.iterdir() if p.name != "existing.apk"]
+    assert leftovers == []
+
+
 # ---------------------------------------------------------------------------
 # MCP tools
 # ---------------------------------------------------------------------------

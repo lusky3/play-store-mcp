@@ -28,8 +28,6 @@ from play_store_mcp.models import (
     TesterInfo,
     TrackInfo,
     ValidationResult,
-    VitalsMetric,
-    VitalsOverview,
     VoidedPurchase,
 )
 from play_store_mcp.server import (
@@ -44,8 +42,6 @@ from play_store_mcp.server import (
     get_releases,
     get_reviews,
     get_testers,
-    get_vitals_metrics,
-    get_vitals_overview,
     halt_release,
     list_all_listings,
     list_in_app_products,
@@ -451,39 +447,6 @@ class TestSubscriptionTools:
             max_results=100,
         )
         assert len(result) == 1
-
-
-# =========================================================================
-# Vitals tools
-# =========================================================================
-
-
-class TestVitalsTools:
-    """Test vitals server tools."""
-
-    def test_get_vitals_overview(self, mock_client: MagicMock) -> None:
-        """Test get_vitals_overview tool."""
-        mock_client.get_vitals_overview.return_value = VitalsOverview(
-            package_name="com.example.app",
-            crash_rate=0.5,
-        )
-
-        result = get_vitals_overview("com.example.app")
-
-        mock_client.get_vitals_overview.assert_called_once_with("com.example.app")
-        assert result["crash_rate"] == 0.5
-
-    def test_get_vitals_metrics(self, mock_client: MagicMock) -> None:
-        """Test get_vitals_metrics tool."""
-        mock_client.get_vitals_metrics.return_value = [
-            VitalsMetric(metric_type="crashRate", value=0.5)
-        ]
-
-        result = get_vitals_metrics("com.example.app")
-
-        mock_client.get_vitals_metrics.assert_called_once_with("com.example.app", "crashRate")
-        assert len(result) == 1
-        assert result[0]["metric_type"] == "crashRate"
 
 
 # =========================================================================

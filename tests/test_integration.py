@@ -218,17 +218,6 @@ class TestReadOnlyOperations:
             # Testers might not be configured
             print(f"  Note: Could not fetch testers: {e}")
 
-    def test_get_vitals_overview(
-        self,
-        real_client: PlayStoreClient,
-        test_package_name: str,
-    ) -> None:
-        """Test getting vitals overview."""
-        vitals = real_client.get_vitals_overview(test_package_name)
-        assert vitals.package_name == test_package_name
-        print("✓ get_vitals_overview() succeeded")
-        print(f"  Note: {vitals.freshness_info}")
-
 
 class TestValidation:
     """Test validation functions."""

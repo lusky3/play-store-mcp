@@ -64,7 +64,7 @@
 | Release apps to testing tracks | Internal, alpha, beta deployments |
 | Release apps to production | Production releases |
 | Reply to reviews | Review management |
-| View app information and download bulk reports | Vitals, app details |
+| View app information and download bulk reports | App details |
 
 ### 3. Set Credentials
 

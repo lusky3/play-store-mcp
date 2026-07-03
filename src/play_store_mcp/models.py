@@ -118,28 +118,6 @@ class VoidedPurchase(BaseModel):
     voided_source: int | None = Field(None, description="Source of voiding")
 
 
-class VitalsOverview(BaseModel):
-    """Android Vitals overview metrics."""
-
-    package_name: str = Field(..., description="App package name")
-    crash_rate: float | None = Field(None, description="User-perceived crash rate")
-    anr_rate: float | None = Field(None, description="User-perceived ANR rate")
-    excessive_wakeups: float | None = Field(None, description="Excessive wakeups rate")
-    stuck_wake_locks: float | None = Field(None, description="Stuck wake locks rate")
-    freshness_info: str | None = Field(None, description="Data freshness information")
-
-
-class VitalsMetric(BaseModel):
-    """Specific vitals metric data."""
-
-    metric_type: str = Field(..., description="Type of metric")
-    value: float | None = Field(None, description="Metric value")
-    benchmark: float | None = Field(None, description="Benchmark threshold")
-    is_below_threshold: bool | None = Field(None, description="Whether below bad threshold")
-    dimension: str | None = Field(None, description="Dimension (e.g., device, version)")
-    dimension_value: str | None = Field(None, description="Dimension value")
-
-
 class InAppProduct(BaseModel):
     """In-app product definition."""
 
@@ -192,16 +170,35 @@ class TesterInfo(BaseModel):
     )
 
 
+class OrderLineItem(BaseModel):
+    """A single line item within an order."""
+
+    product_id: str | None = Field(None, description="Purchased product ID or in-app SKU")
+    product_title: str | None = Field(None, description="Developer-specified product name")
+
+
 class Order(BaseModel):
-    """Order/transaction information."""
+    """Order/transaction information (Android Publisher v3 Order resource).
+
+    Product IDs live in ``line_items`` and the order status is the string enum
+    ``state``; the v3 Order resource has no top-level product ID or numeric
+    purchase state.
+    """
 
     order_id: str = Field(..., description="Order ID")
     package_name: str = Field(..., description="App package name")
-    product_id: str | None = Field(None, description="Product ID")
-    purchase_time: datetime | None = Field(None, description="Purchase timestamp")
-    purchase_state: int | None = Field(None, description="Purchase state")
+    state: str | None = Field(
+        None,
+        description="Order state (e.g. PENDING, PROCESSED, CANCELED, PARTIALLY_REFUNDED, REFUNDED)",
+    )
+    line_items: list[OrderLineItem] = Field(
+        default_factory=list, description="Line items making up the order"
+    )
+    product_ids: list[str] = Field(
+        default_factory=list, description="Product IDs across all line items"
+    )
     purchase_token: str | None = Field(None, description="Purchase token")
-    quantity: int | None = Field(None, description="Quantity purchased")
+    create_time: datetime | None = Field(None, description="Time the order was created")
 
 
 class ExpansionFile(BaseModel):

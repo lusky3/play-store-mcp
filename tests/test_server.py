@@ -43,8 +43,6 @@ class TestServerTools:
             "list_subscriptions",
             "get_subscription_status",
             "list_voided_purchases",
-            "get_vitals_overview",
-            "get_vitals_metrics",
             "list_in_app_products",
             "get_in_app_product",
             "get_listing",

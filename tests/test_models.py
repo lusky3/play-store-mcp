@@ -8,7 +8,6 @@ from play_store_mcp.models import (
     Release,
     Review,
     SubscriptionProduct,
-    VitalsOverview,
 )
 
 
@@ -141,21 +140,6 @@ class TestSubscriptionProduct:
         assert len(product.base_plans) == 1
 
 
-class TestVitalsOverview:
-    """Test VitalsOverview model."""
-
-    def test_vitals_overview(self) -> None:
-        """Test vitals overview model."""
-        vitals = VitalsOverview(
-            package_name="com.example.app",
-            crash_rate=0.5,
-            anr_rate=0.1,
-        )
-
-        assert vitals.crash_rate == 0.5
-        assert vitals.excessive_wakeups is None
-
-
 class TestInAppProduct:
     """Test InAppProduct model."""
 
@@ -177,27 +161,6 @@ class TestInAppProduct:
         assert product.sku == "premium_upgrade"
         assert product.product_type == "managedProduct"
         assert product.default_price is not None
-
-
-class TestVitalsMetric:
-    """Test VitalsMetric model."""
-
-    def test_vitals_metric(self) -> None:
-        """Test vitals metric model."""
-        from play_store_mcp.models import VitalsMetric
-
-        metric = VitalsMetric(
-            metric_type="crashRate",
-            value=0.5,
-            benchmark=1.0,
-            is_below_threshold=True,
-            dimension="api_level",
-            dimension_value="30",
-        )
-
-        assert metric.metric_type == "crashRate"
-        assert metric.value == 0.5
-        assert metric.is_below_threshold is True
 
 
 class TestListing:
@@ -240,18 +203,21 @@ class TestOrder:
 
     def test_order(self) -> None:
         """Test order model."""
-        from play_store_mcp.models import Order
+        from play_store_mcp.models import Order, OrderLineItem
 
         order = Order(
             order_id="GPA.1234-5678-9012-34567",
             package_name="com.example.app",
-            product_id="premium_upgrade",
-            purchase_state=0,
+            state="PROCESSED",
+            line_items=[OrderLineItem(product_id="premium_upgrade", product_title="Premium")],
+            product_ids=["premium_upgrade"],
             purchase_token="token123",
         )
 
         assert order.order_id == "GPA.1234-5678-9012-34567"
-        assert order.product_id == "premium_upgrade"
+        assert order.state == "PROCESSED"
+        assert order.product_ids == ["premium_upgrade"]
+        assert order.line_items[0].product_title == "Premium"
 
 
 class TestExpansionFile:

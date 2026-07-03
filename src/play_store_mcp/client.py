@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import contextlib
 import functools
 import json
 import os
 import random
 import re
+import tempfile
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -46,6 +48,7 @@ from play_store_mcp.models import (
     OneTimeProductActionResult,
     OneTimeProductOffer,
     Order,
+    OrderLineItem,
     OrderRefundResult,
     ProductPurchase,
     ProductPurchaseActionResult,
@@ -63,8 +66,6 @@ from play_store_mcp.models import (
     TrackInfo,
     User,
     ValidationResult,
-    VitalsMetric,
-    VitalsOverview,
     VoidedPurchase,
 )
 
@@ -1075,20 +1076,27 @@ class PlayStoreClient:
         service = self._get_service()
 
         try:
-            kwargs: dict[str, Any] = {"packageName": package_name, "maxResults": max_results}
-            if translation_language:
-                kwargs["translationLanguage"] = translation_language
-            request = service.reviews().list(**kwargs)
-
-            result = self._execute(request)
-
             reviews: list[Review] = []
-            for review_data in result.get("reviews", []):
-                review = _parse_review(review_data)
-                if review is not None:
-                    reviews.append(review)
+            # reviews.list paginates via tokenPagination.nextPageToken and caps
+            # each page at ~100; loop until max_results collected (or exhausted).
+            per_page = min(max_results, 100)
+            token: str | None = None
+            while len(reviews) < max_results:
+                kwargs: dict[str, Any] = {"packageName": package_name, "maxResults": per_page}
+                if translation_language:
+                    kwargs["translationLanguage"] = translation_language
+                if token:
+                    kwargs["token"] = token
+                result = self._execute(service.reviews().list(**kwargs))
+                for review_data in result.get("reviews", []):
+                    review = _parse_review(review_data)
+                    if review is not None:
+                        reviews.append(review)
+                token = result.get("tokenPagination", {}).get("nextPageToken")
+                if not token:
+                    break
 
-            return reviews
+            return reviews[:max_results]
 
         except HttpError as e:
             self._logger.exception("Failed to fetch reviews", error=str(e))
@@ -1298,29 +1306,35 @@ class PlayStoreClient:
         service = self._get_service()
 
         try:
-            result = self._execute(
-                service.purchases()
-                .voidedpurchases()
-                .list(packageName=package_name, maxResults=max_results)
-            )
-
-            voided = [
-                VoidedPurchase(
-                    package_name=package_name,
-                    purchase_token=purchase.get("purchaseToken", ""),
-                    order_id=purchase.get("orderId"),
-                    voided_reason=purchase.get("voidedReason"),
-                    voided_source=purchase.get("voidedSource"),
-                    voided_time=datetime.fromtimestamp(
-                        int(purchase.get("voidedTimeMillis")) / 1000, tz=UTC
+            voided: list[VoidedPurchase] = []
+            # voidedpurchases.list paginates via tokenPagination.nextPageToken;
+            # loop until max_results collected (or the results are exhausted).
+            token: str | None = None
+            while len(voided) < max_results:
+                kwargs: dict[str, Any] = {"packageName": package_name, "maxResults": max_results}
+                if token:
+                    kwargs["token"] = token
+                result = self._execute(service.purchases().voidedpurchases().list(**kwargs))
+                voided.extend(
+                    VoidedPurchase(
+                        package_name=package_name,
+                        purchase_token=purchase.get("purchaseToken", ""),
+                        order_id=purchase.get("orderId"),
+                        voided_reason=purchase.get("voidedReason"),
+                        voided_source=purchase.get("voidedSource"),
+                        voided_time=datetime.fromtimestamp(
+                            int(purchase.get("voidedTimeMillis")) / 1000, tz=UTC
+                        )
+                        if purchase.get("voidedTimeMillis")
+                        else None,
                     )
-                    if purchase.get("voidedTimeMillis")
-                    else None,
+                    for purchase in result.get("voidedPurchases", [])
                 )
-                for purchase in result.get("voidedPurchases", [])
-            ]
+                token = result.get("tokenPagination", {}).get("nextPageToken")
+                if not token:
+                    break
 
-            return voided
+            return voided[:max_results]
 
         except HttpError as e:
             self._logger.exception("Failed to list voided purchases", error=str(e))
@@ -1757,71 +1771,6 @@ class PlayStoreClient:
         )
 
     # =========================================================================
-    # Vitals API
-    # =========================================================================
-
-    def get_vitals_overview(self, package_name: str) -> VitalsOverview:
-        """Get Android Vitals overview.
-
-        Placeholder implementation. The Vitals API is part of the Play Developer
-        Reporting API, which is a separate API requiring its own setup and credentials.
-
-        Args:
-            package_name: App package name.
-
-        Returns:
-            Vitals overview placeholder.
-        """
-        # TODO: Implement with Play Developer Reporting API
-        self._logger.info("Getting vitals overview", package_name=package_name)
-
-        # The Vitals API is part of the Play Developer Reporting API
-        # which requires separate authentication/setup
-        # For now, return a placeholder that indicates where data would come from
-
-        return VitalsOverview(
-            package_name=package_name,
-            freshness_info="Vitals data requires Play Developer Reporting API access",
-        )
-
-    def get_vitals_metrics(
-        self,
-        package_name: str,
-        metric_type: str = "crashRate",
-    ) -> list[VitalsMetric]:
-        """Get specific Android Vitals metrics.
-
-        Placeholder implementation. The Vitals API is part of the Play Developer
-        Reporting API, which is a separate API requiring its own setup and credentials.
-
-        Args:
-            package_name: App package name.
-            metric_type: Type of metric (crashRate, anrRate, etc.).
-
-        Returns:
-            List of vitals metrics placeholders.
-        """
-        # TODO: Implement with Play Developer Reporting API
-        self._logger.info(
-            "Getting vitals metrics",
-            package_name=package_name,
-            metric_type=metric_type,
-        )
-
-        # The Play Developer Reporting API is separate and requires additional setup
-        # Return placeholder indicating this limitation
-        return [
-            VitalsMetric(
-                metric_type=metric_type,
-                value=None,
-                benchmark=None,
-                is_below_threshold=None,
-                dimension="api_level",
-                dimension_value="Requires Play Developer Reporting API access",
-            )
-        ]
-
-    # =========================================================================
     # In-App Products API
     # =========================================================================
 
@@ -1838,12 +1787,24 @@ class PlayStoreClient:
         service = self._get_service()
 
         try:
-            result = self._execute(service.inappproducts().list(packageName=package_name))
+            products: list[InAppProduct] = []
+            # inappproducts.list paginates via tokenPagination.nextPageToken
+            # (the older shape), not a top-level nextPageToken.
+            token: str | None = None
+            while True:
+                kwargs: dict[str, Any] = {"packageName": package_name}
+                if token:
+                    kwargs["token"] = token
+                result = self._execute(service.inappproducts().list(**kwargs))
+                products.extend(
+                    self._parse_in_app_product(package_name, product_data)
+                    for product_data in result.get("inappproduct", [])
+                )
+                token = result.get("tokenPagination", {}).get("nextPageToken")
+                if not token:
+                    break
 
-            return [
-                self._parse_in_app_product(package_name, product_data)
-                for product_data in result.get("inappproduct", [])
-            ]
+            return products
 
         except HttpError as e:
             self._logger.exception("Failed to list in-app products", error=str(e))
@@ -3697,7 +3658,7 @@ class PlayStoreClient:
             return SubscriptionCatalogResult(
                 success=True,
                 package_name=package_name,
-                product_id=offer_id,
+                product_id=product_id,
                 message=f"Subscription offer {offer_id} deleted successfully",
             )
 
@@ -4123,6 +4084,31 @@ class PlayStoreClient:
     # Orders API
     # =========================================================================
 
+    @staticmethod
+    def _parse_order(package_name: str, order_data: dict[str, Any]) -> Order:
+        """Parse an Orders API resource into an Order model.
+
+        The v3 Order resource carries product IDs inside ``lineItems`` and the
+        order status in ``state`` (a string enum); it has no top-level
+        ``productId`` or ``purchaseState``.
+        """
+        line_items = [
+            OrderLineItem(
+                product_id=item.get("productId"),
+                product_title=item.get("productTitle"),
+            )
+            for item in order_data.get("lineItems", [])
+        ]
+        return Order(
+            order_id=order_data.get("orderId", ""),
+            package_name=package_name,
+            state=order_data.get("state"),
+            line_items=line_items,
+            product_ids=[li.product_id for li in line_items if li.product_id],
+            purchase_token=order_data.get("purchaseToken"),
+            create_time=_parse_rfc3339(order_data.get("createTime")),
+        )
+
     def get_order(self, package_name: str, order_id: str) -> Order:
         """Get order details.
 
@@ -4141,13 +4127,11 @@ class PlayStoreClient:
                 service.orders().get(packageName=package_name, orderId=order_id)
             )
 
-            return Order(
-                order_id=order_id,
-                package_name=package_name,
-                product_id=order_data.get("productId"),
-                purchase_state=order_data.get("purchaseState"),
-                purchase_token=order_data.get("purchaseToken"),
-            )
+            order = self._parse_order(package_name, order_data)
+            # The response normally echoes orderId; fall back to the requested id.
+            if not order.order_id:
+                order.order_id = order_id
+            return order
 
         except HttpError as e:
             self._logger.exception("Failed to get order", error=str(e))
@@ -4173,13 +4157,7 @@ class PlayStoreClient:
             )
 
             return [
-                Order(
-                    order_id=order_data.get("orderId", ""),
-                    package_name=package_name,
-                    product_id=order_data.get("productId"),
-                    purchase_state=order_data.get("purchaseState"),
-                    purchase_token=order_data.get("purchaseToken"),
-                )
+                self._parse_order(package_name, order_data)
                 for order_data in result.get("orders", [])
             ]
 
@@ -5561,6 +5539,33 @@ class PlayStoreClient:
             self._logger.exception("Failed to list generated APKs", error=str(e))
             raise PlayStoreClientError(f"Failed to list generated APKs: {e.reason}") from e
 
+    @staticmethod
+    def _download_to_file(request, destination_path: str) -> None:  # type: ignore[no-untyped-def]
+        """Stream a media download request to ``destination_path`` atomically.
+
+        Writes to a temporary file in the same directory and renames it onto
+        ``destination_path`` only after the download completes successfully, so
+        a failed or unauthorized download never truncates an existing file or
+        leaves a partial one in its place.
+        """
+        dest = Path(destination_path)
+        tmp_fd, tmp_name = tempfile.mkstemp(
+            dir=str(dest.parent), prefix=f".{dest.name}.", suffix=".part"
+        )
+        succeeded = False
+        try:
+            with os.fdopen(tmp_fd, "wb") as fh:
+                downloader = MediaIoBaseDownload(fh, request)
+                done = False
+                while not done:
+                    _status, done = downloader.next_chunk()
+            Path(tmp_name).replace(destination_path)
+            succeeded = True
+        finally:
+            if not succeeded:
+                with contextlib.suppress(OSError):
+                    Path(tmp_name).unlink()
+
     def download_generated_apk(
         self,
         package_name: str,
@@ -5597,11 +5602,7 @@ class PlayStoreClient:
                 alt="media",
             )
 
-            with Path(destination_path).open("wb") as fh:
-                downloader = MediaIoBaseDownload(fh, request)
-                done = False
-                while not done:
-                    _status, done = downloader.next_chunk()
+            self._download_to_file(request, destination_path)
 
             return DownloadResult(
                 success=True,
@@ -5793,11 +5794,7 @@ class PlayStoreClient:
                 )
             )
 
-            with Path(destination_path).open("wb") as fh:
-                downloader = MediaIoBaseDownload(fh, request)
-                done = False
-                while not done:
-                    _status, done = downloader.next_chunk()
+            self._download_to_file(request, destination_path)
 
             return DownloadResult(
                 success=True,

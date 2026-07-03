@@ -57,7 +57,6 @@ nav:
       - Reviews: tools/reviews.md
       - Subscriptions & IAP: tools/subscriptions.md
       - Testers: tools/testers.md
-      - Android Vitals: tools/vitals.md
       - Batch Operations: tools/batch.md
       - Validation: tools/validation.md
   - Remote Credentials: remote-credentials.md
