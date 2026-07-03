@@ -1,3 +1,7 @@
+<!-- markdownlint-disable-file MD024 -->
+<!-- Keep a Changelog repeats "### Added"/"### Changed"/etc. across versions;
+     MD024 (no-duplicate-headings) is disabled for this file by design. -->
+
 # Changelog
 
 All notable changes to this project are documented in this file.
