@@ -94,7 +94,9 @@ async def lifespan(_server: FastMCP):  # type: ignore[no-untyped-def]
     logger.info("Initializing Play Store MCP Server")
     try:
         client = PlayStoreClient()
-        _ = client._get_service()  # validate credentials on startup
+        # Validate credentials off the event loop — _get_service() does blocking
+        # discovery/auth, matching the offload used by the /credentials route.
+        _ = await asyncio.to_thread(client._get_service)
         logger.info("Play Store client initialized successfully")
         _shared_state["client"] = client
     except PlayStoreClientError as e:
@@ -3704,7 +3706,18 @@ def _run_http(transport: str, host: str, port: int) -> None:
     """
     middleware: list[Middleware] = []
     if not _dns_rebinding_disabled():
-        allowed = [host, "localhost", "127.0.0.1", "[::1]"]
+        allowed = ["localhost", "127.0.0.1", "[::1]"]
+        if host in ("0.0.0.0", "::", ""):  # noqa: S104 — detecting a wildcard bind, not binding to it
+            # Wildcard bind: the reachable Host header is unknown, so protection
+            # stays localhost-only. Remote deployments should terminate at a
+            # reverse proxy and set PLAY_STORE_MCP_DISABLE_DNS_REBINDING.
+            logger.warning(
+                "DNS-rebinding protection allows only localhost on a wildcard bind; "
+                "set PLAY_STORE_MCP_DISABLE_DNS_REBINDING=1 for remote access behind a proxy",
+                host=host,
+            )
+        else:
+            allowed.append(host)
         middleware.append(Middleware(TrustedHostMiddleware, allowed_hosts=allowed))
     # transport is constrained to the non-stdio argparse choices ("sse" /
     # "streamable-http"), both valid http_app transports; argparse types it as str.

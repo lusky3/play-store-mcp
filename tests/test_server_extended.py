@@ -823,6 +823,33 @@ def test_run_http_skips_middleware_when_disabled(monkeypatch: pytest.MonkeyPatch
     assert captured.get("middleware") in (None, [])
 
 
+def test_run_http_wildcard_bind_stays_localhost_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A wildcard bind (0.0.0.0) must not put the literal wildcard in allowed_hosts."""
+    from play_store_mcp import server
+
+    monkeypatch.delenv("PLAY_STORE_MCP_DISABLE_DNS_REBINDING", raising=False)
+    captured: dict[str, Any] = {}
+
+    def fake_http_app(**kwargs: Any) -> str:
+        captured.update(kwargs)
+        return "ASGI_APP"
+
+    class FakeUvicorn:
+        @staticmethod
+        def run(*_args: Any, **_kwargs: Any) -> None:
+            pass
+
+    monkeypatch.setattr(server.mcp, "http_app", fake_http_app)
+    monkeypatch.setattr(server, "uvicorn", FakeUvicorn)
+
+    server._run_http("streamable-http", "0.0.0.0", 8000)  # noqa: S104 — exercising wildcard branch
+
+    allowed = captured["middleware"][0].kwargs["allowed_hosts"]
+    assert "0.0.0.0" not in allowed  # noqa: S104
+    assert "localhost" in allowed
+    assert "127.0.0.1" in allowed
+
+
 # =========================================================================
 # get_client_from_context — header-based credentials
 # =========================================================================

@@ -1182,7 +1182,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fastmcp", specifier = ">=3.1" },
+    { name = "fastmcp", specifier = ">=3.4.2" },
     { name = "google-api-python-client", specifier = ">=2.180.0" },
     { name = "google-auth", specifier = ">=2.40.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
