@@ -59,11 +59,17 @@ from play_store_mcp.server import (
 )
 
 
-def _mock_context(client: MagicMock) -> MagicMock:
-    """Create a mock MCP context with the given client."""
-    ctx = MagicMock()
-    ctx.request_context.lifespan_context = {"client": client}
-    return ctx
+def test_server_uses_fastmcp_and_registers_all_tools() -> None:
+    """The server is built on the standalone fastmcp package with all 117 tools."""
+    import asyncio
+
+    import fastmcp
+
+    from play_store_mcp import server
+
+    assert isinstance(server.mcp, fastmcp.FastMCP)
+    tools = asyncio.run(server.mcp.list_tools())  # Sequence[Tool]
+    assert len(tools) == 117
 
 
 @pytest.fixture
@@ -89,11 +95,13 @@ def tmp_aab(tmp_path: Any) -> str:
 
 
 @pytest.fixture(autouse=True)
-def _patch_mcp_context(mock_client: MagicMock) -> Any:
-    """Patch mcp.get_context to return our mock client."""
-    ctx = _mock_context(mock_client)
-    with patch.object(mcp, "get_context", return_value=ctx):
-        yield
+def _patch_mcp_context(mock_client: MagicMock, monkeypatch: pytest.MonkeyPatch) -> Any:
+    """Route get_client_from_context to the mock client for tool tests."""
+    from play_store_mcp import server
+
+    monkeypatch.setattr(server, "get_http_headers", dict)
+    monkeypatch.setitem(server._shared_state, "client", mock_client)
+    yield
 
 
 # =========================================================================
@@ -714,13 +722,31 @@ class TestBatchDeployTool:
 class TestServerMain:
     """Test server main function."""
 
-    def test_main_calls_mcp_run(self) -> None:
-        """Test that main() calls mcp.run()."""
-        from play_store_mcp.server import main
+    def test_main_runs_stdio_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """main() runs the stdio transport with no host/port kwargs."""
+        from play_store_mcp import server
 
-        with patch.object(mcp, "run") as mock_run:
-            main([])
-            mock_run.assert_called_once()
+        calls: dict[str, Any] = {}
+        monkeypatch.setattr(server.mcp, "run", lambda **kw: calls.update(kw))
+        server.main(["--transport", "stdio"])
+        assert calls == {"transport": "stdio"}
+
+    def test_main_passes_host_port_for_network_transport(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A network transport forwards transport/host/port to _run_http()."""
+        from play_store_mcp import server
+
+        calls: dict[str, Any] = {}
+
+        def fake_run_http(transport: str, host: str, port: int) -> None:
+            calls.update(transport=transport, host=host, port=port)
+
+        monkeypatch.setattr(server, "_run_http", fake_run_http)
+        server.main(["--transport", "streamable-http", "--host", "192.168.1.10", "--port", "9999"])
+        assert calls["transport"] == "streamable-http"
+        assert calls["host"] == "192.168.1.10"
+        assert calls["port"] == 9999
 
     def test_get_subscription_status_tool(self, mock_client: MagicMock) -> None:
         """Test get_subscription_status tool."""
@@ -743,142 +769,182 @@ class TestServerMain:
 
 
 # =========================================================================
+# _run_http — DNS-rebinding protection via TrustedHostMiddleware
+# =========================================================================
+
+
+def test_run_http_adds_trusted_host_middleware(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without the disable env var, _run_http attaches TrustedHostMiddleware."""
+    from starlette.middleware.trustedhost import TrustedHostMiddleware
+
+    from play_store_mcp import server
+
+    monkeypatch.delenv("PLAY_STORE_MCP_DISABLE_DNS_REBINDING", raising=False)
+    captured: dict[str, Any] = {}
+
+    def fake_http_app(**kwargs: Any) -> str:
+        captured.update(kwargs)
+        return "ASGI_APP"
+
+    class FakeUvicorn:
+        @staticmethod
+        def run(*args: Any, **kwargs: Any) -> None:
+            captured["served"] = (args, kwargs)
+
+    monkeypatch.setattr(server.mcp, "http_app", fake_http_app)
+    monkeypatch.setattr(server, "uvicorn", FakeUvicorn)
+
+    server._run_http("streamable-http", "127.0.0.1", 8000)
+
+    classes = [m.cls for m in captured["middleware"]]
+    assert TrustedHostMiddleware in classes
+
+
+def test_run_http_skips_middleware_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With the disable env var set, _run_http attaches no middleware."""
+    from play_store_mcp import server
+
+    monkeypatch.setenv("PLAY_STORE_MCP_DISABLE_DNS_REBINDING", "1")
+    captured: dict[str, Any] = {}
+
+    def fake_http_app(**kwargs: Any) -> str:
+        captured.update(kwargs)
+        return "ASGI_APP"
+
+    class FakeUvicorn:
+        @staticmethod
+        def run(*_args: Any, **_kwargs: Any) -> None:
+            pass
+
+    monkeypatch.setattr(server.mcp, "http_app", fake_http_app)
+    monkeypatch.setattr(server, "uvicorn", FakeUvicorn)
+
+    server._run_http("streamable-http", "127.0.0.1", 8000)
+    assert captured.get("middleware") in (None, [])
+
+
+def test_run_http_wildcard_bind_stays_localhost_only(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A wildcard bind (0.0.0.0) must not put the literal wildcard in allowed_hosts."""
+    from play_store_mcp import server
+
+    monkeypatch.delenv("PLAY_STORE_MCP_DISABLE_DNS_REBINDING", raising=False)
+    captured: dict[str, Any] = {}
+
+    def fake_http_app(**kwargs: Any) -> str:
+        captured.update(kwargs)
+        return "ASGI_APP"
+
+    class FakeUvicorn:
+        @staticmethod
+        def run(*_args: Any, **_kwargs: Any) -> None:
+            pass
+
+    monkeypatch.setattr(server.mcp, "http_app", fake_http_app)
+    monkeypatch.setattr(server, "uvicorn", FakeUvicorn)
+
+    server._run_http("streamable-http", "0.0.0.0", 8000)  # noqa: S104 — exercising wildcard branch
+
+    allowed = captured["middleware"][0].kwargs["allowed_hosts"]
+    assert "0.0.0.0" not in allowed  # noqa: S104
+    assert "localhost" in allowed
+    assert "127.0.0.1" in allowed
+
+
+@pytest.mark.parametrize(
+    ("host", "expected"),
+    [
+        ("0.0.0.0", True),  # noqa: S104 — testing wildcard detection
+        ("::", True),
+        ("", True),
+        ("127.0.0.1", False),
+        ("192.168.1.10", False),
+        ("localhost", False),  # non-IP hostname → ValueError → not wildcard
+    ],
+)
+def test_is_wildcard_bind(host: str, expected: bool) -> None:
+    """_is_wildcard_bind flags unspecified/unset binds, not concrete hosts or names."""
+    from play_store_mcp import server
+
+    assert server._is_wildcard_bind(host) is expected
+
+
+# =========================================================================
 # get_client_from_context — header-based credentials
 # =========================================================================
 
 
-def _context_with_headers(headers: dict[str, str]) -> MagicMock:
-    """Build a mock MCP context whose request carries the given headers."""
-    ctx = MagicMock()
-    ctx.request_context.request.headers = headers
-    ctx.request_context.lifespan_context = {"client": None}
-    return ctx
-
-
 class TestGetClientFromContext:
-    """Test get_client_from_context credential resolution."""
+    """get_client_from_context resolves per-request headers, then the shared client."""
 
-    def test_x_google_credentials_valid(self) -> None:
-        """A valid JSON X-Google-Credentials header builds a client."""
-        from play_store_mcp.server import get_client_from_context
+    def test_json_header_credentials(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from play_store_mcp import server
 
-        creds = json.dumps({"type": "service_account"})
-        ctx = _context_with_headers({"x-google-credentials": creds})
-
-        with (
-            patch.object(mcp, "get_context", return_value=ctx),
-            patch("play_store_mcp.server.PlayStoreClient") as MockClient,
-        ):
-            result = get_client_from_context()
-
-        MockClient.assert_called_once_with(credentials_json={"type": "service_account"})
-        assert result is MockClient.return_value
-
-    def test_x_google_credentials_invalid_json(self) -> None:
-        """An invalid JSON X-Google-Credentials header raises PlayStoreClientError."""
-        from play_store_mcp.server import get_client_from_context
-
-        ctx = _context_with_headers({"x-google-credentials": "not json"})
-
-        with (
-            patch.object(mcp, "get_context", return_value=ctx),
-            pytest.raises(PlayStoreClientError, match="Invalid JSON in X-Google-Credentials"),
-        ):
-            get_client_from_context()
-
-    def test_x_google_credentials_base64_valid(self) -> None:
-        """A valid base64 X-Google-Credentials-Base64 header builds a client."""
-        from play_store_mcp.server import get_client_from_context
-
-        creds = json.dumps({"type": "service_account"})
-        b64 = base64.b64encode(creds.encode("utf-8")).decode("utf-8")
-        ctx = _context_with_headers({"x-google-credentials-base64": b64})
-
-        with (
-            patch.object(mcp, "get_context", return_value=ctx),
-            patch("play_store_mcp.server.PlayStoreClient") as MockClient,
-        ):
-            result = get_client_from_context()
-
-        MockClient.assert_called_once_with(credentials_json={"type": "service_account"})
-        assert result is MockClient.return_value
-
-    def test_x_google_credentials_base64_invalid(self) -> None:
-        """An invalid base64/JSON header raises PlayStoreClientError."""
-        from play_store_mcp.server import get_client_from_context
-
-        # Valid base64 that decodes to non-JSON text.
-        b64 = base64.b64encode(b"not json").decode("utf-8")
-        ctx = _context_with_headers({"x-google-credentials-base64": b64})
-
-        with (
-            patch.object(mcp, "get_context", return_value=ctx),
-            pytest.raises(
-                PlayStoreClientError,
-                match="Invalid base64 or JSON in X-Google-Credentials-Base64",
-            ),
-        ):
-            get_client_from_context()
-
-    def test_no_credentials_raises(self) -> None:
-        """No headers and no lifespan client raises PlayStoreClientError."""
-        from play_store_mcp.server import get_client_from_context
-
-        ctx = _context_with_headers({})
-
-        with (
-            patch.object(mcp, "get_context", return_value=ctx),
-            pytest.raises(PlayStoreClientError, match="No credentials provided"),
-        ):
-            get_client_from_context()
-
-    def test_context_without_request_context(self) -> None:
-        """A context lacking request_context falls through and raises."""
-        import types
-
-        from play_store_mcp.server import get_client_from_context
-
-        ctx = types.SimpleNamespace()  # no request_context attribute
-
-        with (
-            patch.object(mcp, "get_context", return_value=ctx),
-            pytest.raises(PlayStoreClientError, match="No credentials provided"),
-        ):
-            get_client_from_context()
-
-    def test_context_request_context_without_request(self) -> None:
-        """A request_context without request/lifespan_context attributes raises."""
-        import types
-
-        from play_store_mcp.server import get_client_from_context
-
-        # request_context exists but has neither `request` nor `lifespan_context`.
-        ctx = types.SimpleNamespace(request_context=types.SimpleNamespace())
-
-        with (
-            patch.object(mcp, "get_context", return_value=ctx),
-            pytest.raises(PlayStoreClientError, match="No credentials provided"),
-        ):
-            get_client_from_context()
-
-    def test_context_request_none(self) -> None:
-        """A request_context whose request is None falls through to lifespan."""
-        import types
-
-        from play_store_mcp.server import get_client_from_context
-
-        sentinel = MagicMock()
-        ctx = types.SimpleNamespace(
-            request_context=types.SimpleNamespace(
-                request=None,
-                lifespan_context={"client": sentinel},
-            )
+        monkeypatch.setattr(
+            server,
+            "get_http_headers",
+            lambda: {"x-google-credentials": '{"type": "service_account"}'},
         )
+        created = {}
 
-        with patch.object(mcp, "get_context", return_value=ctx):
-            result = get_client_from_context()
+        def fake_client(credentials_json=None):
+            created["creds"] = credentials_json
+            return "CLIENT"
 
-        assert result is sentinel
+        monkeypatch.setattr(server, "PlayStoreClient", fake_client)
+        assert server.get_client_from_context() == "CLIENT"
+        assert created["creds"] == {"type": "service_account"}
+
+    def test_invalid_json_header_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from play_store_mcp import server
+
+        monkeypatch.setattr(
+            server, "get_http_headers", lambda: {"x-google-credentials": "not-json"}
+        )
+        with pytest.raises(server.PlayStoreClientError, match="Invalid JSON"):
+            server.get_client_from_context()
+
+    def test_base64_header_credentials(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from play_store_mcp import server
+
+        b64 = base64.b64encode(b'{"type":"service_account"}').decode()
+        monkeypatch.setattr(
+            server, "get_http_headers", lambda: {"x-google-credentials-base64": b64}
+        )
+        created = {}
+
+        def fake_client(credentials_json=None):
+            created["creds"] = credentials_json
+            return "CLIENT"
+
+        monkeypatch.setattr(server, "PlayStoreClient", fake_client)
+        assert server.get_client_from_context() == "CLIENT"
+        assert created["creds"] == {"type": "service_account"}
+
+    def test_invalid_base64_header_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from play_store_mcp import server
+
+        monkeypatch.setattr(
+            server,
+            "get_http_headers",
+            lambda: {"x-google-credentials-base64": "!!!not-base64!!!"},
+        )
+        with pytest.raises(server.PlayStoreClientError, match="Invalid base64 or JSON"):
+            server.get_client_from_context()
+
+    def test_falls_back_to_shared_client(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from play_store_mcp import server
+
+        monkeypatch.setattr(server, "get_http_headers", dict)
+        monkeypatch.setitem(server._shared_state, "client", "SHARED")
+        assert server.get_client_from_context() == "SHARED"
+
+    def test_no_credentials_raises(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from play_store_mcp import server
+
+        monkeypatch.setattr(server, "get_http_headers", dict)
+        monkeypatch.setitem(server._shared_state, "client", None)
+        with pytest.raises(server.PlayStoreClientError, match="No credentials"):
+            server.get_client_from_context()
 
 
 # =========================================================================
@@ -1102,33 +1168,29 @@ class TestCredentialsEndpointExtra:
         assert "boom" not in data["error"]
 
     @pytest.mark.asyncio
-    async def test_success_without_shared_state(self) -> None:
-        """A successful update works even when mcp has no _shared_state attribute."""
+    async def test_success_updates_module_shared_state(self) -> None:
+        """A successful update writes the new client into module-level _shared_state."""
         from starlette.requests import Request
 
+        from play_store_mcp import server
         from play_store_mcp.server import update_credentials
 
         creds = {"type": "service_account", "project_id": "test"}
 
-        saved = getattr(mcp, "_shared_state", None)
-        if hasattr(mcp, "_shared_state"):
-            del mcp._shared_state
-        try:
-            with patch("play_store_mcp.client.PlayStoreClient._get_service") as mock_service:
-                mock_service.return_value = MagicMock()
+        with patch("play_store_mcp.client.PlayStoreClient._get_service") as mock_service:
+            mock_service.return_value = MagicMock()
 
-                mock_request = MagicMock(spec=Request)
-                mock_request.client.host = "127.0.0.1"
-                mock_request.json = AsyncMock(return_value={"credentials": creds})
+            mock_request = MagicMock(spec=Request)
+            mock_request.client.host = "127.0.0.1"
+            mock_request.json = AsyncMock(return_value={"credentials": creds})
 
-                response = await update_credentials(mock_request)
+            response = await update_credentials(mock_request)
 
-            assert response.status_code == 200
-            data = json.loads(response.body)
-            assert data["success"] is True
-        finally:
-            if saved is not None:
-                mcp._shared_state = saved
+        assert response.status_code == 200
+        data = json.loads(response.body)
+        assert data["success"] is True
+        assert server._shared_state["credentials_updated"] is True
+        assert server._shared_state["client"] is not None
 
 
 # =========================================================================
@@ -1150,22 +1212,3 @@ class TestMainEntryPoint:
 
         assert os.environ["GOOGLE_PLAY_STORE_CREDENTIALS"] == "/path/to/creds.json"
         mock_run.assert_called_once()
-
-    def test_main_network_transport_sets_host_port(self, monkeypatch: Any) -> None:
-        """A network transport sets mcp.settings.host and port."""
-        from play_store_mcp.server import main
-
-        monkeypatch.delenv("GOOGLE_PLAY_STORE_CREDENTIALS", raising=False)
-
-        orig_host = mcp.settings.host
-        orig_port = mcp.settings.port
-        try:
-            with patch.object(mcp, "run") as mock_run:
-                main(["--transport", "streamable-http", "--host", "192.168.1.10", "--port", "9999"])
-
-            assert mcp.settings.host == "192.168.1.10"
-            assert mcp.settings.port == 9999
-            mock_run.assert_called_once_with(transport="streamable-http")
-        finally:
-            mcp.settings.host = orig_host
-            mcp.settings.port = orig_port

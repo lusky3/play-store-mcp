@@ -17,8 +17,11 @@ from pathlib import Path
 from typing import Any
 
 import structlog
-from mcp.server.fastmcp import FastMCP
-from mcp.server.transport_security import TransportSecuritySettings
+import uvicorn
+from fastmcp import FastMCP
+from fastmcp.server.dependencies import get_http_headers
+from starlette.middleware import Middleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -40,53 +43,37 @@ logger = structlog.get_logger(__name__)
 
 
 def get_client_from_context() -> PlayStoreClient:
-    """Get PlayStoreClient from request context.
+    """Resolve a PlayStoreClient for the current request.
 
-    Checks for credentials in request headers first (X-Google-Credentials or
-    X-Google-Credentials-Base64), then falls back to the shared client from
-    lifespan context.
-
-    Returns:
-        PlayStoreClient instance
+    Per-request credentials in the X-Google-Credentials /
+    X-Google-Credentials-Base64 headers take precedence; otherwise the shared
+    client from the lifespan is used.
 
     Raises:
-        PlayStoreClientError: If credentials are invalid or client cannot be created
+        PlayStoreClientError: if credentials are invalid or unavailable.
     """
-    ctx = mcp.get_context()
+    headers = get_http_headers() or {}
 
-    # Check for per-request credentials in headers
-    if hasattr(ctx, "request_context") and hasattr(ctx.request_context, "request"):
-        request = ctx.request_context.request
-        if request is not None and hasattr(request, "headers"):
-            headers = request.headers
+    if "x-google-credentials" in headers:
+        try:
+            creds_json = json.loads(headers["x-google-credentials"])
+        except json.JSONDecodeError as e:
+            raise PlayStoreClientError(f"Invalid JSON in X-Google-Credentials header: {e}") from e
+        return PlayStoreClient(credentials_json=creds_json)
 
-            # Try X-Google-Credentials header (JSON string or object)
-            if "x-google-credentials" in headers:
-                creds_str = headers["x-google-credentials"]
-                try:
-                    creds_json = json.loads(creds_str)
-                    return PlayStoreClient(credentials_json=creds_json)
-                except json.JSONDecodeError as e:
-                    raise PlayStoreClientError(f"Invalid JSON in X-Google-Credentials header: {e}")
+    if "x-google-credentials-base64" in headers:
+        try:
+            creds_bytes = base64.b64decode(headers["x-google-credentials-base64"])
+            creds_json = json.loads(creds_bytes.decode("utf-8"))
+        except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as e:
+            raise PlayStoreClientError(
+                f"Invalid base64 or JSON in X-Google-Credentials-Base64 header: {e}"
+            ) from e
+        return PlayStoreClient(credentials_json=creds_json)
 
-            # Try X-Google-Credentials-Base64 header
-            if "x-google-credentials-base64" in headers:
-                creds_b64 = headers["x-google-credentials-base64"]
-                try:
-                    creds_bytes = base64.b64decode(creds_b64)
-                    creds_str = creds_bytes.decode("utf-8")
-                    creds_json = json.loads(creds_str)
-                    return PlayStoreClient(credentials_json=creds_json)
-                except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as e:
-                    raise PlayStoreClientError(
-                        f"Invalid base64 or JSON in X-Google-Credentials-Base64 header: {e}"
-                    )
-
-    # Fall back to shared client from lifespan
-    if hasattr(ctx, "request_context") and hasattr(ctx.request_context, "lifespan_context"):
-        client: PlayStoreClient | None = ctx.request_context.lifespan_context.get("client")
-        if client is not None:
-            return client
+    client: PlayStoreClient | None = _shared_state.get("client")
+    if client is not None:
+        return client
 
     raise PlayStoreClientError(
         "No credentials provided. Set X-Google-Credentials or X-Google-Credentials-Base64 header, "
@@ -94,31 +81,29 @@ def get_client_from_context() -> PlayStoreClient:
     )
 
 
+# Shared fallback client, used when a request carries no per-request
+# credential header. Populated by the lifespan on startup and swapped by the
+# /credentials route. Module-level so custom routes and get_client_from_context
+# can reach it without depending on framework-internal context plumbing.
+_shared_state: dict[str, Any] = {"client": None, "credentials_updated": False}
+
+
 @asynccontextmanager
 async def lifespan(_server: FastMCP):  # type: ignore[no-untyped-def]
-    """Lifespan context manager for the MCP server.
-
-    Initializes the PlayStoreClient and makes it available via server context.
-    """
+    """Initialize the shared PlayStoreClient on startup."""
     logger.info("Initializing Play Store MCP Server")
-
-    # Create a shared state dict that will be accessible from custom routes
-    shared_state: dict[str, Any] = {"client": None, "credentials_updated": False}
-
     try:
         client = PlayStoreClient()
-        # Validate credentials on startup
-        _ = client._get_service()
+        # Validate credentials off the event loop — _get_service() does blocking
+        # discovery/auth, matching the offload used by the /credentials route.
+        _ = await asyncio.to_thread(client._get_service)
         logger.info("Play Store client initialized successfully")
-        shared_state["client"] = client
+        _shared_state["client"] = client
     except PlayStoreClientError as e:
         logger.warning("Play Store client initialization failed", error=str(e))
-        shared_state["client"] = None
+        _shared_state["client"] = None
 
-    # Store shared state in the server instance for access from custom routes
-    _server._shared_state = shared_state  # type: ignore[attr-defined]
-
-    yield shared_state
+    yield _shared_state
 
     logger.info("Shutting down Play Store MCP Server")
 
@@ -178,9 +163,6 @@ def _read_only_block(operation: str) -> dict[str, Any] | None:
 mcp = FastMCP(
     "Play Store MCP Server",
     lifespan=lifespan,
-    transport_security=TransportSecuritySettings(
-        enable_dns_rebinding_protection=not os.environ.get("PLAY_STORE_MCP_DISABLE_DNS_REBINDING"),
-    ),
 )
 
 
@@ -3682,9 +3664,8 @@ async def update_credentials(request: Request) -> JSONResponse:
             )
 
         # Update the client in the shared state
-        if hasattr(mcp, "_shared_state"):
-            mcp._shared_state["client"] = new_client  # type: ignore[attr-defined]
-            mcp._shared_state["credentials_updated"] = True  # type: ignore[attr-defined]
+        _shared_state["client"] = new_client
+        _shared_state["credentials_updated"] = True
 
         logger.info("Credentials updated successfully via HTTP endpoint")
 
@@ -3709,6 +3690,49 @@ async def update_credentials(request: Request) -> JSONResponse:
 # =============================================================================
 # Entry Point
 # =============================================================================
+
+
+def _dns_rebinding_disabled() -> bool:
+    """Return True when DNS-rebinding (Host-header) protection is disabled."""
+    return bool(os.environ.get("PLAY_STORE_MCP_DISABLE_DNS_REBINDING"))
+
+
+def _is_wildcard_bind(host: str) -> bool:
+    """Return True if host binds all interfaces (unspecified address) or is unset."""
+    if not host:
+        return True
+    try:
+        return ipaddress.ip_address(host).is_unspecified
+    except ValueError:
+        return False
+
+
+def _run_http(transport: str, host: str, port: int) -> None:
+    """Serve a network transport with DNS-rebinding (Host-header) protection.
+
+    fastmcp v3 has no constructor-level transport security; we attach Starlette
+    TrustedHostMiddleware (which is exactly Host-header validation) unless
+    PLAY_STORE_MCP_DISABLE_DNS_REBINDING is set.
+    """
+    middleware: list[Middleware] = []
+    if not _dns_rebinding_disabled():
+        allowed = ["localhost", "127.0.0.1", "[::1]"]
+        if _is_wildcard_bind(host):
+            # Wildcard bind: the reachable Host header is unknown, so protection
+            # stays localhost-only. Remote deployments should terminate at a
+            # reverse proxy and set PLAY_STORE_MCP_DISABLE_DNS_REBINDING.
+            logger.warning(
+                "DNS-rebinding protection allows only localhost on a wildcard bind; "
+                "set PLAY_STORE_MCP_DISABLE_DNS_REBINDING=1 for remote access behind a proxy",
+                host=host,
+            )
+        else:
+            allowed.append(host)
+        middleware.append(Middleware(TrustedHostMiddleware, allowed_hosts=allowed))
+    # transport is constrained to the non-stdio argparse choices ("sse" /
+    # "streamable-http"), both valid http_app transports; argparse types it as str.
+    app = mcp.http_app(transport=transport, middleware=middleware)  # type: ignore[arg-type]
+    uvicorn.run(app, host=host, port=port)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -3757,11 +3781,10 @@ def main(argv: list[str] | None = None) -> None:
         read_only=READ_ONLY,
     )
 
-    if args.transport != "stdio":
-        mcp.settings.host = args.host
-        mcp.settings.port = args.port
-
-    mcp.run(transport=args.transport)
+    if args.transport == "stdio":
+        mcp.run(transport="stdio")
+    else:
+        _run_http(args.transport, args.host, args.port)
 
 
 if __name__ == "__main__":

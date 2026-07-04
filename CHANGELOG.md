@@ -16,6 +16,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   related operations, to lower per-request tool-list overhead — with no planned
   loss of functionality.
 
+### Changed
+- Migrated the server framework from the official MCP SDK's `FastMCP`
+  (`mcp.server.fastmcp`) to the standalone `fastmcp` package (v3). Behavior is
+  unchanged — all 117 tools, the `/health` and `/credentials` routes,
+  per-request header credentials, admin-token auth, read-only mode, and
+  DNS-rebinding protection (`PLAY_STORE_MCP_DISABLE_DNS_REBINDING`) are
+  preserved. This unblocks the upcoming code-mode capability, which lives only
+  in `fastmcp`.
+
 ### Removed
 - **Breaking:** removed the non-functional `get_vitals_overview` and
   `get_vitals_metrics` tools. They never called an API and returned hardcoded
