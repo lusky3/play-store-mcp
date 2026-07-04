@@ -722,13 +722,27 @@ class TestBatchDeployTool:
 class TestServerMain:
     """Test server main function."""
 
-    def test_main_calls_mcp_run(self) -> None:
-        """Test that main() calls mcp.run()."""
-        from play_store_mcp.server import main
+    def test_main_runs_stdio_by_default(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """main() runs the stdio transport with no host/port kwargs."""
+        from play_store_mcp import server
 
-        with patch.object(mcp, "run") as mock_run:
-            main([])
-            mock_run.assert_called_once()
+        calls: dict[str, Any] = {}
+        monkeypatch.setattr(server.mcp, "run", lambda **kw: calls.update(kw))
+        server.main(["--transport", "stdio"])
+        assert calls == {"transport": "stdio"}
+
+    def test_main_passes_host_port_for_network_transport(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A network transport forwards host/port to mcp.run()."""
+        from play_store_mcp import server
+
+        calls: dict[str, Any] = {}
+        monkeypatch.setattr(server.mcp, "run", lambda **kw: calls.update(kw))
+        server.main(["--transport", "streamable-http", "--host", "192.168.1.10", "--port", "9999"])
+        assert calls["transport"] == "streamable-http"
+        assert calls["host"] == "192.168.1.10"
+        assert calls["port"] == 9999
 
     def test_get_subscription_status_tool(self, mock_client: MagicMock) -> None:
         """Test get_subscription_status tool."""
@@ -1094,22 +1108,3 @@ class TestMainEntryPoint:
 
         assert os.environ["GOOGLE_PLAY_STORE_CREDENTIALS"] == "/path/to/creds.json"
         mock_run.assert_called_once()
-
-    def test_main_network_transport_sets_host_port(self, monkeypatch: Any) -> None:
-        """A network transport sets mcp.settings.host and port."""
-        from play_store_mcp.server import main
-
-        monkeypatch.delenv("GOOGLE_PLAY_STORE_CREDENTIALS", raising=False)
-
-        orig_host = mcp.settings.host
-        orig_port = mcp.settings.port
-        try:
-            with patch.object(mcp, "run") as mock_run:
-                main(["--transport", "streamable-http", "--host", "192.168.1.10", "--port", "9999"])
-
-            assert mcp.settings.host == "192.168.1.10"
-            assert mcp.settings.port == 9999
-            mock_run.assert_called_once_with(transport="streamable-http")
-        finally:
-            mcp.settings.host = orig_host
-            mcp.settings.port = orig_port

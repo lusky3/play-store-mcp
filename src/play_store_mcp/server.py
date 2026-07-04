@@ -3733,11 +3733,10 @@ def main(argv: list[str] | None = None) -> None:
         read_only=READ_ONLY,
     )
 
-    if args.transport != "stdio":
-        mcp.settings.host = args.host
-        mcp.settings.port = args.port
-
-    mcp.run(transport=args.transport)
+    if args.transport == "stdio":
+        mcp.run(transport="stdio")
+    else:
+        mcp.run(transport=args.transport, host=args.host, port=args.port)
 
 
 if __name__ == "__main__":
