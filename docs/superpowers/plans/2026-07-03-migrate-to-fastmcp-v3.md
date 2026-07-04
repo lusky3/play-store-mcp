@@ -50,6 +50,10 @@
 - Produces: module-level `_shared_state: dict[str, Any]` in `server.py` (keys `"client"`, `"credentials_updated"`), populated by `lifespan`, read by `get_client_from_context` (Task 2) and `/credentials` (Task 2). `mcp` is a `fastmcp.FastMCP` instance.
 - Consumes: nothing from other tasks.
 
+> **Execution note (verified against fastmcp 3.4.2):** Two adjustments to what was drafted below.
+> (1) Tool enumeration is `await mcp.list_tools()` → `Sequence[Tool]` (a **list**, `len == 117`), **not** `get_tools()`/dict — the smoke test below uses `list_tools()`.
+> (2) `test_server_extended.py` has a pre-existing **autouse fixture `_patch_mcp_context`** that does `patch.object(mcp, "get_context", ...)` for the whole module. fastmcp v3 removes `get_context` from the instance, so that fixture (and every test in the file) breaks until credential resolution is rewritten. Because removing the SDK internals (`get_context`, `mcp.settings`, `transport_security`) is atomic, **Tasks 1–3 are executed and committed together** (three commits, one branch) so the suite and `mypy` reach a clean state; the autouse fixture is rewritten in Task 2 to inject the mock client via `_shared_state`.
+
 - [ ] **Step 1: Add the dependency and remove the direct `mcp` pin**
 
 In `pyproject.toml`, in `[project].dependencies`, replace the line `"mcp>=1.26.0",` with `"fastmcp>=3.1",`. Leave the `pyjwt[crypto]>=2.12.0` line exactly as-is (still a required direct dependency). `fastmcp` pulls a compatible `mcp` transitively.
@@ -73,7 +77,7 @@ def test_server_uses_fastmcp_and_registers_all_tools() -> None:
     from play_store_mcp import server
 
     assert isinstance(server.mcp, fastmcp.FastMCP)
-    tools = asyncio.run(server.mcp.get_tools())  # dict[str, Tool]
+    tools = asyncio.run(server.mcp.list_tools())  # Sequence[Tool]
     assert len(tools) == 117
 ```
 
@@ -281,6 +285,23 @@ At lines 3685-3687, replace the `hasattr(mcp, "_shared_state")` block with a dir
 ```
 
 (Remove the `hasattr(mcp, ...)` guard and the `mcp._shared_state` references entirely.)
+
+- [ ] **Step 4b: Rewrite the autouse `_patch_mcp_context` fixture in `test_server_extended.py`**
+
+That file's autouse fixture patches `mcp.get_context` (gone in v3), which breaks the whole module. Rewrite it to inject the mock client through the new resolution path — set the shared client and force `get_http_headers()` to return no headers so tool calls fall through to it:
+
+```python
+@pytest.fixture(autouse=True)
+def _patch_mcp_context(mock_client: MagicMock, monkeypatch) -> Any:
+    """Route get_client_from_context to the mock client for tool tests."""
+    from play_store_mcp import server
+
+    monkeypatch.setattr(server, "get_http_headers", lambda: {})
+    monkeypatch.setitem(server._shared_state, "client", mock_client)
+    yield
+```
+
+Delete the now-unused `_mock_context` helper if nothing else references it (grep first). The dedicated `TestGetClientFromContext` tests (Step 1) set their own headers/shared state on top of this, which is fine.
 
 - [ ] **Step 5: Update the two other tests that reach `_shared_state`**
 
@@ -535,7 +556,7 @@ def _reset_shared_state():
 - [ ] **Step 3: Run the full suite; fix any remaining framework-coupled failures**
 
 Run: `uv run pytest -q --tb=short`
-Expected: all pass. If any test still references `mcp.get_context`, `request_context`, `lifespan_context`, `mcp.settings`, or `_tool_manager`, update it to the new contract (headers via `get_http_headers`, state via `server._shared_state`, tools via `await mcp.get_tools()`). Run `grep -rn "get_context\|request_context\|lifespan_context\|mcp.settings\|_tool_manager" tests/` to confirm none remain.
+Expected: all pass. If any test still references `mcp.get_context`, `request_context`, `lifespan_context`, `mcp.settings`, or `_tool_manager`, update it to the new contract (headers via `get_http_headers`, state via `server._shared_state`, tools via `await mcp.list_tools()`). Run `grep -rn "get_context\|request_context\|lifespan_context\|mcp.settings\|_tool_manager" tests/` to confirm none remain.
 
 - [ ] **Step 4: Commit**
 
