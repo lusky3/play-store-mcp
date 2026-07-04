@@ -17,8 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import structlog
-from mcp.server.fastmcp import FastMCP
-from mcp.server.transport_security import TransportSecuritySettings
+from fastmcp import FastMCP
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -94,31 +93,27 @@ def get_client_from_context() -> PlayStoreClient:
     )
 
 
+# Shared fallback client, used when a request carries no per-request
+# credential header. Populated by the lifespan on startup and swapped by the
+# /credentials route. Module-level so custom routes and get_client_from_context
+# can reach it without depending on framework-internal context plumbing.
+_shared_state: dict[str, Any] = {"client": None, "credentials_updated": False}
+
+
 @asynccontextmanager
 async def lifespan(_server: FastMCP):  # type: ignore[no-untyped-def]
-    """Lifespan context manager for the MCP server.
-
-    Initializes the PlayStoreClient and makes it available via server context.
-    """
+    """Initialize the shared PlayStoreClient on startup."""
     logger.info("Initializing Play Store MCP Server")
-
-    # Create a shared state dict that will be accessible from custom routes
-    shared_state: dict[str, Any] = {"client": None, "credentials_updated": False}
-
     try:
         client = PlayStoreClient()
-        # Validate credentials on startup
-        _ = client._get_service()
+        _ = client._get_service()  # validate credentials on startup
         logger.info("Play Store client initialized successfully")
-        shared_state["client"] = client
+        _shared_state["client"] = client
     except PlayStoreClientError as e:
         logger.warning("Play Store client initialization failed", error=str(e))
-        shared_state["client"] = None
+        _shared_state["client"] = None
 
-    # Store shared state in the server instance for access from custom routes
-    _server._shared_state = shared_state  # type: ignore[attr-defined]
-
-    yield shared_state
+    yield _shared_state
 
     logger.info("Shutting down Play Store MCP Server")
 
@@ -178,9 +173,6 @@ def _read_only_block(operation: str) -> dict[str, Any] | None:
 mcp = FastMCP(
     "Play Store MCP Server",
     lifespan=lifespan,
-    transport_security=TransportSecuritySettings(
-        enable_dns_rebinding_protection=not os.environ.get("PLAY_STORE_MCP_DISABLE_DNS_REBINDING"),
-    ),
 )
 
 

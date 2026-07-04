@@ -59,6 +59,19 @@ from play_store_mcp.server import (
 )
 
 
+def test_server_uses_fastmcp_and_registers_all_tools() -> None:
+    """The server is built on the standalone fastmcp package with all 117 tools."""
+    import asyncio
+
+    import fastmcp
+
+    from play_store_mcp import server
+
+    assert isinstance(server.mcp, fastmcp.FastMCP)
+    tools = asyncio.run(server.mcp.list_tools())  # Sequence[Tool]
+    assert len(tools) == 117
+
+
 def _mock_context(client: MagicMock) -> MagicMock:
     """Create a mock MCP context with the given client."""
     ctx = MagicMock()
