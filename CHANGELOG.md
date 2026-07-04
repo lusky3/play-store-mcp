@@ -16,6 +16,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   related operations, to lower per-request tool-list overhead — with no planned
   loss of functionality.
 
+### Added
+- **Experimental code-mode (opt-in):** set `CODE_MODE=1` to expose tools through
+  FastMCP's code-mode transform (`search`/`get_schema`/`execute` meta-tools with a
+  sandboxed executor) instead of the full tool list, reducing per-request tool-list
+  token overhead. Off by default; requires the `play-store-mcp[code-mode]` extra
+  (Monty sandbox) for the `execute` tool. This is the first step of the tool-surface
+  reduction noted under Planned.
+
 ### Changed
 - Migrated the server framework from the official MCP SDK's `FastMCP`
   (`mcp.server.fastmcp`) to the standalone `fastmcp` package (v3). Behavior is

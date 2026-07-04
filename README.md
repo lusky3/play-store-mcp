@@ -146,6 +146,19 @@ play-store-mcp --read-only
 export PLAY_STORE_MCP_READ_ONLY=1
 ```
 
+### Code Mode (Experimental)
+
+Opt in to the experimental code-mode transform to serve the tools as three
+meta-tools (`search`/`get_schema`/`execute`) instead of the full tool list,
+cutting per-request tool-list token overhead. It is off by default. Install the
+sandbox extra and set the environment variable (`CODE_MODE` is env-only — there
+is no CLI flag):
+
+```bash
+pip install "play-store-mcp[code-mode]"
+export CODE_MODE=1
+```
+
 ## 🔧 MCP Client Configuration
 
 ### Claude Desktop
@@ -309,6 +322,7 @@ Add to `.kiro/settings/mcp.json`:
 | `PLAY_STORE_MCP_LOG_LEVEL` | Log level (DEBUG, INFO, WARNING, ERROR) | No (default: INFO) |
 | `PLAY_STORE_MCP_DISABLE_DNS_REBINDING` | Disable DNS rebinding protection (for cloud/reverse-proxy deployments) | No |
 | `PLAY_STORE_MCP_READ_ONLY` | Disable all write operations (deploy, promote, rollout, reply, listing/tester updates) | No (default: off) |
+| `CODE_MODE` | Enable the experimental code-mode transform (opt-in; requires the `play-store-mcp[code-mode]` extra) | No (default: off) |
 
 ## 🧪 Development
 

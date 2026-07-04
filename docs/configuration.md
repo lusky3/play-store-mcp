@@ -84,6 +84,7 @@ docker run -p 8000:8000 \
 | `PLAY_STORE_MCP_DISABLE_DNS_REBINDING` | Disable DNS rebinding protection (for cloud/reverse-proxy deployments) | No | — |
 | `PLAY_STORE_MCP_ADMIN_TOKEN` | Require `Authorization: Bearer <token>` on the `/credentials` endpoint (needed behind a reverse proxy, where the localhost check is insufficient) | No | — |
 | `PLAY_STORE_MCP_READ_ONLY` | Disable all write operations | No | — |
+| `CODE_MODE` | Enable the experimental code-mode transform (opt-in; requires the `code-mode` extra) | No | off |
 
 ## HTTP Transport
 
@@ -145,6 +146,36 @@ Or the environment variable (truthy values: `1`, `true`, `yes`, `on`):
 ```bash
 export PLAY_STORE_MCP_READ_ONLY=1
 ```
+
+## Code Mode (Experimental)
+
+!!! warning "Experimental — off by default"
+    Code mode is opt-in and disabled by default. It wraps the tool surface in
+    FastMCP's experimental code-mode transform.
+
+Code mode replaces the individual tools with three meta-tools — `search`,
+`get_schema`, and `execute` — so the client discovers tools on demand and runs a
+short script that calls them in a sandbox, rather than receiving the full tool
+list on every request. This cuts the per-request tool-list token overhead.
+
+Enabling it requires two things:
+
+1. Install the sandbox extra (the `execute` meta-tool runs in the Monty sandbox):
+
+    ```bash
+    pip install "play-store-mcp[code-mode]"
+    # or: uvx --from "play-store-mcp[code-mode]" play-store-mcp
+    ```
+
+2. Set the environment variable (truthy values: `1`, `true`, `yes`, `on`):
+
+    ```bash
+    export CODE_MODE=1
+    ```
+
+`CODE_MODE` is an environment variable only — there is no CLI flag — because the
+transform is fixed when the server is constructed (before command-line arguments
+are parsed). When it is unset, the classic full tool surface is served unchanged.
 
 ## Logging
 
