@@ -3697,6 +3697,16 @@ def _dns_rebinding_disabled() -> bool:
     return bool(os.environ.get("PLAY_STORE_MCP_DISABLE_DNS_REBINDING"))
 
 
+def _is_wildcard_bind(host: str) -> bool:
+    """Return True if host binds all interfaces (unspecified address) or is unset."""
+    if not host:
+        return True
+    try:
+        return ipaddress.ip_address(host).is_unspecified
+    except ValueError:
+        return False
+
+
 def _run_http(transport: str, host: str, port: int) -> None:
     """Serve a network transport with DNS-rebinding (Host-header) protection.
 
@@ -3707,7 +3717,7 @@ def _run_http(transport: str, host: str, port: int) -> None:
     middleware: list[Middleware] = []
     if not _dns_rebinding_disabled():
         allowed = ["localhost", "127.0.0.1", "[::1]"]
-        if host in ("0.0.0.0", "::", ""):  # noqa: S104 — detecting a wildcard bind, not binding to it
+        if _is_wildcard_bind(host):
             # Wildcard bind: the reachable Host header is unknown, so protection
             # stays localhost-only. Remote deployments should terminate at a
             # reverse proxy and set PLAY_STORE_MCP_DISABLE_DNS_REBINDING.

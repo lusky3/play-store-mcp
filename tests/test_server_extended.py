@@ -850,6 +850,24 @@ def test_run_http_wildcard_bind_stays_localhost_only(monkeypatch: pytest.MonkeyP
     assert "127.0.0.1" in allowed
 
 
+@pytest.mark.parametrize(
+    ("host", "expected"),
+    [
+        ("0.0.0.0", True),  # noqa: S104 — testing wildcard detection
+        ("::", True),
+        ("", True),
+        ("127.0.0.1", False),
+        ("192.168.1.10", False),
+        ("localhost", False),  # non-IP hostname → ValueError → not wildcard
+    ],
+)
+def test_is_wildcard_bind(host: str, expected: bool) -> None:
+    """_is_wildcard_bind flags unspecified/unset binds, not concrete hosts or names."""
+    from play_store_mcp import server
+
+    assert server._is_wildcard_bind(host) is expected
+
+
 # =========================================================================
 # get_client_from_context — header-based credentials
 # =========================================================================
