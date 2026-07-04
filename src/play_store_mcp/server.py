@@ -18,6 +18,7 @@ from typing import Any
 
 import structlog
 from fastmcp import FastMCP
+from fastmcp.server.dependencies import get_http_headers
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -39,53 +40,37 @@ logger = structlog.get_logger(__name__)
 
 
 def get_client_from_context() -> PlayStoreClient:
-    """Get PlayStoreClient from request context.
+    """Resolve a PlayStoreClient for the current request.
 
-    Checks for credentials in request headers first (X-Google-Credentials or
-    X-Google-Credentials-Base64), then falls back to the shared client from
-    lifespan context.
-
-    Returns:
-        PlayStoreClient instance
+    Per-request credentials in the X-Google-Credentials /
+    X-Google-Credentials-Base64 headers take precedence; otherwise the shared
+    client from the lifespan is used.
 
     Raises:
-        PlayStoreClientError: If credentials are invalid or client cannot be created
+        PlayStoreClientError: if credentials are invalid or unavailable.
     """
-    ctx = mcp.get_context()
+    headers = get_http_headers() or {}
 
-    # Check for per-request credentials in headers
-    if hasattr(ctx, "request_context") and hasattr(ctx.request_context, "request"):
-        request = ctx.request_context.request
-        if request is not None and hasattr(request, "headers"):
-            headers = request.headers
+    if "x-google-credentials" in headers:
+        try:
+            creds_json = json.loads(headers["x-google-credentials"])
+        except json.JSONDecodeError as e:
+            raise PlayStoreClientError(f"Invalid JSON in X-Google-Credentials header: {e}") from e
+        return PlayStoreClient(credentials_json=creds_json)
 
-            # Try X-Google-Credentials header (JSON string or object)
-            if "x-google-credentials" in headers:
-                creds_str = headers["x-google-credentials"]
-                try:
-                    creds_json = json.loads(creds_str)
-                    return PlayStoreClient(credentials_json=creds_json)
-                except json.JSONDecodeError as e:
-                    raise PlayStoreClientError(f"Invalid JSON in X-Google-Credentials header: {e}")
+    if "x-google-credentials-base64" in headers:
+        try:
+            creds_bytes = base64.b64decode(headers["x-google-credentials-base64"])
+            creds_json = json.loads(creds_bytes.decode("utf-8"))
+        except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as e:
+            raise PlayStoreClientError(
+                f"Invalid base64 or JSON in X-Google-Credentials-Base64 header: {e}"
+            ) from e
+        return PlayStoreClient(credentials_json=creds_json)
 
-            # Try X-Google-Credentials-Base64 header
-            if "x-google-credentials-base64" in headers:
-                creds_b64 = headers["x-google-credentials-base64"]
-                try:
-                    creds_bytes = base64.b64decode(creds_b64)
-                    creds_str = creds_bytes.decode("utf-8")
-                    creds_json = json.loads(creds_str)
-                    return PlayStoreClient(credentials_json=creds_json)
-                except (binascii.Error, UnicodeDecodeError, json.JSONDecodeError) as e:
-                    raise PlayStoreClientError(
-                        f"Invalid base64 or JSON in X-Google-Credentials-Base64 header: {e}"
-                    )
-
-    # Fall back to shared client from lifespan
-    if hasattr(ctx, "request_context") and hasattr(ctx.request_context, "lifespan_context"):
-        client: PlayStoreClient | None = ctx.request_context.lifespan_context.get("client")
-        if client is not None:
-            return client
+    client: PlayStoreClient | None = _shared_state.get("client")
+    if client is not None:
+        return client
 
     raise PlayStoreClientError(
         "No credentials provided. Set X-Google-Credentials or X-Google-Credentials-Base64 header, "
@@ -3674,9 +3659,8 @@ async def update_credentials(request: Request) -> JSONResponse:
             )
 
         # Update the client in the shared state
-        if hasattr(mcp, "_shared_state"):
-            mcp._shared_state["client"] = new_client  # type: ignore[attr-defined]
-            mcp._shared_state["credentials_updated"] = True  # type: ignore[attr-defined]
+        _shared_state["client"] = new_client
+        _shared_state["credentials_updated"] = True
 
         logger.info("Credentials updated successfully via HTTP endpoint")
 

@@ -29,7 +29,8 @@ async def test_update_credentials_with_json_object(mock_credentials):
     """Test updating credentials with JSON object."""
     from starlette.requests import Request
 
-    from play_store_mcp.server import mcp, update_credentials
+    from play_store_mcp import server
+    from play_store_mcp.server import update_credentials
 
     with patch("play_store_mcp.client.PlayStoreClient._get_service") as mock_service:
         mock_service.return_value = MagicMock()
@@ -38,7 +39,7 @@ async def test_update_credentials_with_json_object(mock_credentials):
         mock_request.client.host = "127.0.0.1"
         mock_request.json = AsyncMock(return_value={"credentials": mock_credentials})
 
-        mcp._shared_state = {"client": None, "credentials_updated": False}
+        server._shared_state = {"client": None, "credentials_updated": False}
 
         response = await update_credentials(mock_request)
 
@@ -53,7 +54,8 @@ async def test_update_credentials_with_json_string(mock_credentials):
     """Test updating credentials with JSON string."""
     from starlette.requests import Request
 
-    from play_store_mcp.server import mcp, update_credentials
+    from play_store_mcp import server
+    from play_store_mcp.server import update_credentials
 
     with patch("play_store_mcp.client.PlayStoreClient._get_service") as mock_service:
         mock_service.return_value = MagicMock()
@@ -63,7 +65,7 @@ async def test_update_credentials_with_json_string(mock_credentials):
         mock_request.client.host = "127.0.0.1"
         mock_request.json = AsyncMock(return_value={"credentials": credentials_str})
 
-        mcp._shared_state = {"client": None, "credentials_updated": False}
+        server._shared_state = {"client": None, "credentials_updated": False}
 
         response = await update_credentials(mock_request)
 
@@ -77,7 +79,8 @@ async def test_update_credentials_with_base64(mock_credentials):
     """Test updating credentials with base64-encoded JSON."""
     from starlette.requests import Request
 
-    from play_store_mcp.server import mcp, update_credentials
+    from play_store_mcp import server
+    from play_store_mcp.server import update_credentials
 
     with patch("play_store_mcp.client.PlayStoreClient._get_service") as mock_service:
         mock_service.return_value = MagicMock()
@@ -89,7 +92,7 @@ async def test_update_credentials_with_base64(mock_credentials):
         mock_request.client.host = "127.0.0.1"
         mock_request.json = AsyncMock(return_value={"credentials_base64": credentials_b64})
 
-        mcp._shared_state = {"client": None, "credentials_updated": False}
+        server._shared_state = {"client": None, "credentials_updated": False}
 
         response = await update_credentials(mock_request)
 
@@ -103,7 +106,8 @@ async def test_update_credentials_with_path(tmp_path):
     """Test updating credentials with file path."""
     from starlette.requests import Request
 
-    from play_store_mcp.server import mcp, update_credentials
+    from play_store_mcp import server
+    from play_store_mcp.server import update_credentials
 
     creds_file = tmp_path / "credentials.json"
     creds_file.write_text(
@@ -122,7 +126,7 @@ async def test_update_credentials_with_path(tmp_path):
         mock_request.client.host = "127.0.0.1"
         mock_request.json = AsyncMock(return_value={"credentials_path": str(creds_file)})
 
-        mcp._shared_state = {"client": None, "credentials_updated": False}
+        server._shared_state = {"client": None, "credentials_updated": False}
 
         response = await update_credentials(mock_request)
 
@@ -137,13 +141,14 @@ async def test_update_credentials_missing_data():
     """Test error when no credentials provided."""
     from starlette.requests import Request
 
-    from play_store_mcp.server import mcp, update_credentials
+    from play_store_mcp import server
+    from play_store_mcp.server import update_credentials
 
     mock_request = MagicMock(spec=Request)
     mock_request.client.host = "127.0.0.1"
     mock_request.json = AsyncMock(return_value={})
 
-    mcp._shared_state = {"client": None, "credentials_updated": False}
+    server._shared_state = {"client": None, "credentials_updated": False}
 
     response = await update_credentials(mock_request)
 
@@ -158,13 +163,14 @@ async def test_update_credentials_invalid_json_string():
     """Test error with invalid JSON string."""
     from starlette.requests import Request
 
-    from play_store_mcp.server import mcp, update_credentials
+    from play_store_mcp import server
+    from play_store_mcp.server import update_credentials
 
     mock_request = MagicMock(spec=Request)
     mock_request.client.host = "127.0.0.1"
     mock_request.json = AsyncMock(return_value={"credentials": "not valid json"})
 
-    mcp._shared_state = {"client": None, "credentials_updated": False}
+    server._shared_state = {"client": None, "credentials_updated": False}
 
     response = await update_credentials(mock_request)
 
@@ -179,13 +185,14 @@ async def test_update_credentials_invalid_type():
     """Test error with invalid credentials type."""
     from starlette.requests import Request
 
-    from play_store_mcp.server import mcp, update_credentials
+    from play_store_mcp import server
+    from play_store_mcp.server import update_credentials
 
     mock_request = MagicMock(spec=Request)
     mock_request.client.host = "127.0.0.1"
     mock_request.json = AsyncMock(return_value={"credentials": 123})
 
-    mcp._shared_state = {"client": None, "credentials_updated": False}
+    server._shared_state = {"client": None, "credentials_updated": False}
 
     response = await update_credentials(mock_request)
 
@@ -200,7 +207,8 @@ async def test_update_credentials_invalid_credentials(mock_credentials):
     """Test error with invalid credentials that fail validation."""
     from starlette.requests import Request
 
-    from play_store_mcp.server import mcp, update_credentials
+    from play_store_mcp import server
+    from play_store_mcp.server import update_credentials
 
     with patch("play_store_mcp.client.PlayStoreClient._get_service") as mock_service:
         from play_store_mcp.client import PlayStoreClientError
@@ -211,7 +219,7 @@ async def test_update_credentials_invalid_credentials(mock_credentials):
         mock_request.client.host = "127.0.0.1"
         mock_request.json = AsyncMock(return_value={"credentials": mock_credentials})
 
-        mcp._shared_state = {"client": None, "credentials_updated": False}
+        server._shared_state = {"client": None, "credentials_updated": False}
 
         response = await update_credentials(mock_request)
 
@@ -226,13 +234,14 @@ async def test_update_credentials_malformed_request():
     """Test error with malformed JSON request."""
     from starlette.requests import Request
 
-    from play_store_mcp.server import mcp, update_credentials
+    from play_store_mcp import server
+    from play_store_mcp.server import update_credentials
 
     mock_request = MagicMock(spec=Request)
     mock_request.client.host = "127.0.0.1"
     mock_request.json = AsyncMock(side_effect=json.JSONDecodeError("test", "test", 0))
 
-    mcp._shared_state = {"client": None, "credentials_updated": False}
+    server._shared_state = {"client": None, "credentials_updated": False}
 
     response = await update_credentials(mock_request)
 
@@ -246,13 +255,14 @@ async def test_update_credentials_invalid_base64():
     """Test error with invalid base64 encoding."""
     from starlette.requests import Request
 
-    from play_store_mcp.server import mcp, update_credentials
+    from play_store_mcp import server
+    from play_store_mcp.server import update_credentials
 
     mock_request = MagicMock(spec=Request)
     mock_request.client.host = "127.0.0.1"
     mock_request.json = AsyncMock(return_value={"credentials_base64": "not-valid-base64!!!"})
 
-    mcp._shared_state = {"client": None, "credentials_updated": False}
+    server._shared_state = {"client": None, "credentials_updated": False}
 
     response = await update_credentials(mock_request)
 

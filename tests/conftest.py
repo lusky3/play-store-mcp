@@ -20,6 +20,17 @@ def _no_backoff_sleep() -> Generator[None, None, None]:
         yield
 
 
+@pytest.fixture(autouse=True)
+def _reset_shared_state() -> Generator[None, None, None]:
+    """Restore the module-level shared state after each test to avoid order dependence."""
+    from play_store_mcp import server
+
+    saved = dict(server._shared_state)
+    yield
+    server._shared_state.clear()
+    server._shared_state.update(saved)
+
+
 @pytest.fixture
 def _mock_credentials() -> Generator[MagicMock, None, None]:
     """Mock Google credentials."""

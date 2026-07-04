@@ -830,7 +830,8 @@ class TestCredentialsEndpointAuth:
     ) -> None:
         from starlette.requests import Request
 
-        from play_store_mcp.server import mcp, update_credentials
+        from play_store_mcp import server
+        from play_store_mcp.server import update_credentials
 
         monkeypatch.setenv(_ADMIN_TOKEN_ENV, "secret-token")
 
@@ -842,7 +843,7 @@ class TestCredentialsEndpointAuth:
             request.headers = {"authorization": "Bearer secret-token"}
             request.json = AsyncMock(return_value={"credentials": _valid_credentials()})
 
-            mcp._shared_state = {"client": None, "credentials_updated": False}
+            server._shared_state = {"client": None, "credentials_updated": False}
 
             response = await update_credentials(request)
 
