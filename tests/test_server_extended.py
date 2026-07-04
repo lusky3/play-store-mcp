@@ -1212,3 +1212,60 @@ class TestMainEntryPoint:
 
         assert os.environ["GOOGLE_PLAY_STORE_CREDENTIALS"] == "/path/to/creds.json"
         mock_run.assert_called_once()
+
+
+# =========================================================================
+# CODE_MODE flag + transform building
+# =========================================================================
+
+
+@pytest.mark.parametrize(
+    ("val", "expected"),
+    [
+        ("1", True),
+        ("true", True),
+        ("YES", True),
+        ("on", True),
+        ("0", False),
+        ("false", False),
+        ("no", False),
+        ("", False),
+    ],
+)
+def test_code_mode_flag_parsing(monkeypatch: pytest.MonkeyPatch, val: str, expected: bool) -> None:
+    """CODE_MODE parses like the read-only flag (case-insensitive truthy set)."""
+    from play_store_mcp import server
+
+    monkeypatch.setenv("CODE_MODE", val)
+    assert server._code_mode_enabled() is expected
+
+
+def test_code_mode_disabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With CODE_MODE unset, no transforms are built (classic tool surface)."""
+    from play_store_mcp import server
+
+    monkeypatch.delenv("CODE_MODE", raising=False)
+    assert server._code_mode_enabled() is False
+    assert server._build_transforms() == []
+
+
+def test_build_transforms_enabled_wraps_tools(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When enabled, _build_transforms() yields a CodeMode that exposes meta-tools."""
+    import asyncio
+
+    from fastmcp import FastMCP
+
+    from play_store_mcp import server
+
+    monkeypatch.setenv("CODE_MODE", "1")
+    transforms = server._build_transforms()
+    assert len(transforms) == 1
+
+    probe = FastMCP("probe", transforms=transforms)
+
+    @probe.tool
+    def sample(x: int) -> int:
+        return x
+
+    names = {t.name for t in asyncio.run(probe.list_tools())}
+    assert names == {"search", "get_schema", "execute"}

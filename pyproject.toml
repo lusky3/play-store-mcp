@@ -51,6 +51,10 @@ dev = [
     "pytest-cov>=6.0.0",
     "ruff>=0.9.0",
     "mypy>=1.14.0",
+    "fastmcp[code-mode]>=3.4.2",
+]
+code-mode = [
+    "fastmcp[code-mode]>=3.4.2",
 ]
 
 [project.scripts]
