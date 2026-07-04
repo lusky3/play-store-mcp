@@ -734,11 +734,15 @@ class TestServerMain:
     def test_main_passes_host_port_for_network_transport(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """A network transport forwards host/port to mcp.run()."""
+        """A network transport forwards transport/host/port to _run_http()."""
         from play_store_mcp import server
 
         calls: dict[str, Any] = {}
-        monkeypatch.setattr(server.mcp, "run", lambda **kw: calls.update(kw))
+
+        def fake_run_http(transport: str, host: str, port: int) -> None:
+            calls.update(transport=transport, host=host, port=port)
+
+        monkeypatch.setattr(server, "_run_http", fake_run_http)
         server.main(["--transport", "streamable-http", "--host", "192.168.1.10", "--port", "9999"])
         assert calls["transport"] == "streamable-http"
         assert calls["host"] == "192.168.1.10"
@@ -762,6 +766,61 @@ class TestServerMain:
             token="tok",
         )
         assert result["subscription_id"] == "sub1"
+
+
+# =========================================================================
+# _run_http — DNS-rebinding protection via TrustedHostMiddleware
+# =========================================================================
+
+
+def test_run_http_adds_trusted_host_middleware(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without the disable env var, _run_http attaches TrustedHostMiddleware."""
+    from starlette.middleware.trustedhost import TrustedHostMiddleware
+
+    from play_store_mcp import server
+
+    monkeypatch.delenv("PLAY_STORE_MCP_DISABLE_DNS_REBINDING", raising=False)
+    captured: dict[str, Any] = {}
+
+    def fake_http_app(**kwargs: Any) -> str:
+        captured.update(kwargs)
+        return "ASGI_APP"
+
+    class FakeUvicorn:
+        @staticmethod
+        def run(*args: Any, **kwargs: Any) -> None:
+            captured["served"] = (args, kwargs)
+
+    monkeypatch.setattr(server.mcp, "http_app", fake_http_app)
+    monkeypatch.setattr(server, "uvicorn", FakeUvicorn)
+
+    server._run_http("streamable-http", "127.0.0.1", 8000)
+
+    classes = [m.cls for m in captured["middleware"]]
+    assert TrustedHostMiddleware in classes
+
+
+def test_run_http_skips_middleware_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With the disable env var set, _run_http attaches no middleware."""
+    from play_store_mcp import server
+
+    monkeypatch.setenv("PLAY_STORE_MCP_DISABLE_DNS_REBINDING", "1")
+    captured: dict[str, Any] = {}
+
+    def fake_http_app(**kwargs: Any) -> str:
+        captured.update(kwargs)
+        return "ASGI_APP"
+
+    class FakeUvicorn:
+        @staticmethod
+        def run(*_args: Any, **_kwargs: Any) -> None:
+            pass
+
+    monkeypatch.setattr(server.mcp, "http_app", fake_http_app)
+    monkeypatch.setattr(server, "uvicorn", FakeUvicorn)
+
+    server._run_http("streamable-http", "127.0.0.1", 8000)
+    assert captured.get("middleware") in (None, [])
 
 
 # =========================================================================

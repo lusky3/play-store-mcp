@@ -17,8 +17,11 @@ from pathlib import Path
 from typing import Any
 
 import structlog
+import uvicorn
 from fastmcp import FastMCP
 from fastmcp.server.dependencies import get_http_headers
+from starlette.middleware import Middleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -3687,6 +3690,28 @@ async def update_credentials(request: Request) -> JSONResponse:
 # =============================================================================
 
 
+def _dns_rebinding_disabled() -> bool:
+    """Return True when DNS-rebinding (Host-header) protection is disabled."""
+    return bool(os.environ.get("PLAY_STORE_MCP_DISABLE_DNS_REBINDING"))
+
+
+def _run_http(transport: str, host: str, port: int) -> None:
+    """Serve a network transport with DNS-rebinding (Host-header) protection.
+
+    fastmcp v3 has no constructor-level transport security; we attach Starlette
+    TrustedHostMiddleware (which is exactly Host-header validation) unless
+    PLAY_STORE_MCP_DISABLE_DNS_REBINDING is set.
+    """
+    middleware: list[Middleware] = []
+    if not _dns_rebinding_disabled():
+        allowed = [host, "localhost", "127.0.0.1", "[::1]"]
+        middleware.append(Middleware(TrustedHostMiddleware, allowed_hosts=allowed))
+    # transport is constrained to the non-stdio argparse choices ("sse" /
+    # "streamable-http"), both valid http_app transports; argparse types it as str.
+    app = mcp.http_app(transport=transport, middleware=middleware)  # type: ignore[arg-type]
+    uvicorn.run(app, host=host, port=port)
+
+
 def main(argv: list[str] | None = None) -> None:
     """Run the Play Store MCP Server."""
     parser = argparse.ArgumentParser(description="Play Store MCP Server")
@@ -3736,7 +3761,7 @@ def main(argv: list[str] | None = None) -> None:
     if args.transport == "stdio":
         mcp.run(transport="stdio")
     else:
-        mcp.run(transport=args.transport, host=args.host, port=args.port)
+        _run_http(args.transport, args.host, args.port)
 
 
 if __name__ == "__main__":
