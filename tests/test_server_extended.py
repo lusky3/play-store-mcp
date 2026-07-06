@@ -1212,3 +1212,95 @@ class TestMainEntryPoint:
 
         assert os.environ["GOOGLE_PLAY_STORE_CREDENTIALS"] == "/path/to/creds.json"
         mock_run.assert_called_once()
+
+
+# =========================================================================
+# CODE_MODE flag + transform building
+# =========================================================================
+
+
+@pytest.mark.parametrize(
+    ("val", "expected"),
+    [
+        ("1", True),
+        ("true", True),
+        ("YES", True),
+        ("on", True),
+        ("0", False),
+        ("false", False),
+        ("no", False),
+        ("", False),
+    ],
+)
+def test_code_mode_flag_parsing(monkeypatch: pytest.MonkeyPatch, val: str, expected: bool) -> None:
+    """CODE_MODE parses like the read-only flag (case-insensitive truthy set)."""
+    from play_store_mcp import server
+
+    monkeypatch.setenv("CODE_MODE", val)
+    assert server._code_mode_enabled() is expected
+
+
+def test_code_mode_disabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With CODE_MODE unset, no transforms are built (classic tool surface)."""
+    from play_store_mcp import server
+
+    monkeypatch.delenv("CODE_MODE", raising=False)
+    assert server._code_mode_enabled() is False
+    assert server._build_transforms() == []
+
+
+def test_build_transforms_enabled_wraps_tools(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When enabled, _build_transforms() yields a CodeMode that exposes meta-tools."""
+    import asyncio
+
+    from fastmcp import FastMCP
+
+    from play_store_mcp import server
+
+    monkeypatch.setenv("CODE_MODE", "1")
+    transforms = server._build_transforms()
+    assert len(transforms) == 1
+
+    probe = FastMCP("probe", transforms=transforms)
+
+    @probe.tool
+    def sample(x: int) -> int:
+        return x
+
+    names = {t.name for t in asyncio.run(probe.list_tools())}
+    assert names == {"search", "get_schema", "execute"}
+
+
+def test_code_mode_preserves_read_only_end_to_end(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A write tool invoked through the code-mode sandbox is still blocked in read-only mode.
+
+    Registers the REAL refund_order wrapper (whose first statement is
+    _read_only_block) on a code-mode server and drives it through the sandbox's
+    call_tool, so this exercises the real guard through the real Monty sandbox
+    (requires the code-mode extra, present in dev).
+    """
+    import asyncio
+
+    from fastmcp import FastMCP
+
+    from play_store_mcp import server
+
+    monkeypatch.setenv("CODE_MODE", "1")
+    monkeypatch.setattr(server, "READ_ONLY", True)
+
+    probe = FastMCP("probe", transforms=server._build_transforms())
+    probe.tool(server.refund_order)
+
+    result = asyncio.run(
+        probe.call_tool(
+            "execute",
+            {
+                "code": "return await call_tool('refund_order', "
+                "{'package_name': 'com.x', 'order_id': 'GPA.1'})"
+            },
+        )
+    )
+
+    text = result.content[0].text
+    assert "read-only" in text.lower()
+    assert "refund_order" in text
