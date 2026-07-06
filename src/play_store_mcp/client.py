@@ -3756,7 +3756,7 @@ class PlayStoreClient:
         return self._query_metric_set(
             package_name=package_name,
             metric_set_name="crashRateMetricSet",
-            metrics=["crashRate", "distinctUsers", "crashCount"],
+            metrics=["crashRate", "crashRate7dUserWeighted", "crashRate28dUserWeighted", "distinctUsers"],
             dimensions=dimensions or [],
             start_date=start_date,
             end_date=end_date,
