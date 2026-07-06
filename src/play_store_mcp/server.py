@@ -159,6 +159,32 @@ def _read_only_block(operation: str) -> dict[str, Any] | None:
     return None
 
 
+def _download_path_block(destination_path: str) -> dict[str, Any] | None:
+    """Confine a download destination to PLAY_STORE_MCP_DOWNLOAD_DIR, if set.
+
+    Download tools are the only tools that write to the server's filesystem at a
+    caller-supplied path. On a network-exposed deployment, set
+    PLAY_STORE_MCP_DOWNLOAD_DIR so a caller cannot write outside it (path
+    traversal / arbitrary-file overwrite). When unset (the default, single-user
+    local case) any path is allowed, preserving existing behavior.
+    """
+    base = os.environ.get("PLAY_STORE_MCP_DOWNLOAD_DIR")
+    if not base:
+        return None
+    base_real = os.path.realpath(base)
+    dest_real = os.path.realpath(destination_path)
+    if dest_real != base_real and not dest_real.startswith(base_real + os.sep):
+        logger.warning(
+            "Blocked download outside PLAY_STORE_MCP_DOWNLOAD_DIR",
+            destination=destination_path,
+            allowed_dir=base_real,
+        )
+        return {
+            "error": (f"destination_path must be within PLAY_STORE_MCP_DOWNLOAD_DIR ({base_real})")
+        }
+    return None
+
+
 def _code_mode_enabled() -> bool:
     """Return True if CODE_MODE enables the experimental code-mode transform."""
     return os.environ.get("CODE_MODE", "").strip().lower() in {"1", "true", "yes", "on"}
@@ -2944,6 +2970,8 @@ def download_generated_apk(
     Returns:
         Download result with success status and destination path
     """
+    if blocked := _download_path_block(destination_path):
+        return blocked
     client = get_client_from_context()
 
     result = client.download_generated_apk(
@@ -3057,6 +3085,8 @@ def download_system_apk_variant(
     Returns:
         Download result with success status and destination path
     """
+    if blocked := _download_path_block(destination_path):
+        return blocked
     client = get_client_from_context()
 
     result = client.download_system_apk_variant(
@@ -3311,7 +3341,9 @@ def delete_image(
     Args:
         package_name: App package name
         language: Language localization code (BCP-47 tag, e.g. en-US)
-        image_type: Image type the image belongs to
+        image_type: Image type - one of: phoneScreenshots, sevenInchScreenshots,
+            tenInchScreenshots, tvScreenshots, wearScreenshots, icon, featureGraphic,
+            tvBanner
         image_id: Unique identifier of the image to delete
 
     Returns:
@@ -3339,7 +3371,9 @@ def delete_all_images(package_name: str, language: str, image_type: str) -> dict
     Args:
         package_name: App package name
         language: Language localization code (BCP-47 tag, e.g. en-US)
-        image_type: Image type to clear all images for
+        image_type: Image type to clear all images for - one of: phoneScreenshots,
+            sevenInchScreenshots, tenInchScreenshots, tvScreenshots, wearScreenshots,
+            icon, featureGraphic, tvBanner
 
     Returns:
         Delete result with success status and the number of images deleted

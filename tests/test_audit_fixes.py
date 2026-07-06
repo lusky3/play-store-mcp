@@ -148,6 +148,32 @@ class TestExecuteThreadSafety:
         assert observed["locked_during_call"] is True
         assert client._http_lock.locked() is False
 
+    def test_download_holds_lock_during_next_chunk(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+        tmp_path: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Media downloads hold _http_lock per next_chunk() (transport race closed)."""
+        _mock_service.generatedapks.return_value.download.return_value = MagicMock()
+        observed: dict[str, bool] = {}
+
+        class _FakeDownloader:
+            def __init__(self, fh: Any, request: Any) -> None:
+                pass
+
+            def next_chunk(self) -> tuple[Any, bool]:
+                observed["locked_during_chunk"] = client._http_lock.locked()
+                return (MagicMock(), True)
+
+        monkeypatch.setattr(client_module, "MediaIoBaseDownload", _FakeDownloader)
+
+        client.download_generated_apk("com.example.app", 42, "split-1", str(tmp_path / "app.apk"))
+
+        assert observed["locked_during_chunk"] is True
+        assert client._http_lock.locked() is False
+
 
 # =========================================================================
 # Finding 2: _parse_rfc3339

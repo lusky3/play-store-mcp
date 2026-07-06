@@ -551,6 +551,14 @@ class TestTesters:
         )
 
         assert result["success"] is True
+        # Pin the request mapping (the dotted-param/body-shape class of the
+        # historical Order bug): track passed through, groups in body.googleGroups.
+        mock_edits.testers.return_value.update.assert_called_once_with(
+            packageName="com.example.app",
+            editId="edit-123",
+            track="alpha",
+            body={"googleGroups": ["alpha-testers@example.com"]},
+        )
 
 
 class TestOrders:
