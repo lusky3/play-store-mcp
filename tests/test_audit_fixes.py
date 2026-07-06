@@ -124,6 +124,31 @@ class TestExecuteRetryThroughOperation:
         assert ack.execute.call_count == 2
 
 
+class TestExecuteThreadSafety:
+    """The client serializes its (non-thread-safe httplib2) transport via a per-client lock."""
+
+    def test_execute_holds_lock_around_request(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        """_http_lock is held while request.execute() runs, and released afterwards."""
+        get_req = _mock_service.orders.return_value.get.return_value
+        get_req.method = "GET"
+        observed: dict[str, bool] = {}
+
+        def fake_execute() -> dict[str, Any]:
+            observed["locked_during_call"] = client._http_lock.locked()
+            return {"orderId": "o1", "state": "PROCESSED", "lineItems": []}
+
+        get_req.execute.side_effect = fake_execute
+
+        client.get_order("com.example.app", "o1")
+
+        assert observed["locked_during_call"] is True
+        assert client._http_lock.locked() is False
+
+
 # =========================================================================
 # Finding 2: _parse_rfc3339
 # =========================================================================

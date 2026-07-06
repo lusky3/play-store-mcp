@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+import logging
+import os
 from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, patch
+
+import structlog
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -11,6 +15,16 @@ if TYPE_CHECKING:
 import pytest
 
 from play_store_mcp.client import PlayStoreClient
+
+# Suppress structlog's Rich-rendered tracebacks (fastmcp pulls in `rich`) on the
+# ~130 client error/warning log sites the error-path tests hit — a ~16x suite
+# slowdown. Two paths configure structlog: filter here at CRITICAL for tests that
+# import only the client (structlog's default config is unfiltered + Rich), and
+# set the env var so the server module — when a test imports it — also configures
+# at CRITICAL rather than INFO. Both drop WARNING/ERROR before any renderer runs.
+# Overridable by exporting PLAY_STORE_MCP_LOG_LEVEL.
+os.environ.setdefault("PLAY_STORE_MCP_LOG_LEVEL", "CRITICAL")
+structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(logging.CRITICAL))
 
 
 @pytest.fixture(autouse=True)

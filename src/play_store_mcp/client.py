@@ -9,6 +9,7 @@ import os
 import random
 import re
 import tempfile
+import threading
 import time
 from datetime import UTC, datetime
 from pathlib import Path
@@ -244,6 +245,10 @@ class PlayStoreClient:
         self._credentials_json = credentials_json or os.environ.get("GOOGLE_PLAY_STORE_CREDENTIALS")
         self._application_name = application_name
         self._service: AndroidPublisherResource | None = None
+        # Serializes API I/O on this client's single (non-thread-safe) httplib2
+        # transport. The shared fallback client is used across concurrent tool
+        # worker threads; per-request header clients each get their own lock.
+        self._http_lock = threading.Lock()
         self._logger = logger.bind(component="PlayStoreClient")
 
     # =========================================================================
@@ -440,7 +445,14 @@ class PlayStoreClient:
         """
         method = (getattr(request, "method", "") or "").upper()
         retry_server_errors = method in _IDEMPOTENT_HTTP_METHODS
-        return _run_with_backoff(request.execute, retry_server_errors=retry_server_errors)
+
+        def _locked_execute() -> Any:
+            # Hold the lock only around the actual transport call, not the
+            # backoff sleep between attempts, so retries don't serialize waits.
+            with self._http_lock:
+                return request.execute()
+
+        return _run_with_backoff(_locked_execute, retry_server_errors=retry_server_errors)
 
     def _create_edit(self, package_name: str) -> str:
         """Create a new edit for the package.
