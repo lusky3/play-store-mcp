@@ -128,7 +128,7 @@ Configure your MCP client to send the header:
 }
 ```
 
-Per-request credentials are isolated — each request uses only the credentials provided in its headers. No credentials are stored server-side or shared between requests.
+Per-request credentials are isolated — each request uses only the credentials provided in its headers. **This isolation applies only to the per-request header path.** If you also configure a server-side fallback (the `GOOGLE_PLAY_STORE_CREDENTIALS` env var, or a `/credentials` POST), that fallback client is process-global and is shared by every request that does *not* send a credential header — such a request executes under the shared identity rather than failing. For multi-tenant or public deployments, do **not** configure fallback credentials, so a request missing its credential header fails closed instead of using another identity.
 
 ## Read-Only Mode
 
