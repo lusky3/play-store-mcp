@@ -158,6 +158,14 @@ Code mode replaces the individual tools with three meta-tools — `search`,
 short script that calls them in a sandbox, rather than receiving the full tool
 list on every request. This cuts the per-request tool-list token overhead.
 
+!!! warning "Pair with read-only unless you need writes"
+    Under code mode a single `execute` call can invoke up to 50 tool calls —
+    including mutating operations (`deploy_app`, `refund_order`, `delete_*`,
+    `batch_*`) — behind one approval, rather than the client approving each call.
+    Read-only enforcement still applies inside the sandbox, so if the deployment
+    does not need writes, run code mode with `--read-only` /
+    `PLAY_STORE_MCP_READ_ONLY=1` to block those operations.
+
 Enabling it requires two things:
 
 1. Install the sandbox extra (the `execute` meta-tool runs in the Monty sandbox):

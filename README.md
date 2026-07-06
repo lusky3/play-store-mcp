@@ -159,6 +159,8 @@ pip install "play-store-mcp[code-mode]"
 export CODE_MODE=1
 ```
 
+Under code mode one `execute` call can invoke up to 50 tool calls (including mutations) behind a single approval. Read-only enforcement still applies inside the sandbox, so pair it with `--read-only` / `PLAY_STORE_MCP_READ_ONLY=1` unless you need writes.
+
 ## 🔧 MCP Client Configuration
 
 ### Claude Desktop
