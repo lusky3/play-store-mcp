@@ -1269,3 +1269,38 @@ def test_build_transforms_enabled_wraps_tools(monkeypatch: pytest.MonkeyPatch) -
 
     names = {t.name for t in asyncio.run(probe.list_tools())}
     assert names == {"search", "get_schema", "execute"}
+
+
+def test_code_mode_preserves_read_only_end_to_end(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A write tool invoked through the code-mode sandbox is still blocked in read-only mode.
+
+    Registers the REAL refund_order wrapper (whose first statement is
+    _read_only_block) on a code-mode server and drives it through the sandbox's
+    call_tool, so this exercises the real guard through the real Monty sandbox
+    (requires the code-mode extra, present in dev).
+    """
+    import asyncio
+
+    from fastmcp import FastMCP
+
+    from play_store_mcp import server
+
+    monkeypatch.setenv("CODE_MODE", "1")
+    monkeypatch.setattr(server, "READ_ONLY", True)
+
+    probe = FastMCP("probe", transforms=server._build_transforms())
+    probe.tool(server.refund_order)
+
+    result = asyncio.run(
+        probe.call_tool(
+            "execute",
+            {
+                "code": "return await call_tool('refund_order', "
+                "{'package_name': 'com.x', 'order_id': 'GPA.1'})"
+            },
+        )
+    )
+
+    text = result.content[0].text
+    assert "read-only" in text.lower()
+    assert "refund_order" in text
