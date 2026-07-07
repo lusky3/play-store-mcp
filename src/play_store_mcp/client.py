@@ -229,6 +229,7 @@ class PlayStoreClient:
         credentials_path: str | None = None,
         credentials_json: str | dict[str, Any] | None = None,
         application_name: str = "Play Store MCP Server",
+        download_dir: str | None = None,
     ) -> None:
         """Initialize the Play Store client.
 
@@ -238,12 +239,22 @@ class PlayStoreClient:
             credentials_json: JSON string or dictionary with service account credentials.
                              Defaults to GOOGLE_PLAY_STORE_CREDENTIALS env var.
             application_name: Application name for API requests.
+            download_dir: Optional directory that download destinations are
+                             confined to. Defaults to the PLAY_STORE_MCP_DOWNLOAD_DIR
+                             env var. When unset, downloads may target any path
+                             (single-user local case); when set, a destination
+                             outside it is rejected.
         """
         self._credentials_path = credentials_path or os.environ.get(
             "GOOGLE_APPLICATION_CREDENTIALS"
         )
         self._credentials_json = credentials_json or os.environ.get("GOOGLE_PLAY_STORE_CREDENTIALS")
         self._application_name = application_name
+        self._download_dir = (
+            download_dir
+            if download_dir is not None
+            else os.environ.get("PLAY_STORE_MCP_DOWNLOAD_DIR")
+        )
         self._service: AndroidPublisherResource | None = None
         # Serializes API I/O on this client's single (non-thread-safe) httplib2
         # transport. The shared fallback client is used across concurrent tool
@@ -5551,20 +5562,56 @@ class PlayStoreClient:
             self._logger.exception("Failed to list generated APKs", error=str(e))
             raise PlayStoreClientError(f"Failed to list generated APKs: {e.reason}") from e
 
+    def _confine_download_path(self, destination_path: str) -> str:
+        """Validate and canonicalize a download destination.
+
+        When ``self._download_dir`` is set, the resolved destination must stay
+        within that directory; otherwise a :class:`PlayStoreClientError` is
+        raised (path traversal / arbitrary-file overwrite protection). When it
+        is unset (the single-user local default), the base is the filesystem
+        root, so any absolute path is allowed — but the destination is still
+        canonicalized here and the canonical result is what callers write to,
+        so user-controlled input never reaches the filesystem unvalidated.
+
+        Returns the realpath-canonicalized, confinement-checked destination.
+        """
+        base_real = os.path.realpath(self._download_dir) if self._download_dir else os.sep
+        dest_real = os.path.realpath(destination_path)
+        try:
+            within = os.path.commonpath([base_real, dest_real]) == base_real
+        except ValueError:
+            # Different drives / mixed path kinds — treat as outside.
+            within = False
+        if not within:
+            self._logger.warning(
+                "Blocked download outside PLAY_STORE_MCP_DOWNLOAD_DIR",
+                destination=destination_path,
+                allowed_dir=base_real,
+            )
+            raise PlayStoreClientError(
+                f"destination_path must be within PLAY_STORE_MCP_DOWNLOAD_DIR ({base_real})"
+            )
+        return dest_real
+
     def _download_to_file(self, request: Any, destination_path: str) -> None:
         """Stream a media download request to ``destination_path`` atomically.
 
-        Writes to a temporary file in the same directory and renames it onto
-        ``destination_path`` only after the download completes successfully, so
-        a failed or unauthorized download never truncates an existing file or
-        leaves a partial one in its place.
+        The destination is first confined via :meth:`_confine_download_path`, so
+        both the temporary ``.part`` file and the final file are written only to
+        a validated location (never straight from user-controlled input).
+
+        Writes to a temporary file in the same directory and renames it onto the
+        destination only after the download completes successfully, so a failed
+        or unauthorized download never truncates an existing file or leaves a
+        partial one in its place.
 
         Each ``next_chunk()`` is guarded by ``_http_lock`` (per chunk, not for
         the whole download) so a download shares the non-thread-safe httplib2
         transport safely with concurrent calls on the shared client, without
         serializing an entire multi-hundred-MB download under one held lock.
         """
-        dest = Path(destination_path)
+        safe_path = self._confine_download_path(destination_path)
+        dest = Path(safe_path)
         tmp_fd, tmp_name = tempfile.mkstemp(
             dir=str(dest.parent), prefix=f".{dest.name}.", suffix=".part"
         )
@@ -5576,7 +5623,7 @@ class PlayStoreClient:
                 while not done:
                     with self._http_lock:
                         _status, done = downloader.next_chunk()
-            Path(tmp_name).replace(destination_path)
+            Path(tmp_name).replace(safe_path)
             succeeded = True
         finally:
             if not succeeded:

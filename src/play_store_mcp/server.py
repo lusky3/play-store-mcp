@@ -159,32 +159,6 @@ def _read_only_block(operation: str) -> dict[str, Any] | None:
     return None
 
 
-def _download_path_block(destination_path: str) -> dict[str, Any] | None:
-    """Confine a download destination to PLAY_STORE_MCP_DOWNLOAD_DIR, if set.
-
-    Download tools are the only tools that write to the server's filesystem at a
-    caller-supplied path. On a network-exposed deployment, set
-    PLAY_STORE_MCP_DOWNLOAD_DIR so a caller cannot write outside it (path
-    traversal / arbitrary-file overwrite). When unset (the default, single-user
-    local case) any path is allowed, preserving existing behavior.
-    """
-    base = os.environ.get("PLAY_STORE_MCP_DOWNLOAD_DIR")
-    if not base:
-        return None
-    base_real = os.path.realpath(base)
-    dest_real = os.path.realpath(destination_path)
-    if dest_real != base_real and not dest_real.startswith(base_real + os.sep):
-        logger.warning(
-            "Blocked download outside PLAY_STORE_MCP_DOWNLOAD_DIR",
-            destination=destination_path,
-            allowed_dir=base_real,
-        )
-        return {
-            "error": (f"destination_path must be within PLAY_STORE_MCP_DOWNLOAD_DIR ({base_real})")
-        }
-    return None
-
-
 def _code_mode_enabled() -> bool:
     """Return True if CODE_MODE enables the experimental code-mode transform."""
     return os.environ.get("CODE_MODE", "").strip().lower() in {"1", "true", "yes", "on"}
@@ -2970,8 +2944,6 @@ def download_generated_apk(
     Returns:
         Download result with success status and destination path
     """
-    if blocked := _download_path_block(destination_path):
-        return blocked
     client = get_client_from_context()
 
     result = client.download_generated_apk(
@@ -3085,8 +3057,6 @@ def download_system_apk_variant(
     Returns:
         Download result with success status and destination path
     """
-    if blocked := _download_path_block(destination_path):
-        return blocked
     client = get_client_from_context()
 
     result = client.download_system_apk_variant(
@@ -3777,7 +3747,18 @@ def _run_http(transport: str, host: str, port: int) -> None:
     fastmcp v3 has no constructor-level transport security; we attach Starlette
     TrustedHostMiddleware (which is exactly Host-header validation) unless
     PLAY_STORE_MCP_DISABLE_DNS_REBINDING is set.
+
+    Network transports also require PLAY_STORE_MCP_DOWNLOAD_DIR: over a network
+    transport a caller can drive the download tools to write to a server path,
+    so downloads must be confined to an allowlisted directory. It stays optional
+    for stdio (single-user local).
     """
+    if not os.environ.get("PLAY_STORE_MCP_DOWNLOAD_DIR"):
+        raise SystemExit(
+            "PLAY_STORE_MCP_DOWNLOAD_DIR must be set when serving a network transport "
+            f"({transport}) so APK/AAB downloads are confined to an allowlisted directory. "
+            "Set it to a writable directory, or use --transport stdio for local single-user use."
+        )
     middleware: list[Middleware] = []
     if not _dns_rebinding_disabled():
         allowed = ["localhost", "127.0.0.1", "[::1]"]

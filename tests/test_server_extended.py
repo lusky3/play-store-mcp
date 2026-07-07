@@ -773,13 +773,16 @@ class TestServerMain:
 # =========================================================================
 
 
-def test_run_http_adds_trusted_host_middleware(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_http_adds_trusted_host_middleware(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
     """Without the disable env var, _run_http attaches TrustedHostMiddleware."""
     from starlette.middleware.trustedhost import TrustedHostMiddleware
 
     from play_store_mcp import server
 
     monkeypatch.delenv("PLAY_STORE_MCP_DISABLE_DNS_REBINDING", raising=False)
+    monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(tmp_path))
     captured: dict[str, Any] = {}
 
     def fake_http_app(**kwargs: Any) -> str:
@@ -800,11 +803,14 @@ def test_run_http_adds_trusted_host_middleware(monkeypatch: pytest.MonkeyPatch) 
     assert TrustedHostMiddleware in classes
 
 
-def test_run_http_skips_middleware_when_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_http_skips_middleware_when_disabled(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
     """With the disable env var set, _run_http attaches no middleware."""
     from play_store_mcp import server
 
     monkeypatch.setenv("PLAY_STORE_MCP_DISABLE_DNS_REBINDING", "1")
+    monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(tmp_path))
     captured: dict[str, Any] = {}
 
     def fake_http_app(**kwargs: Any) -> str:
@@ -823,11 +829,14 @@ def test_run_http_skips_middleware_when_disabled(monkeypatch: pytest.MonkeyPatch
     assert captured.get("middleware") in (None, [])
 
 
-def test_run_http_wildcard_bind_stays_localhost_only(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_run_http_wildcard_bind_stays_localhost_only(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
     """A wildcard bind (0.0.0.0) must not put the literal wildcard in allowed_hosts."""
     from play_store_mcp import server
 
     monkeypatch.delenv("PLAY_STORE_MCP_DISABLE_DNS_REBINDING", raising=False)
+    monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(tmp_path))
     captured: dict[str, Any] = {}
 
     def fake_http_app(**kwargs: Any) -> str:
@@ -848,6 +857,15 @@ def test_run_http_wildcard_bind_stays_localhost_only(monkeypatch: pytest.MonkeyP
     assert "0.0.0.0" not in allowed  # noqa: S104
     assert "localhost" in allowed
     assert "127.0.0.1" in allowed
+
+
+def test_run_http_requires_download_dir(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A network transport must refuse to start without PLAY_STORE_MCP_DOWNLOAD_DIR."""
+    from play_store_mcp import server
+
+    monkeypatch.delenv("PLAY_STORE_MCP_DOWNLOAD_DIR", raising=False)
+    with pytest.raises(SystemExit, match="PLAY_STORE_MCP_DOWNLOAD_DIR"):
+        server._run_http("streamable-http", "127.0.0.1", 8000)
 
 
 @pytest.mark.parametrize(
@@ -1312,58 +1330,67 @@ def test_code_mode_preserves_read_only_end_to_end(monkeypatch: pytest.MonkeyPatc
 
 
 class TestDownloadPathConfinement:
-    """When PLAY_STORE_MCP_DOWNLOAD_DIR is set, downloads must stay within it."""
+    """The client confines download destinations to ``download_dir`` when set."""
 
-    def test_allows_any_path_when_unset(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        from play_store_mcp import server
+    def test_allows_any_path_when_unset(self) -> None:
+        # No confinement dir: base is the filesystem root, so any absolute path
+        # is allowed but still canonicalized (single-user local default).
+        client = PlayStoreClient(download_dir=None)
+        assert client._confine_download_path("/anywhere/app.apk") == os.path.realpath(
+            "/anywhere/app.apk"
+        )
 
-        monkeypatch.delenv("PLAY_STORE_MCP_DOWNLOAD_DIR", raising=False)
-        assert server._download_path_block("/anywhere/app.apk") is None
+    def test_allows_path_within_dir(self, tmp_path: Any) -> None:
+        client = PlayStoreClient(download_dir=str(tmp_path))
+        target = tmp_path / "app.apk"
+        assert client._confine_download_path(str(target)) == os.path.realpath(str(target))
 
-    def test_allows_path_within_dir(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
-        from play_store_mcp import server
+    def test_allows_the_dir_itself(self, tmp_path: Any) -> None:
+        client = PlayStoreClient(download_dir=str(tmp_path))
+        assert client._confine_download_path(str(tmp_path)) == os.path.realpath(str(tmp_path))
 
-        monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(tmp_path))
-        assert server._download_path_block(str(tmp_path / "app.apk")) is None
-
-    def test_allows_the_dir_itself(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
-        from play_store_mcp import server
-
-        monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(tmp_path))
-        assert server._download_path_block(str(tmp_path)) is None
-
-    def test_rejects_path_outside_dir(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
-        from play_store_mcp import server
-
+    def test_rejects_path_outside_dir(self, tmp_path: Any) -> None:
         allowed = tmp_path / "allowed"
         allowed.mkdir()
-        monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(allowed))
-        err = server._download_path_block(str(tmp_path / "evil.apk"))
-        assert err is not None
-        assert "PLAY_STORE_MCP_DOWNLOAD_DIR" in err["error"]
+        client = PlayStoreClient(download_dir=str(allowed))
+        with pytest.raises(PlayStoreClientError, match="PLAY_STORE_MCP_DOWNLOAD_DIR"):
+            client._confine_download_path(str(tmp_path / "evil.apk"))
 
-    def test_download_tool_blocks_outside_dir(
+    def test_rejects_traversal_escape(self, tmp_path: Any) -> None:
+        allowed = tmp_path / "allowed"
+        allowed.mkdir()
+        client = PlayStoreClient(download_dir=str(allowed))
+        with pytest.raises(PlayStoreClientError, match="PLAY_STORE_MCP_DOWNLOAD_DIR"):
+            client._confine_download_path(str(allowed / ".." / "evil.apk"))
+
+    def test_mismatched_paths_treated_as_outside(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
     ) -> None:
-        from play_store_mcp import server
+        # commonpath raises ValueError for e.g. different drives; treat as outside.
+        client = PlayStoreClient(download_dir=str(tmp_path))
 
+        def _raise(_paths: Any) -> str:
+            raise ValueError("different drives")
+
+        monkeypatch.setattr(os.path, "commonpath", _raise)
+        with pytest.raises(PlayStoreClientError, match="PLAY_STORE_MCP_DOWNLOAD_DIR"):
+            client._confine_download_path(str(tmp_path / "app.apk"))
+
+    def test_download_to_file_blocks_outside_dir_before_writing(self, tmp_path: Any) -> None:
         allowed = tmp_path / "allowed"
         allowed.mkdir()
-        monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(allowed))
-        result = server.download_generated_apk(
-            "com.example.app", 42, "split-1", str(tmp_path / "evil.apk")
-        )
-        assert "PLAY_STORE_MCP_DOWNLOAD_DIR" in result["error"]
+        client = PlayStoreClient(download_dir=str(allowed))
+        evil = tmp_path / "evil.apk"
+        with pytest.raises(PlayStoreClientError, match="PLAY_STORE_MCP_DOWNLOAD_DIR"):
+            client._download_to_file(MagicMock(), str(evil))
+        # Nothing written, and no stray .part file left in the parent.
+        assert not evil.exists()
+        assert not list(tmp_path.glob(".evil.apk.*.part"))
 
-    def test_variant_download_tool_blocks_outside_dir(
+    def test_reads_dir_from_env_when_not_passed(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
     ) -> None:
-        from play_store_mcp import server
-
-        allowed = tmp_path / "allowed"
-        allowed.mkdir()
-        monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(allowed))
-        result = server.download_system_apk_variant(
-            "com.example.app", 42, 1, str(tmp_path / "evil.apk")
-        )
-        assert "PLAY_STORE_MCP_DOWNLOAD_DIR" in result["error"]
+        monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(tmp_path))
+        client = PlayStoreClient()
+        with pytest.raises(PlayStoreClientError, match="PLAY_STORE_MCP_DOWNLOAD_DIR"):
+            client._confine_download_path("/outside/app.apk")
