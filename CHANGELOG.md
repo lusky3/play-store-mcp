@@ -16,6 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   related operations, to lower per-request tool-list overhead — with no planned
   loss of functionality.
 
+## [0.5.0] - 2026-07-06
+
+Adds opt-in **code-mode**, migrates the server onto the standalone **`fastmcp`**
+package, hardens shared-client concurrency, and removes the non-functional Vitals
+tools.
+
+> **Breaking — Vitals tools removed.** `get_vitals_overview` and
+> `get_vitals_metrics` no longer exist (see Removed); they returned placeholder
+> data and never called an API.
+
 ### Added
 - **Experimental code-mode (opt-in):** set `CODE_MODE=1` to expose tools through
   FastMCP's code-mode transform (`search`/`get_schema`/`execute` meta-tools with a
@@ -51,12 +61,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   across pages via `tokenPagination`, rather than returning a single page.
 - `delete_subscription_offer` now returns the parent `product_id` instead of
   mislabeling the deleted `offer_id` as `product_id`.
+- The shared (env / `/credentials`) client now serializes its HTTP transport with
+  a per-client lock, so concurrent tool calls under network transports no longer
+  race on the non-thread-safe `httplib2` connection (which could interleave
+  requests or deliver a response to the wrong caller). Per-request header-auth
+  clients each get their own client and stay fully concurrent.
 
 ### Security
 - APK/AAB downloads (`download_generated_apk`, `download_system_apk_variant`)
   now write to a temporary file and atomically rename on success, so a failed
   or unauthorized download can no longer truncate an existing file or leave a
   partial one at the destination.
+- Documented that the server-side credential fallback
+  (`GOOGLE_PLAY_STORE_CREDENTIALS` / `/credentials`) is a process-global client
+  shared by every request that omits a credential header; multi-tenant
+  deployments should leave it unset so a missing header fails closed rather than
+  running under a shared identity.
+- Recommend pairing code-mode with `--read-only` / `PLAY_STORE_MCP_READ_ONLY=1`
+  unless writes are needed: one `execute` can invoke up to 50 tool calls
+  (including mutations) behind a single approval. Read-only enforcement still
+  applies inside the sandbox.
 
 ## [0.4.0] - 2026-07-02
 
@@ -141,6 +165,7 @@ Security hardening, dependency upgrades, and CI improvements.
 
 See the [GitHub Releases](https://github.com/lusky3/play-store-mcp/releases) page.
 
-[Unreleased]: https://github.com/lusky3/play-store-mcp/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/lusky3/play-store-mcp/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/lusky3/play-store-mcp/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/lusky3/play-store-mcp/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/lusky3/play-store-mcp/compare/v0.2.0...v0.3.0
