@@ -1304,3 +1304,66 @@ def test_code_mode_preserves_read_only_end_to_end(monkeypatch: pytest.MonkeyPatc
     text = result.content[0].text
     assert "read-only" in text.lower()
     assert "refund_order" in text
+
+
+# =========================================================================
+# Download destination-path confinement (PLAY_STORE_MCP_DOWNLOAD_DIR)
+# =========================================================================
+
+
+class TestDownloadPathConfinement:
+    """When PLAY_STORE_MCP_DOWNLOAD_DIR is set, downloads must stay within it."""
+
+    def test_allows_any_path_when_unset(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from play_store_mcp import server
+
+        monkeypatch.delenv("PLAY_STORE_MCP_DOWNLOAD_DIR", raising=False)
+        assert server._download_path_block("/anywhere/app.apk") is None
+
+    def test_allows_path_within_dir(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
+        from play_store_mcp import server
+
+        monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(tmp_path))
+        assert server._download_path_block(str(tmp_path / "app.apk")) is None
+
+    def test_allows_the_dir_itself(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
+        from play_store_mcp import server
+
+        monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(tmp_path))
+        assert server._download_path_block(str(tmp_path)) is None
+
+    def test_rejects_path_outside_dir(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
+        from play_store_mcp import server
+
+        allowed = tmp_path / "allowed"
+        allowed.mkdir()
+        monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(allowed))
+        err = server._download_path_block(str(tmp_path / "evil.apk"))
+        assert err is not None
+        assert "PLAY_STORE_MCP_DOWNLOAD_DIR" in err["error"]
+
+    def test_download_tool_blocks_outside_dir(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        from play_store_mcp import server
+
+        allowed = tmp_path / "allowed"
+        allowed.mkdir()
+        monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(allowed))
+        result = server.download_generated_apk(
+            "com.example.app", 42, "split-1", str(tmp_path / "evil.apk")
+        )
+        assert "PLAY_STORE_MCP_DOWNLOAD_DIR" in result["error"]
+
+    def test_variant_download_tool_blocks_outside_dir(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    ) -> None:
+        from play_store_mcp import server
+
+        allowed = tmp_path / "allowed"
+        allowed.mkdir()
+        monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(allowed))
+        result = server.download_system_apk_variant(
+            "com.example.app", 42, 1, str(tmp_path / "evil.apk")
+        )
+        assert "PLAY_STORE_MCP_DOWNLOAD_DIR" in result["error"]

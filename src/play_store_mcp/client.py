@@ -5551,14 +5551,18 @@ class PlayStoreClient:
             self._logger.exception("Failed to list generated APKs", error=str(e))
             raise PlayStoreClientError(f"Failed to list generated APKs: {e.reason}") from e
 
-    @staticmethod
-    def _download_to_file(request, destination_path: str) -> None:  # type: ignore[no-untyped-def]
+    def _download_to_file(self, request: Any, destination_path: str) -> None:
         """Stream a media download request to ``destination_path`` atomically.
 
         Writes to a temporary file in the same directory and renames it onto
         ``destination_path`` only after the download completes successfully, so
         a failed or unauthorized download never truncates an existing file or
         leaves a partial one in its place.
+
+        Each ``next_chunk()`` is guarded by ``_http_lock`` (per chunk, not for
+        the whole download) so a download shares the non-thread-safe httplib2
+        transport safely with concurrent calls on the shared client, without
+        serializing an entire multi-hundred-MB download under one held lock.
         """
         dest = Path(destination_path)
         tmp_fd, tmp_name = tempfile.mkstemp(
@@ -5570,7 +5574,8 @@ class PlayStoreClient:
                 downloader = MediaIoBaseDownload(fh, request)
                 done = False
                 while not done:
-                    _status, done = downloader.next_chunk()
+                    with self._http_lock:
+                        _status, done = downloader.next_chunk()
             Path(tmp_name).replace(destination_path)
             succeeded = True
         finally:

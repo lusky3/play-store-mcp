@@ -61,6 +61,11 @@ tools.
   across pages via `tokenPagination`, rather than returning a single page.
 - `delete_subscription_offer` now returns the parent `product_id` instead of
   mislabeling the deleted `offer_id` as `product_id`.
+- Media downloads (`download_generated_apk` / `download_system_apk_variant`) now
+  acquire the client's transport lock per chunk, closing a gap in the shared-client
+  thread-safety fix: a download concurrent with another call on the shared client
+  no longer races on the non-thread-safe `httplib2` transport (which could corrupt
+  the downloaded file or raise `ResponseNotReady`).
 - The shared (env / `/credentials`) client now serializes its HTTP transport with
   a per-client lock, so concurrent tool calls under network transports no longer
   race on the non-thread-safe `httplib2` connection (which could interleave
@@ -72,6 +77,10 @@ tools.
   now write to a temporary file and atomically rename on success, so a failed
   or unauthorized download can no longer truncate an existing file or leave a
   partial one at the destination.
+- Optional `PLAY_STORE_MCP_DOWNLOAD_DIR` confines download destinations to an
+  allowlisted directory — recommended for network-exposed deployments so a caller
+  cannot write outside it (path traversal / arbitrary-file overwrite). Unset (the
+  default, single-user local case) allows any path, preserving existing behavior.
 - Documented that the server-side credential fallback
   (`GOOGLE_PLAY_STORE_CREDENTIALS` / `/credentials`) is a process-global client
   shared by every request that omits a credential header; multi-tenant
