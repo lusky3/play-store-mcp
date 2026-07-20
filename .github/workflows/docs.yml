@@ -6,6 +6,9 @@ on:
     paths:
       - "docs/**"
       - "mkdocs.yml"
+      # The Changelog page includes the root CHANGELOG.md via a snippet, so a
+      # release cut that only touches CHANGELOG.md must still rebuild the site.
+      - "CHANGELOG.md"
   workflow_dispatch:
 
 permissions:
