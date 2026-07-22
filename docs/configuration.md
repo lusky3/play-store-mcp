@@ -84,7 +84,6 @@ docker run -p 8000:8000 \
 | `PLAY_STORE_MCP_DISABLE_DNS_REBINDING` | Disable DNS rebinding protection (for cloud/reverse-proxy deployments) | No | — |
 | `PLAY_STORE_MCP_ADMIN_TOKEN` | Require `Authorization: Bearer <token>` on the `/credentials` endpoint (needed behind a reverse proxy, where the localhost check is insufficient) | No | — |
 | `PLAY_STORE_MCP_READ_ONLY` | Disable all write operations | No | — |
-| `PLAY_STORE_MCP_DOWNLOAD_DIR` | Confine APK/AAB download destinations to this directory (guards against path traversal / arbitrary-file overwrite). **Required when using a network transport** (`sse`/`streamable-http`); optional for `stdio`, where unset allows any path. | Required for network transports | — |
 | `CODE_MODE` | Enable the experimental code-mode transform (opt-in; requires the `code-mode` extra) | No | off |
 
 ## HTTP Transport

@@ -324,7 +324,6 @@ Add to `.kiro/settings/mcp.json`:
 | `PLAY_STORE_MCP_LOG_LEVEL` | Log level (DEBUG, INFO, WARNING, ERROR) | No (default: INFO) |
 | `PLAY_STORE_MCP_DISABLE_DNS_REBINDING` | Disable DNS rebinding protection (for cloud/reverse-proxy deployments) | No |
 | `PLAY_STORE_MCP_READ_ONLY` | Disable all write operations (deploy, promote, rollout, reply, listing/tester updates) | No (default: off) |
-| `PLAY_STORE_MCP_DOWNLOAD_DIR` | Confine APK/AAB download destinations to this directory (path-traversal / arbitrary-write protection) | **Required for network transports** (`sse`/`streamable-http`); optional for `stdio` |
 | `CODE_MODE` | Enable the experimental code-mode transform (opt-in; requires the `play-store-mcp[code-mode]` extra) | No (default: off) |
 
 ## 🧪 Development
