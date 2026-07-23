@@ -16,6 +16,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   related operations, to lower per-request tool-list overhead — with no planned
   loss of functionality.
 
+### Changed
+- **Breaking (network transports only):** `PLAY_STORE_MCP_DOWNLOAD_DIR` is now
+  **required** when serving a network transport (`--transport sse` /
+  `streamable-http`); the server refuses to start without it. Over a network
+  transport a caller can drive the download tools to write to a server path, so
+  downloads must be confined to an allowlisted directory. `stdio` (single-user
+  local) is unaffected — the variable stays optional there and, when unset, any
+  destination path is still allowed.
+
+### Security
+- Download-destination confinement moved into `PlayStoreClient` and now applies
+  to both the temporary `.part` file and the final file: the destination is
+  canonicalized and, when `PLAY_STORE_MCP_DOWNLOAD_DIR` is set, verified to stay
+  within it before anything is written (path-traversal / arbitrary-file-overwrite
+  protection). Previously the check lived only in the server tool layer.
+
 ## [0.5.0] - 2026-07-06
 
 Adds opt-in **code-mode**, migrates the server onto the standalone **`fastmcp`**
