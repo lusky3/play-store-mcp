@@ -184,6 +184,7 @@ def test_download_system_apk_variant_success(monkeypatch, tmp_path):
     downloader_cls = MagicMock(return_value=downloader_instance)
     monkeypatch.setattr(client_module, "MediaIoBaseDownload", downloader_cls)
 
+    client._download_dir = str(tmp_path)
     destination = tmp_path / "variant.apk"
     result = client.download_system_apk_variant("com.example.app", 42, 1, str(destination))
 
