@@ -1330,15 +1330,19 @@ def test_code_mode_preserves_read_only_end_to_end(monkeypatch: pytest.MonkeyPatc
 
 
 class TestDownloadPathConfinement:
-    """The client confines download destinations to ``download_dir`` when set."""
+    """The client always confines download destinations to a base directory."""
 
-    def test_allows_any_path_when_unset(self) -> None:
-        # No confinement dir: base is the filesystem root, so any absolute path
-        # is allowed but still canonicalized (single-user local default).
+    def test_unset_confines_to_cwd(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Any) -> None:
+        # No download_dir set: the base defaults to the current working directory.
+        monkeypatch.chdir(tmp_path)
         client = PlayStoreClient(download_dir=None)
-        assert client._confine_download_path("/anywhere/app.apk") == os.path.realpath(
-            "/anywhere/app.apk"
+        # A path under cwd is allowed and canonicalized...
+        assert client._confine_download_path("app.apk") == os.path.realpath(
+            str(tmp_path / "app.apk")
         )
+        # ...but a path outside cwd is rejected (no "write anywhere" mode).
+        with pytest.raises(PlayStoreClientError, match="download directory"):
+            client._confine_download_path("/etc/passwd")
 
     def test_allows_path_within_dir(self, tmp_path: Any) -> None:
         client = PlayStoreClient(download_dir=str(tmp_path))

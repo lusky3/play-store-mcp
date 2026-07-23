@@ -17,20 +17,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   loss of functionality.
 
 ### Changed
-- **Breaking (network transports only):** `PLAY_STORE_MCP_DOWNLOAD_DIR` is now
-  **required** when serving a network transport (`--transport sse` /
-  `streamable-http`); the server refuses to start without it. Over a network
-  transport a caller can drive the download tools to write to a server path, so
-  downloads must be confined to an allowlisted directory. `stdio` (single-user
-  local) is unaffected — the variable stays optional there and, when unset, any
-  destination path is still allowed.
+- **Breaking:** APK/AAB downloads are now **always confined to a directory** —
+  there is no "write anywhere" mode. The base directory is
+  `PLAY_STORE_MCP_DOWNLOAD_DIR` when set, otherwise the server's current working
+  directory; a `destination_path` that resolves outside it is rejected. Set
+  `PLAY_STORE_MCP_DOWNLOAD_DIR` to download somewhere other than the working
+  directory. Network transports (`--transport sse` / `streamable-http`)
+  additionally **require** `PLAY_STORE_MCP_DOWNLOAD_DIR` to be set explicitly and
+  refuse to start without it.
 
 ### Security
-- Download-destination confinement moved into `PlayStoreClient` and now applies
-  to both the temporary `.part` file and the final file: the destination is
-  canonicalized and, when `PLAY_STORE_MCP_DOWNLOAD_DIR` is set, verified to stay
-  within it before anything is written (path-traversal / arbitrary-file-overwrite
-  protection). Previously the check lived only in the server tool layer.
+- Download-destination confinement lives in `PlayStoreClient` and applies to both
+  the temporary `.part` file and the final file: the destination is canonicalized
+  and verified to stay within the (always-present) base directory before anything
+  is written — closing the path-traversal / arbitrary-file-overwrite vector
+  (SonarCloud `S2083`) for both local and network use.
 
 ## [0.5.0] - 2026-07-06
 

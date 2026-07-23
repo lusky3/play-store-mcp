@@ -325,7 +325,7 @@ Add to `.kiro/settings/mcp.json`:
 | `PLAY_STORE_MCP_DISABLE_DNS_REBINDING` | Disable DNS rebinding protection (for cloud/reverse-proxy deployments) | No |
 | `PLAY_STORE_MCP_ADMIN_TOKEN` | Require `Authorization: Bearer <token>` on the `/credentials` endpoint (for deployments behind a reverse proxy) | No |
 | `PLAY_STORE_MCP_READ_ONLY` | Disable all write operations (deploy, promote, rollout, reply, listing/tester updates) | No (default: off) |
-| `PLAY_STORE_MCP_DOWNLOAD_DIR` | Confine APK/AAB download destinations to this directory (path-traversal / arbitrary-write protection); recommended for network-exposed deployments | No |
+| `PLAY_STORE_MCP_DOWNLOAD_DIR` | Directory that APK/AAB downloads are confined to (path-traversal / arbitrary-write protection). Downloads are always confined; defaults to the working directory when unset | No for `stdio` (defaults to cwd); **required** for network transports |
 | `CODE_MODE` | Enable the experimental code-mode transform (opt-in; requires the `play-store-mcp[code-mode]` extra) | No (default: off) |
 
 ## 🧪 Development

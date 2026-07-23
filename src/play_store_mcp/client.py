@@ -239,11 +239,11 @@ class PlayStoreClient:
             credentials_json: JSON string or dictionary with service account credentials.
                              Defaults to GOOGLE_PLAY_STORE_CREDENTIALS env var.
             application_name: Application name for API requests.
-            download_dir: Optional directory that download destinations are
-                             confined to. Defaults to the PLAY_STORE_MCP_DOWNLOAD_DIR
-                             env var. When unset, downloads may target any path
-                             (single-user local case); when set, a destination
-                             outside it is rejected.
+            download_dir: Directory that download destinations are confined to.
+                             Defaults to the PLAY_STORE_MCP_DOWNLOAD_DIR env var,
+                             and to the current working directory when neither is
+                             set. Downloads are always confined — a destination
+                             that resolves outside this directory is rejected.
         """
         self._credentials_path = credentials_path or os.environ.get(
             "GOOGLE_APPLICATION_CREDENTIALS"
@@ -5565,17 +5565,17 @@ class PlayStoreClient:
     def _confine_download_path(self, destination_path: str) -> str:
         """Validate and canonicalize a download destination.
 
-        When ``self._download_dir`` is set, the resolved destination must stay
-        within that directory; otherwise a :class:`PlayStoreClientError` is
-        raised (path traversal / arbitrary-file overwrite protection). When it
-        is unset (the single-user local default), the base is the filesystem
-        root, so any absolute path is allowed — but the destination is still
-        canonicalized here and the canonical result is what callers write to,
-        so user-controlled input never reaches the filesystem unvalidated.
+        Downloads are **always** confined to a base directory — the resolved
+        destination must stay within it, or a :class:`PlayStoreClientError` is
+        raised (path-traversal / arbitrary-file-overwrite protection). The base
+        is ``PLAY_STORE_MCP_DOWNLOAD_DIR`` when set, otherwise the server's
+        current working directory. There is no "write anywhere" mode: a caller
+        can never write outside the base in a single call; point the base
+        elsewhere via the env var if a different location is needed.
 
         Returns the realpath-canonicalized, confinement-checked destination.
         """
-        base_real = os.path.realpath(self._download_dir) if self._download_dir else os.sep
+        base_real = os.path.realpath(self._download_dir or Path.cwd())
         dest_real = os.path.realpath(destination_path)
         try:
             within = os.path.commonpath([base_real, dest_real]) == base_real
@@ -5584,12 +5584,13 @@ class PlayStoreClient:
             within = False
         if not within:
             self._logger.warning(
-                "Blocked download outside PLAY_STORE_MCP_DOWNLOAD_DIR",
+                "Blocked download outside the allowed directory",
                 destination=destination_path,
                 allowed_dir=base_real,
             )
             raise PlayStoreClientError(
-                f"destination_path must be within PLAY_STORE_MCP_DOWNLOAD_DIR ({base_real})"
+                f"destination_path must be within the download directory ({base_real}); "
+                "set PLAY_STORE_MCP_DOWNLOAD_DIR to change it"
             )
         return dest_real
 
