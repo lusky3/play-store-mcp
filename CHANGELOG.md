@@ -22,9 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `PLAY_STORE_MCP_DOWNLOAD_DIR` when set, otherwise the server's current working
   directory; a `destination_path` that resolves outside it is rejected. Set
   `PLAY_STORE_MCP_DOWNLOAD_DIR` to download somewhere other than the working
-  directory. Network transports (`--transport sse` / `streamable-http`)
-  additionally **require** `PLAY_STORE_MCP_DOWNLOAD_DIR` to be set explicitly and
-  refuse to start without it.
+  directory. On network transports (`--transport sse` / `streamable-http`),
+  setting `PLAY_STORE_MCP_DOWNLOAD_DIR` is **recommended** but not required: the
+  server now logs a warning (instead of refusing to start) when it is unset and
+  falls back to the working directory. Point it at a writable directory on
+  cloud/hosted deployments, where the working directory may be read-only.
 
 ### Security
 - Download-destination confinement lives in `PlayStoreClient` and applies to both

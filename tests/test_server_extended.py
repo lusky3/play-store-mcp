@@ -859,13 +859,33 @@ def test_run_http_wildcard_bind_stays_localhost_only(
     assert "127.0.0.1" in allowed
 
 
-def test_run_http_requires_download_dir(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A network transport must refuse to start without PLAY_STORE_MCP_DOWNLOAD_DIR."""
+def test_run_http_warns_without_download_dir_but_starts(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Without PLAY_STORE_MCP_DOWNLOAD_DIR a network transport warns but still starts.
+
+    Downloads are confined by the client regardless (defaulting to the working
+    directory), so the server must not crash on boot when the var is unset.
+    """
     from play_store_mcp import server
 
     monkeypatch.delenv("PLAY_STORE_MCP_DOWNLOAD_DIR", raising=False)
-    with pytest.raises(SystemExit, match="PLAY_STORE_MCP_DOWNLOAD_DIR"):
-        server._run_http("streamable-http", "127.0.0.1", 8000)
+    monkeypatch.delenv("PLAY_STORE_MCP_DISABLE_DNS_REBINDING", raising=False)
+    captured: dict[str, Any] = {}
+
+    def fake_http_app(**kwargs: Any) -> str:
+        captured.update(kwargs)
+        return "ASGI_APP"
+
+    class FakeUvicorn:
+        @staticmethod
+        def run(*_args: Any, **_kwargs: Any) -> None:
+            captured["served"] = True
+
+    monkeypatch.setattr(server.mcp, "http_app", fake_http_app)
+    monkeypatch.setattr(server, "uvicorn", FakeUvicorn)
+
+    # Must not raise SystemExit; the server proceeds to serve.
+    server._run_http("streamable-http", "127.0.0.1", 8000)
+    assert captured.get("served") is True
 
 
 @pytest.mark.parametrize(

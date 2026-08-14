@@ -3748,16 +3748,19 @@ def _run_http(transport: str, host: str, port: int) -> None:
     TrustedHostMiddleware (which is exactly Host-header validation) unless
     PLAY_STORE_MCP_DISABLE_DNS_REBINDING is set.
 
-    Network transports also require PLAY_STORE_MCP_DOWNLOAD_DIR: over a network
-    transport a caller can drive the download tools to write to a server path,
-    so downloads must be confined to an allowlisted directory. It stays optional
-    for stdio (single-user local).
+    Downloads are always confined to a base directory by the client (defaulting
+    to the working directory when PLAY_STORE_MCP_DOWNLOAD_DIR is unset), so a
+    network transport is safe to start either way. When the variable is unset we
+    only warn — a network-exposed deployment should point it at a writable
+    directory to control where APK/AAB downloads land, rather than defaulting to
+    the process working directory (which may be read-only on some hosts).
     """
     if not os.environ.get("PLAY_STORE_MCP_DOWNLOAD_DIR"):
-        raise SystemExit(
-            "PLAY_STORE_MCP_DOWNLOAD_DIR must be set when serving a network transport "
-            f"({transport}) so APK/AAB downloads are confined to an allowlisted directory. "
-            "Set it to a writable directory, or use --transport stdio for local single-user use."
+        logger.warning(
+            "PLAY_STORE_MCP_DOWNLOAD_DIR is not set; APK/AAB downloads will be confined to "
+            "the server's working directory. Set it to a writable directory to control where "
+            "downloads are written on a network-exposed deployment.",
+            transport=transport,
         )
     middleware: list[Middleware] = []
     if not _dns_rebinding_disabled():
