@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   related operations, to lower per-request tool-list overhead — with no planned
   loss of functionality.
 
-## [0.5.0] - 2026-07-06
+## [0.5.0] - 2026-08-14
 
 Adds opt-in **code-mode**, migrates the server onto the standalone **`fastmcp`**
 package, hardens shared-client concurrency, and removes the non-functional Vitals
@@ -42,6 +42,16 @@ tools.
   DNS-rebinding protection (`PLAY_STORE_MCP_DISABLE_DNS_REBINDING`) are
   preserved. This unblocks the upcoming code-mode capability, which lives only
   in `fastmcp`.
+- **Breaking:** APK/AAB downloads are now **always confined to a directory** —
+  there is no "write anywhere" mode. The base directory is
+  `PLAY_STORE_MCP_DOWNLOAD_DIR` when set, otherwise the server's current working
+  directory; a `destination_path` that resolves outside it is rejected. On
+  network transports (`--transport sse` / `streamable-http`), setting
+  `PLAY_STORE_MCP_DOWNLOAD_DIR` is **recommended** but not required — the server
+  logs a warning (rather than refusing to start) when it is unset and falls back
+  to the working directory. Point it at a writable directory on cloud/hosted
+  deployments (e.g. `/tmp/play-store-downloads` on Render), where the working
+  directory may be read-only.
 
 ### Removed
 - **Breaking:** removed the non-functional `get_vitals_overview` and
@@ -77,10 +87,12 @@ tools.
   now write to a temporary file and atomically rename on success, so a failed
   or unauthorized download can no longer truncate an existing file or leave a
   partial one at the destination.
-- Optional `PLAY_STORE_MCP_DOWNLOAD_DIR` confines download destinations to an
-  allowlisted directory — recommended for network-exposed deployments so a caller
-  cannot write outside it (path traversal / arbitrary-file overwrite). Unset (the
-  default, single-user local case) allows any path, preserving existing behavior.
+- Download-destination confinement lives in `PlayStoreClient` and applies to both
+  the temporary `.part` file and the final file: every destination is canonicalized
+  and verified to stay within the (always-present) base directory before anything
+  is written, closing the path-traversal / arbitrary-file-overwrite vector
+  (SonarCloud `S2083`). Downloads are always confined — `PLAY_STORE_MCP_DOWNLOAD_DIR`
+  when set, otherwise the working directory.
 - Documented that the server-side credential fallback
   (`GOOGLE_PLAY_STORE_CREDENTIALS` / `/credentials`) is a process-global client
   shared by every request that omits a credential header; multi-tenant
@@ -90,6 +102,11 @@ tools.
   unless writes are needed: one `execute` can invoke up to 50 tool calls
   (including mutations) behind a single approval. Read-only enforcement still
   applies inside the sandbox.
+
+### Dependencies
+- Bumped `pyasn1` 0.6.3 → 0.6.4 (CVE-2026-59885, CVE-2026-59886) and
+  `cryptography` 49.0.0 → 50.0.0 (PYSEC-2026-3552) — HIGH-severity advisories in
+  transitive dependencies (via `google-auth` / `pyjwt[crypto]`). `pip-audit` clean.
 
 ## [0.4.0] - 2026-07-02
 

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Integration test for the remote credentials feature."""
 
+import os
 import socket
 import subprocess
 import sys
+import tempfile
 import time
 
 import requests
@@ -33,12 +35,15 @@ def test_credentials_endpoint():
     port = _find_free_port()
     host = "127.0.0.1"
 
-    # Start the server in the background
+    # Start the server in the background. A network transport now requires
+    # PLAY_STORE_MCP_DOWNLOAD_DIR (download-path confinement), so provide one.
     print(f"Starting MCP server on port {port}...")
+    download_dir = tempfile.mkdtemp(prefix="play-store-mcp-dl-")
     process = subprocess.Popen(  # noqa: S603
         ["play-store-mcp", "--transport", "streamable-http", "--host", host, "--port", str(port)],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env={**os.environ, "PLAY_STORE_MCP_DOWNLOAD_DIR": download_dir},
     )
 
     try:

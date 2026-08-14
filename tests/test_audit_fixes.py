@@ -169,6 +169,7 @@ class TestExecuteThreadSafety:
 
         monkeypatch.setattr(client_module, "MediaIoBaseDownload", _FakeDownloader)
 
+        client._download_dir = str(tmp_path)
         client.download_generated_apk("com.example.app", 42, "split-1", str(tmp_path / "app.apk"))
 
         assert observed["locked_during_chunk"] is True
@@ -727,25 +728,31 @@ class TestOrderParsing:
 
 
 class TestDownloadOsError:
-    """Writing to an undwritable path raises OSError, now wrapped."""
-
-    _BAD_PATH = "/nonexistent_dir_xyzzy/out.apk"
+    """Writing to an unwritable path (inside the allowed dir) raises OSError, now wrapped."""
 
     def test_download_generated_apk_wraps_oserror(
         self,
         client: PlayStoreClient,
         _mock_service: MagicMock,
+        tmp_path: Any,
     ) -> None:
+        # Confined to tmp_path, but the destination's parent subdir does not
+        # exist, so the write (mkstemp) raises OSError rather than confinement.
+        client._download_dir = str(tmp_path)
+        bad = str(tmp_path / "missing_subdir" / "out.apk")
         with pytest.raises(PlayStoreClientError, match="Failed to write generated APK"):
-            client.download_generated_apk("com.example.app", 100, "download-1", self._BAD_PATH)
+            client.download_generated_apk("com.example.app", 100, "download-1", bad)
 
     def test_download_system_apk_variant_wraps_oserror(
         self,
         client: PlayStoreClient,
         _mock_service: MagicMock,
+        tmp_path: Any,
     ) -> None:
+        client._download_dir = str(tmp_path)
+        bad = str(tmp_path / "missing_subdir" / "out.apk")
         with pytest.raises(PlayStoreClientError, match="Failed to write system APK variant"):
-            client.download_system_apk_variant("com.example.app", 100, 1, self._BAD_PATH)
+            client.download_system_apk_variant("com.example.app", 100, 1, bad)
 
 
 # =========================================================================

@@ -175,6 +175,7 @@ def test_download_generated_apk_success(monkeypatch, tmp_path):
     downloader_cls = MagicMock(return_value=downloader_instance)
     monkeypatch.setattr(client_module, "MediaIoBaseDownload", downloader_cls)
 
+    client._download_dir = str(tmp_path)
     destination = tmp_path / "app.apk"
     result = client.download_generated_apk("com.example.app", 42, "split-1", str(destination))
 
@@ -220,6 +221,7 @@ def test_download_generated_apk_failure_preserves_destination(monkeypatch, tmp_p
         client_module, "MediaIoBaseDownload", MagicMock(return_value=downloader_instance)
     )
 
+    client._download_dir = str(tmp_path)
     destination = tmp_path / "existing.apk"
     destination.write_bytes(b"original-contents")
 
