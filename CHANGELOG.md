@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Consolidate and reduce the MCP tool surface (now 117 tools) by grouping
   related operations, to lower per-request tool-list overhead — with no planned
   loss of functionality.
+- Migrate to FastMCP 4 / the MCP 2026-07-28 spec once FastMCP 4 reaches a
+  stable release (currently in beta). Tracked deliberately rather than via
+  Dependabot: see the dependency cap below.
+
+### Dependencies
+- Capped `fastmcp` to `<4.0` (was open-ended `>=3.4.2`). FastMCP 4 targets the
+  new, backward-incompatible MCP 2026-07-28 spec (stateless protocol core,
+  no more `initialize`/`Mcp-Session-Id`) and is still in beta upstream. This
+  keeps Dependabot from silently proposing/merging a major protocol jump;
+  the migration will be a deliberate, manually-verified upgrade instead.
 
 ## [0.5.0] - 2026-08-14
 
