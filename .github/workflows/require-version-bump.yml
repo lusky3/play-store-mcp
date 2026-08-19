@@ -1,0 +1,85 @@
+name: Require Version Bump
+
+on:
+  pull_request:
+    branches: [stable]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Version Bump Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13.2"
+
+      - name: Fetch base branch
+        run: git fetch origin "${{ github.base_ref }}" --depth=1
+
+      - name: Require a version bump and matching changelog entry
+        run: |
+          git show "origin/${{ github.base_ref }}:pyproject.toml" > /tmp/base_pyproject.toml
+
+          python3 - <<'EOF'
+          import re
+          import sys
+
+          def read_version(path: str) -> str:
+              with open(path, encoding="utf-8") as f:
+                  for line in f:
+                      m = re.match(r'^version\s*=\s*"([^"]+)"', line)
+                      if m:
+                          return m.group(1)
+              print(f"::error::Could not find a `version = \"...\"` line in {path}")
+              sys.exit(1)
+
+          base_version = read_version("/tmp/base_pyproject.toml")
+          head_version = read_version("pyproject.toml")
+
+          try:
+              base_tuple = tuple(int(p) for p in base_version.split("."))
+              head_tuple = tuple(int(p) for p in head_version.split("."))
+          except ValueError:
+              print(
+                  f"::error::Expected plain X.Y.Z versions, got base={base_version!r} "
+                  f"head={head_version!r}"
+              )
+              sys.exit(1)
+
+          print(f"stable version: {base_version}")
+          print(f"PR version:     {head_version}")
+
+          if head_tuple <= base_tuple:
+              print(
+                  f"::error::pyproject.toml version ({head_version}) must be greater "
+                  f"than stable's current version ({base_version}) to merge into stable."
+              )
+              sys.exit(1)
+
+          with open("CHANGELOG.md", encoding="utf-8") as f:
+              changelog = f.read()
+
+          heading = f"## [{head_version}]"
+          if heading not in changelog:
+              print(
+                  f"::error::CHANGELOG.md has no '{heading}' heading. Fold the "
+                  f"[Unreleased] section into a versioned heading before merging "
+                  f"into stable."
+              )
+              sys.exit(1)
+
+          print(f"OK: {head_version} > {base_version}, and CHANGELOG.md has '{heading}'")
+          EOF
