@@ -107,3 +107,4 @@ credentials*.json
 
 # uv
 .uv/
+# ruleset verification test - safe to delete
