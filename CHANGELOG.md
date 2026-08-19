@@ -16,8 +16,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   related operations, to lower per-request tool-list overhead — with no planned
   loss of functionality.
 - Migrate to FastMCP 4 / the MCP 2026-07-28 spec once FastMCP 4 reaches a
-  stable release (currently in beta). Tracked deliberately rather than via
-  Dependabot: see the dependency cap below.
+  stable release (currently in beta; see the `fastmcp<4.0` cap in
+  [0.5.1](#051---2026-08-19)). Tracked deliberately rather than via
+  Dependabot.
+
+## [0.5.1] - 2026-08-19
+
+### Added
+- CI now requires a version bump and a matching `CHANGELOG.md` entry on every
+  pull request into `stable`, so a dependency or config change can no longer
+  slip onto the production branch without a corresponding release.
 
 ### Dependencies
 - Capped `fastmcp` to `<4.0` (was open-ended `>=3.4.2`). FastMCP 4 targets the
