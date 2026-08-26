@@ -32,6 +32,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   unmodified. Pinned to the exact beta version (not an open range) since
   FastMCP 4 isn't GA yet; `stable` is unaffected (still capped `<4.0`).
 
+### Known limitation
+- **Nightly-only:** `uvx --from git+https://github.com/lusky3/play-store-mcp
+  play-store-mcp` fails to resolve on `main` — the `fastmcp==4.0.0b3` pin
+  above transitively requires a prerelease of `fastmcp-slim` that `uv`'s
+  default resolver policy doesn't auto-allow for a *transitive* dependency
+  during a fresh, non-lockfile resolve (`uvx --from git+URL` always
+  resolves fresh; it doesn't use this repo's `uv.lock`, so the version
+  already pinned there doesn't help). Cloning the repo and running `uv sync`
+  / `uv run`, or `pip install -e .`, both work fine (they either use the
+  lockfile or, for pip, its more permissive transitive-prerelease handling).
+  To use `uvx` with `git+URL` against `main` specifically, add
+  `--prerelease=allow`. For normal (non-beta-testing) use, prefer
+  `uvx play-store-mcp` (installs the released version from PyPI, unaffected
+  by this).
+
 ## [0.5.0] - 2026-08-14
 
 Adds opt-in **code-mode**, migrates the server onto the standalone **`fastmcp`**
