@@ -1420,8 +1420,10 @@ class TestDownloadPathConfinement:
         allowed.mkdir()
         client = PlayStoreClient(download_dir=str(allowed))
         evil = tmp_path / "evil.apk"
+        evil_path = str(evil)
+        mock_request = MagicMock()
         with pytest.raises(PlayStoreClientError, match="PLAY_STORE_MCP_DOWNLOAD_DIR"):
-            client._download_to_file(MagicMock(), str(evil))
+            client._download_to_file(mock_request, evil_path)
         # Nothing written, and no stray .part file left in the parent.
         assert not evil.exists()
         assert not list(tmp_path.glob(".evil.apk.*.part"))
