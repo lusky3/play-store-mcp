@@ -15,10 +15,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Consolidate and reduce the MCP tool surface (now 117 tools) by grouping
   related operations, to lower per-request tool-list overhead — with no planned
   loss of functionality.
-- Migrate to FastMCP 4 / the MCP 2026-07-28 spec once FastMCP 4 reaches a
-  stable release (currently in beta; see the `fastmcp<4.0` cap in
-  [0.5.1](#051---2026-08-19)). Tracked deliberately rather than via
-  Dependabot.
+
+## [0.6.0] - 2026-09-04
+
+Upgrades to **FastMCP 4** and the new **MCP 2026-07-28 spec**, now that
+FastMCP 4 has reached a stable GA release (`4.0.0`, `4.0.1`, `4.0.2`).
+
+### Changed
+- Bumped `fastmcp` from the `<4.0` cap to `>=4.0.0,<5.0`, which migrates to
+  MCP Python SDK v2 and the new MCP 2026-07-28 spec (stateless protocol
+  core; no more mandatory `initialize`/`Mcp-Session-Id`). FastMCP 4
+  negotiates the best mutual protocol era per client by default, so
+  existing clients still on the older handshake keep working unchanged —
+  verified: full unit suite (728 tests), lint, mypy, both transports
+  (`stdio` and `streamable-http`) boot and complete a legacy `initialize` →
+  `notifications/initialized` → `tools/list` round trip, the live
+  read-only integration suite against a real Play Console app, and the
+  Docker build all pass unmodified. This was soaked on `main` first (see
+  the nightly-only beta trial and this GA follow-up) before promotion here.
 
 ## [0.5.1] - 2026-08-19
 
