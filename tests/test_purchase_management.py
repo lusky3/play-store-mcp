@@ -330,7 +330,8 @@ def test_tool_revoke_subscription_invalid_type(monkeypatch):
     result = server.revoke_subscription_purchase("com.example.app", "tok", refund_type="bogus")
 
     assert "error" in result
-    assert "full" in result["error"] and "prorated" in result["error"]
+    assert "full" in result["error"]
+    assert "prorated" in result["error"]
     mc.revoke_subscription_purchase.assert_not_called()
 
 

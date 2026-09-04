@@ -100,13 +100,12 @@ def tmp_aab(tmp_path: Any) -> str:
 
 
 @pytest.fixture(autouse=True)
-def _patch_mcp_context(mock_client: MagicMock, monkeypatch: pytest.MonkeyPatch) -> Any:
+def _patch_mcp_context(mock_client: MagicMock, monkeypatch: pytest.MonkeyPatch) -> None:
     """Route get_client_from_context to the mock client for tool tests."""
     from play_store_mcp import server
 
     monkeypatch.setattr(server, "get_http_headers", dict)
     monkeypatch.setitem(server._shared_state, "client", mock_client)
-    yield
 
 
 # =========================================================================

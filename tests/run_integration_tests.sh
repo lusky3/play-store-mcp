@@ -14,7 +14,7 @@ echo ""
 
 # Check if .env.local exists
 if [ ! -f .env.local ]; then
-    echo "❌ Error: .env.local file not found"
+    echo "❌ Error: .env.local file not found" >&2
     echo "Please create .env.local with:"
     echo "  export GOOGLE_APPLICATION_CREDENTIALS=\"/path/to/credentials.json\""
     exit 1
@@ -31,7 +31,7 @@ fi
 
 # Check if credentials file exists
 if [ ! -f "$GOOGLE_APPLICATION_CREDENTIALS" ]; then
-    echo "❌ Error: Credentials file not found: $GOOGLE_APPLICATION_CREDENTIALS"
+    echo "❌ Error: Credentials file not found: $GOOGLE_APPLICATION_CREDENTIALS" >&2
     exit 1
 fi
 
