@@ -15,37 +15,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Consolidate and reduce the MCP tool surface (now 117 tools) by grouping
   related operations, to lower per-request tool-list overhead — with no planned
   loss of functionality.
-- Promote the FastMCP 4 / MCP 2026-07-28 upgrade (below) to `stable` once
-  FastMCP 4 reaches a stable release. `stable` remains pinned to `fastmcp<4.0`
-  until then; this is nightly-only for now.
 
 ### Dependencies
-- **Nightly-only:** bumped `fastmcp` to the `4.0.0b3` beta, which migrates to
-  MCP Python SDK v2 and the new MCP 2026-07-28 spec (stateless protocol core;
-  no more mandatory `initialize`/`Mcp-Session-Id`). FastMCP 4 negotiates the
-  best mutual protocol era per client by default, so existing clients still on
-  the older handshake keep working unchanged — verified locally: full unit
-  suite (728 tests), lint, mypy, both transports (`stdio` and
+- Bumped `fastmcp` from the `4.0.0b3`/`b5` betas to the stable GA release
+  (`>=4.0.0,<5.0`, currently resolving to `4.0.2`), which migrates to MCP
+  Python SDK v2 and the new MCP 2026-07-28 spec (stateless protocol core; no
+  more mandatory `initialize`/`Mcp-Session-Id`). FastMCP 4 negotiates the
+  best mutual protocol era per client by default, so existing clients still
+  on the older handshake keep working unchanged — verified locally: full
+  unit suite (728 tests), lint, mypy, both transports (`stdio` and
   `streamable-http`) boot and complete a legacy `initialize` →
-  `notifications/initialized` → `tools/list` round trip, and the live
-  read-only integration suite against a real Play Console app all pass
-  unmodified. Pinned to the exact beta version (not an open range) since
-  FastMCP 4 isn't GA yet; `stable` is unaffected (still capped `<4.0`).
-
-### Known limitation
-- **Nightly-only:** `uvx --from git+https://github.com/lusky3/play-store-mcp
-  play-store-mcp` fails to resolve on `main` — the `fastmcp==4.0.0b3` pin
-  above transitively requires a prerelease of `fastmcp-slim` that `uv`'s
-  default resolver policy doesn't auto-allow for a *transitive* dependency
-  during a fresh, non-lockfile resolve (`uvx --from git+URL` always
-  resolves fresh; it doesn't use this repo's `uv.lock`, so the version
-  already pinned there doesn't help). Cloning the repo and running `uv sync`
-  / `uv run`, or `pip install -e .`, both work fine (they either use the
-  lockfile or, for pip, its more permissive transitive-prerelease handling).
-  To use `uvx` with `git+URL` against `main` specifically, add
-  `--prerelease=allow`. For normal (non-beta-testing) use, prefer
-  `uvx play-store-mcp` (installs the released version from PyPI, unaffected
-  by this).
+  `notifications/initialized` → `tools/list` round trip, the live read-only
+  integration suite against a real Play Console app, and the Docker build
+  all pass unmodified. Now that FastMCP 4 is GA, the `uvx --from git+URL`
+  prerelease limitation noted in earlier releases no longer applies —
+  regular installs work without `--prerelease=allow`. `stable` will follow
+  in its own release once this has soaked.
 
 ## [0.5.0] - 2026-08-14
 
