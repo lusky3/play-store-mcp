@@ -83,6 +83,13 @@ MAX_RETRIES = 3
 INITIAL_BACKOFF = 1.0  # seconds
 MAX_BACKOFF = 32.0  # seconds
 
+# Content types for release artifact uploads
+_MIME_TYPE_AAB = "application/octet-stream"
+_MIME_TYPE_APK = "application/vnd.android.package-archive"
+
+# Default schema version for regional pricing data
+DEFAULT_REGIONS_VERSION = "2022/02"
+
 # HTTP methods whose requests are safe to retry on an ambiguous server error
 # (500/503): repeating them cannot create a duplicate side effect. Non-idempotent
 # requests (POST: create, upload, acknowledge, consume, refund, revoke, defer,
@@ -614,11 +621,7 @@ class PlayStoreClient:
         try:
             # Determine content type and upload method
             is_bundle = file_path.lower().endswith(".aab")
-            content_type = (
-                "application/octet-stream"
-                if is_bundle
-                else "application/vnd.android.package-archive"
-            )
+            content_type = _MIME_TYPE_AAB if is_bundle else _MIME_TYPE_APK
 
             media = MediaFileUpload(file_path, mimetype=content_type, resumable=True)
 
@@ -2173,7 +2176,7 @@ class PlayStoreClient:
         product_id: str,
         product: dict[str, Any],
         update_mask: str,
-        regions_version: str = "2022/02",
+        regions_version: str = DEFAULT_REGIONS_VERSION,
     ) -> OneTimeProduct:
         """Create or update a one-time product (patch is create-or-update).
 
@@ -2886,7 +2889,7 @@ class PlayStoreClient:
         package_name: str,
         product_id: str,
         subscription: dict[str, Any],
-        regions_version: str = "2022/02",
+        regions_version: str = DEFAULT_REGIONS_VERSION,
     ) -> SubscriptionProduct:
         """Create a new subscription product.
 
@@ -2925,7 +2928,7 @@ class PlayStoreClient:
         product_id: str,
         subscription: dict[str, Any],
         update_mask: str,
-        regions_version: str = "2022/02",
+        regions_version: str = DEFAULT_REGIONS_VERSION,
     ) -> SubscriptionProduct:
         """Partially update an existing subscription product.
 
@@ -3443,7 +3446,7 @@ class PlayStoreClient:
         base_plan_id: str,
         offer_id: str,
         offer: dict[str, Any],
-        regions_version: str = "2022/02",
+        regions_version: str = DEFAULT_REGIONS_VERSION,
     ) -> SubscriptionOffer:
         """Create a new subscription offer.
 
@@ -3496,7 +3499,7 @@ class PlayStoreClient:
         offer_id: str,
         offer: dict[str, Any],
         update_mask: str,
-        regions_version: str = "2022/02",
+        regions_version: str = DEFAULT_REGIONS_VERSION,
     ) -> SubscriptionOffer:
         """Partially update an existing subscription offer.
 
@@ -4336,7 +4339,7 @@ class PlayStoreClient:
         try:
             media = MediaFileUpload(
                 apk_path,
-                mimetype="application/vnd.android.package-archive",
+                mimetype=_MIME_TYPE_APK,
                 resumable=True,
             )
             data = self._execute(
@@ -4378,7 +4381,7 @@ class PlayStoreClient:
         try:
             media = MediaFileUpload(
                 bundle_path,
-                mimetype="application/octet-stream",
+                mimetype=_MIME_TYPE_AAB,
                 resumable=True,
             )
             data = self._execute(
@@ -4430,7 +4433,7 @@ class PlayStoreClient:
         edit_id = self._create_edit(package_name)
 
         try:
-            media = MediaFileUpload(file_path, mimetype="application/octet-stream", resumable=True)
+            media = MediaFileUpload(file_path, mimetype=_MIME_TYPE_AAB, resumable=True)
             data = self._execute(
                 service.edits()
                 .deobfuscationfiles()
@@ -4486,7 +4489,7 @@ class PlayStoreClient:
         edit_id = self._create_edit(package_name)
 
         try:
-            media = MediaFileUpload(file_path, mimetype="application/octet-stream", resumable=True)
+            media = MediaFileUpload(file_path, mimetype=_MIME_TYPE_AAB, resumable=True)
             data = self._execute(
                 service.edits()
                 .expansionfiles()
@@ -5917,7 +5920,7 @@ class PlayStoreClient:
         try:
             media = MediaFileUpload(
                 apk_path,
-                mimetype="application/vnd.android.package-archive",
+                mimetype=_MIME_TYPE_APK,
                 resumable=True,
             )
             data = self._execute(
@@ -5957,7 +5960,7 @@ class PlayStoreClient:
         try:
             media = MediaFileUpload(
                 bundle_path,
-                mimetype="application/octet-stream",
+                mimetype=_MIME_TYPE_AAB,
                 resumable=True,
             )
             data = self._execute(

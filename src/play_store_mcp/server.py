@@ -25,7 +25,11 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from play_store_mcp.client import PlayStoreClient, PlayStoreClientError
+from play_store_mcp.client import (
+    DEFAULT_REGIONS_VERSION,
+    PlayStoreClient,
+    PlayStoreClientError,
+)
 
 # Configure structured logging to stderr (stdout is reserved for MCP JSON-RPC)
 log_level = os.environ.get("PLAY_STORE_MCP_LOG_LEVEL", "INFO")
@@ -1092,7 +1096,7 @@ def patch_one_time_product(
     product_id: str,
     product: dict[str, Any],
     update_mask: str,
-    regions_version: str = "2022/02",
+    regions_version: str = DEFAULT_REGIONS_VERSION,
 ) -> dict[str, Any]:
     """Create or update a one-time product (patch is create-or-update).
 
@@ -1550,7 +1554,7 @@ def create_subscription(
     package_name: str,
     product_id: str,
     subscription: dict[str, Any],
-    regions_version: str = "2022/02",
+    regions_version: str = DEFAULT_REGIONS_VERSION,
 ) -> dict[str, Any]:
     """Create a new subscription product in the catalog.
 
@@ -1584,7 +1588,7 @@ def patch_subscription(
     product_id: str,
     subscription: dict[str, Any],
     update_mask: str,
-    regions_version: str = "2022/02",
+    regions_version: str = DEFAULT_REGIONS_VERSION,
 ) -> dict[str, Any]:
     """Partially update an existing subscription product.
 
@@ -1942,7 +1946,7 @@ def create_subscription_offer(
     base_plan_id: str,
     offer_id: str,
     offer: dict[str, Any],
-    regions_version: str = "2022/02",
+    regions_version: str = DEFAULT_REGIONS_VERSION,
 ) -> dict[str, Any]:
     """Create a new subscription offer.
 
@@ -1982,7 +1986,7 @@ def patch_subscription_offer(
     offer_id: str,
     offer: dict[str, Any],
     update_mask: str,
-    regions_version: str = "2022/02",
+    regions_version: str = DEFAULT_REGIONS_VERSION,
 ) -> dict[str, Any]:
     """Partially update an existing subscription offer.
 
