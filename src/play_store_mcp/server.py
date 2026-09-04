@@ -178,17 +178,15 @@ def _build_transforms() -> list[Any]:
     """
     if not _code_mode_enabled():
         return []
-    # Imported lazily so an install without the code-mode extra never pays for
-    # it when opted out.
-    from fastmcp.experimental.transforms.code_mode import (  # noqa: PLC0415 - lazy import: code-mode extra is optional
+    # Imported lazily so opting out (CODE_MODE=0) never touches fastmcp's
+    # experimental module.
+    from fastmcp.experimental.transforms.code_mode import (  # noqa: PLC0415
         CodeMode,
     )
 
     logger.info(
         "Exposing tools via the code-mode transform (search/get_schema/execute); "
-        "set CODE_MODE=0 to opt out and use the classic tool list instead. The "
-        "'execute' sandbox requires the code-mode extra — install "
-        "play-store-mcp[code-mode]."
+        "set CODE_MODE=0 to opt out and use the classic tool list instead."
     )
     return [CodeMode()]
 

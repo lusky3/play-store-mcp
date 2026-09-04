@@ -19,10 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - **Breaking:** `CODE_MODE` now defaults to **enabled** (was opt-in/default-off).
   Set `CODE_MODE=0` (or `false`/`no`/`off`, case-insensitive) to opt out and
-  get the classic 117-tool list back. `search`/`get_schema` work without any
-  extra install, but the `execute` meta-tool's sandbox still requires the
-  `play-store-mcp[code-mode]` extra — install it, or `execute` calls will
-  fail. Read-only enforcement still applies inside the sandbox.
+  get the classic 117-tool list back. The `execute` meta-tool's sandbox
+  (Monty) is now a base dependency — not an optional extra — so every
+  install path (`pip install play-store-mcp`, `uvx play-store-mcp`, Docker)
+  works out of the box with no separate install step. Read-only enforcement
+  still applies inside the sandbox.
 
 ### Planned
 - Consolidate and reduce the MCP tool surface (now 117 tools) by grouping
