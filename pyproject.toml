@@ -33,7 +33,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "fastmcp==4.0.0b5",
+    "fastmcp>=4.0.0,<5.0",
     "google-api-python-client>=2.180.0",
     "google-auth>=2.40.0",
     "pydantic>=2.10.0",
@@ -51,10 +51,10 @@ dev = [
     "pytest-cov>=6.0.0",
     "ruff>=0.9.0",
     "mypy>=1.14.0",
-    "fastmcp[code-mode]==4.0.0b5",
+    "fastmcp[code-mode]>=4.0.0,<5.0",
 ]
 code-mode = [
-    "fastmcp[code-mode]==4.0.0b5",
+    "fastmcp[code-mode]>=4.0.0,<5.0",
 ]
 
 [project.scripts]
