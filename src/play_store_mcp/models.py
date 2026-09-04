@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 _DESC_PACKAGE_NAME = "App package name"
 _DESC_STATUS_MESSAGE = "Status message"
 _DESC_ERROR = "Error details if failed"
-_DESC_PURCHASE_TOKEN = "Purchase token"  # noqa: S105 - field description, not a credential
+_DESC_PURCHASE_TOKEN = "Purchase token"  # noqa: S105  # field description, not a credential
 _DESC_ORDER_ID = "Order ID"
 _DESC_SUCCESS = "Whether the action succeeded"
 
