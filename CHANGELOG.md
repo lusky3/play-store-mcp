@@ -16,6 +16,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   related operations, to lower per-request tool-list overhead — with no planned
   loss of functionality.
 
+## [0.6.1] - 2026-09-04
+
+### Added
+- `release.yml` now has a `Verify Version & Changelog` gate that runs before
+  any test/build/publish step: it fails the whole release if `pyproject.toml`'s
+  version doesn't exactly match the pushed tag, or if `CHANGELOG.md` has no
+  matching `## [X.Y.Z]` heading. Complements the PR-time `Version Bump Check`
+  (which only runs on PRs into `stable`) by also guarding the tag-push
+  trigger itself — nothing stops a tag from being pushed independently of a
+  PR. Verified live: a deliberately mismatched test tag failed at this gate
+  and never reached the Publish to PyPI step.
+
 ## [0.6.0] - 2026-09-04
 
 Upgrades to **FastMCP 4** and the new **MCP 2026-07-28 spec**, now that
