@@ -60,7 +60,12 @@ from play_store_mcp.server import (
 
 
 def test_server_uses_fastmcp_and_registers_all_tools() -> None:
-    """The server is built on the standalone fastmcp package with all 117 tools."""
+    """The server is built on the standalone fastmcp package with all 117 tools.
+
+    Depends on conftest.py pinning CODE_MODE=0 for the test process, since
+    `server.mcp` is a module-level singleton built once at import time and
+    CODE_MODE now defaults to enabled (meta-tool surface) in production.
+    """
     import asyncio
 
     import fastmcp
@@ -1264,25 +1269,36 @@ class TestMainEntryPoint:
         ("true", True),
         ("YES", True),
         ("on", True),
+        ("", True),
+        ("anything-else", True),
         ("0", False),
         ("false", False),
-        ("no", False),
-        ("", False),
+        ("NO", False),
+        ("off", False),
     ],
 )
 def test_code_mode_flag_parsing(monkeypatch: pytest.MonkeyPatch, val: str, expected: bool) -> None:
-    """CODE_MODE parses like the read-only flag (case-insensitive truthy set)."""
+    """CODE_MODE defaults to enabled; only an explicit opt-out value disables it."""
     from play_store_mcp import server
 
     monkeypatch.setenv("CODE_MODE", val)
     assert server._code_mode_enabled() is expected
 
 
-def test_code_mode_disabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    """With CODE_MODE unset, no transforms are built (classic tool surface)."""
+def test_code_mode_enabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With CODE_MODE unset, the code-mode transform is built (meta-tool surface)."""
     from play_store_mcp import server
 
     monkeypatch.delenv("CODE_MODE", raising=False)
+    assert server._code_mode_enabled() is True
+    assert len(server._build_transforms()) == 1
+
+
+def test_code_mode_disabled_via_opt_out(monkeypatch: pytest.MonkeyPatch) -> None:
+    """CODE_MODE=0 opts out, falling back to the classic tool list (no transforms)."""
+    from play_store_mcp import server
+
+    monkeypatch.setenv("CODE_MODE", "0")
     assert server._code_mode_enabled() is False
     assert server._build_transforms() == []
 
@@ -1295,7 +1311,7 @@ def test_build_transforms_enabled_wraps_tools(monkeypatch: pytest.MonkeyPatch) -
 
     from play_store_mcp import server
 
-    monkeypatch.setenv("CODE_MODE", "1")
+    monkeypatch.delenv("CODE_MODE", raising=False)
     transforms = server._build_transforms()
     assert len(transforms) == 1
 

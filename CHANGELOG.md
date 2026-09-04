@@ -11,6 +11,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+> **Breaking — code-mode is now enabled by default.** Clients that expect the
+> full 117-tool list (e.g. anything enumerating tools by name) will instead
+> see three meta-tools (`search`/`get_schema`/`execute`) unless `CODE_MODE=0`
+> is set. See Changed below.
+
+### Changed
+- **Breaking:** `CODE_MODE` now defaults to **enabled** (was opt-in/default-off).
+  Set `CODE_MODE=0` (or `false`/`no`/`off`, case-insensitive) to opt out and
+  get the classic 117-tool list back. `search`/`get_schema` work without any
+  extra install, but the `execute` meta-tool's sandbox still requires the
+  `play-store-mcp[code-mode]` extra — install it, or `execute` calls will
+  fail. Read-only enforcement still applies inside the sandbox.
+
 ### Planned
 - Consolidate and reduce the MCP tool surface (now 117 tools) by grouping
   related operations, to lower per-request tool-list overhead — with no planned

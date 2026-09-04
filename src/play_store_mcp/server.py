@@ -160,30 +160,35 @@ def _read_only_block(operation: str) -> dict[str, Any] | None:
 
 
 def _code_mode_enabled() -> bool:
-    """Return True if CODE_MODE enables the experimental code-mode transform."""
-    return os.environ.get("CODE_MODE", "").strip().lower() in {"1", "true", "yes", "on"}
+    """Return True unless CODE_MODE explicitly opts out of the code-mode transform.
+
+    Enabled by default; set CODE_MODE=0/false/no/off (case-insensitive) to opt
+    out and fall back to the classic tool list.
+    """
+    return os.environ.get("CODE_MODE", "").strip().lower() not in {"0", "false", "no", "off"}
 
 
 def _build_transforms() -> list[Any]:
     """Return the FastMCP transforms for this process.
 
-    When CODE_MODE is enabled, wrap the tool surface in the experimental CodeMode
-    transform (search/get_schema/execute meta-tools + sandboxed execution), which
-    cuts per-request tool-list overhead. Default: no transforms — the classic
-    117-tool surface, unchanged.
+    Default: the tool surface is wrapped in the experimental CodeMode transform
+    (search/get_schema/execute meta-tools + sandboxed execution), which cuts
+    per-request tool-list overhead. Set CODE_MODE=0 to opt out and expose the
+    classic 117-tool surface instead.
     """
     if not _code_mode_enabled():
         return []
-    # Imported lazily so the base install (without the code-mode extra) never
-    # pays for it when the flag is off.
+    # Imported lazily so an install without the code-mode extra never pays for
+    # it when opted out.
     from fastmcp.experimental.transforms.code_mode import (  # noqa: PLC0415 - lazy import: code-mode extra is optional
         CodeMode,
     )
 
-    logger.warning(
-        "CODE_MODE enabled: exposing tools via the experimental code-mode transform "
-        "(search/get_schema/execute). The 'execute' sandbox requires the code-mode "
-        "extra — install play-store-mcp[code-mode]."
+    logger.info(
+        "Exposing tools via the code-mode transform (search/get_schema/execute); "
+        "set CODE_MODE=0 to opt out and use the classic tool list instead. The "
+        "'execute' sandbox requires the code-mode extra — install "
+        "play-store-mcp[code-mode]."
     )
     return [CodeMode()]
 
