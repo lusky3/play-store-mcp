@@ -1381,7 +1381,7 @@ name = "play-store-mcp"
 version = "0.5.0"
 source = { editable = "." }
 dependencies = [
-    { name = "fastmcp" },
+    { name = "fastmcp", extra = ["code-mode"] },
     { name = "google-api-python-client" },
     { name = "google-auth" },
     { name = "pydantic" },
@@ -1390,11 +1390,7 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-code-mode = [
-    { name = "fastmcp", extra = ["code-mode"] },
-]
 dev = [
-    { name = "fastmcp", extra = ["code-mode"] },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1404,9 +1400,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "fastmcp", specifier = ">=4.0.0,<5.0" },
-    { name = "fastmcp", extras = ["code-mode"], marker = "extra == 'code-mode'", specifier = ">=4.0.0,<5.0" },
-    { name = "fastmcp", extras = ["code-mode"], marker = "extra == 'dev'", specifier = ">=4.0.0,<5.0" },
+    { name = "fastmcp", extras = ["code-mode"], specifier = ">=4.0.0,<5.0" },
     { name = "google-api-python-client", specifier = ">=2.180.0" },
     { name = "google-auth", specifier = ">=2.40.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14.0" },
@@ -1418,7 +1412,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
     { name = "structlog", specifier = ">=25.0.0" },
 ]
-provides-extras = ["dev", "code-mode"]
+provides-extras = ["dev"]
 
 [[package]]
 name = "pluggy"
