@@ -3611,6 +3611,78 @@ def _authorize_credentials_request(request: Request) -> JSONResponse | None:
     return None
 
 
+def _parse_base64_credentials_payload(
+    credentials_base64: str,
+) -> tuple[PlayStoreClient | None, JSONResponse | None]:
+    """Decode a base64-encoded service account JSON payload into a new client.
+
+    Returns (client, None) on success, or (None, error_response) on failure.
+    """
+    try:
+        decoded = base64.b64decode(credentials_base64).decode("utf-8")
+        credentials_dict = json.loads(decoded)
+    except (binascii.Error, UnicodeDecodeError) as e:
+        return None, JSONResponse(
+            {"success": False, "error": f"Invalid base64 encoding: {e}"},
+            status_code=400,
+        )
+    except json.JSONDecodeError:
+        return None, JSONResponse(
+            {"success": False, "error": "Invalid JSON in base64-decoded credentials"},
+            status_code=400,
+        )
+    return PlayStoreClient(credentials_json=credentials_dict), None
+
+
+def _parse_inline_credentials_payload(
+    credentials: Any,
+) -> tuple[PlayStoreClient | None, JSONResponse | None]:
+    """Parse an inline ``credentials`` value (JSON string or object) into a new client.
+
+    Returns (client, None) on success, or (None, error_response) on failure.
+    """
+    if isinstance(credentials, str):
+        # Validate it's valid JSON
+        try:
+            json.loads(credentials)
+        except json.JSONDecodeError:
+            return None, JSONResponse(
+                {"success": False, "error": "Invalid JSON in credentials string"},
+                status_code=400,
+            )
+        return PlayStoreClient(credentials_json=credentials), None
+    if isinstance(credentials, dict):
+        return PlayStoreClient(credentials_json=credentials), None
+    return None, JSONResponse(
+        {"success": False, "error": "credentials must be a string or object"},
+        status_code=400,
+    )
+
+
+def _parse_credentials_request_body(
+    body: dict[str, Any],
+) -> tuple[PlayStoreClient | None, JSONResponse | None]:
+    """Parse a /credentials POST body into a new ``PlayStoreClient``.
+
+    Returns (client, None) on success, or (None, error_response) on failure.
+    """
+    credentials = body.get("credentials")
+    credentials_base64 = body.get("credentials_base64")
+
+    if not credentials and not credentials_base64:
+        return None, JSONResponse(
+            {
+                "success": False,
+                "error": "Missing 'credentials' or 'credentials_base64' in request body",
+            },
+            status_code=400,
+        )
+
+    if credentials_base64:
+        return _parse_base64_credentials_payload(credentials_base64)
+    return _parse_inline_credentials_payload(credentials)
+
+
 @mcp.custom_route("/credentials", methods=["POST"])
 async def update_credentials(request: Request) -> JSONResponse:
     """Update Google Play Store credentials via HTTP POST.
@@ -3633,57 +3705,12 @@ async def update_credentials(request: Request) -> JSONResponse:
     if auth_error is not None:
         return auth_error
 
-    new_client: PlayStoreClient | None = None
     try:
         body = await request.json()
 
-        credentials = body.get("credentials")
-        credentials_base64 = body.get("credentials_base64")
-
-        if not credentials and not credentials_base64:
-            return JSONResponse(
-                {
-                    "success": False,
-                    "error": "Missing 'credentials' or 'credentials_base64' in request body",
-                },
-                status_code=400,
-            )
-
-        # Create new client with provided credentials
-        if credentials_base64:
-            # Decode base64 credentials
-            try:
-                decoded = base64.b64decode(credentials_base64).decode("utf-8")
-                credentials_dict = json.loads(decoded)
-                new_client = PlayStoreClient(credentials_json=credentials_dict)
-            except (binascii.Error, UnicodeDecodeError) as e:
-                return JSONResponse(
-                    {"success": False, "error": f"Invalid base64 encoding: {e}"},
-                    status_code=400,
-                )
-            except json.JSONDecodeError:
-                return JSONResponse(
-                    {"success": False, "error": "Invalid JSON in base64-decoded credentials"},
-                    status_code=400,
-                )
-        elif credentials:
-            if isinstance(credentials, str):
-                # Validate it's valid JSON
-                try:
-                    json.loads(credentials)
-                except json.JSONDecodeError:
-                    return JSONResponse(
-                        {"success": False, "error": "Invalid JSON in credentials string"},
-                        status_code=400,
-                    )
-                new_client = PlayStoreClient(credentials_json=credentials)
-            elif isinstance(credentials, dict):
-                new_client = PlayStoreClient(credentials_json=credentials)
-            else:
-                return JSONResponse(
-                    {"success": False, "error": "credentials must be a string or object"},
-                    status_code=400,
-                )
+        new_client, parse_error = _parse_credentials_request_body(body)
+        if parse_error is not None:
+            return parse_error
 
         if (
             new_client is None

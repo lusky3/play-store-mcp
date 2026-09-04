@@ -386,6 +386,56 @@ class PlayStoreClient:
 
         return errors
 
+    def _resolve_credentials_from_json(self) -> Any | None:
+        """Resolve credentials from ``self._credentials_json`` (JSON string, file path, or dict)."""
+        if not self._credentials_json:
+            return None
+
+        if isinstance(self._credentials_json, dict):
+            return service_account.Credentials.from_service_account_info(
+                self._credentials_json, scopes=SCOPES
+            )
+
+        if not isinstance(self._credentials_json, str):
+            return None
+
+        try:
+            # Check if it's actually JSON or a path to a file
+            if self._credentials_json.strip().startswith("{"):
+                creds_info = json.loads(self._credentials_json)
+                return service_account.Credentials.from_service_account_info(
+                    creds_info, scopes=SCOPES
+                )
+            if Path(self._credentials_json).exists():
+                return service_account.Credentials.from_service_account_file(
+                    self._credentials_json, scopes=SCOPES
+                )
+        except json.JSONDecodeError:
+            # If it's not JSON, maybe it's a path that doesn't exist?
+            self._logger.warning(
+                "credentials_json string is not valid JSON and not a valid file path",
+            )
+        return None
+
+    def _resolve_credentials_from_path(self) -> Any | None:
+        """Resolve credentials from ``self._credentials_path``, if it exists."""
+        if not self._credentials_path:
+            return None
+        creds_path = Path(self._credentials_path)
+        if not creds_path.exists():
+            return None
+        return service_account.Credentials.from_service_account_file(str(creds_path), scopes=SCOPES)
+
+    def _resolve_credentials(self) -> Any:
+        """Resolve credentials, trying credentials_json before credentials_path."""
+        credentials = self._resolve_credentials_from_json() or self._resolve_credentials_from_path()
+        if not credentials:
+            raise PlayStoreClientError(
+                "No valid credentials found. Set GOOGLE_APPLICATION_CREDENTIALS (path) "
+                "or GOOGLE_PLAY_STORE_CREDENTIALS (JSON or path)."
+            )
+        return credentials
+
     @retry_with_backoff
     def _get_service(self) -> AndroidPublisherResource:
         """Get or create the API service instance."""
@@ -395,47 +445,7 @@ class PlayStoreClient:
         self._logger.info("Initializing Google Play Developer API client")
 
         try:
-            credentials = None
-
-            # Try credentials_json first (from string or dict)
-            if self._credentials_json:
-                if isinstance(self._credentials_json, str):
-                    try:
-                        # Check if it's actually JSON or a path to a file
-                        if self._credentials_json.strip().startswith("{"):
-                            creds_info = json.loads(self._credentials_json)
-                            credentials = service_account.Credentials.from_service_account_info(
-                                creds_info, scopes=SCOPES
-                            )
-                        elif Path(self._credentials_json).exists():
-                            credentials = service_account.Credentials.from_service_account_file(
-                                self._credentials_json, scopes=SCOPES
-                            )
-                    except json.JSONDecodeError:
-                        # If it's not JSON, maybe it's a path that doesn't exist?
-                        self._logger.warning(
-                            "credentials_json string is not valid JSON and not a valid file path",
-                        )
-
-                elif isinstance(self._credentials_json, dict):
-                    credentials = service_account.Credentials.from_service_account_info(
-                        self._credentials_json, scopes=SCOPES
-                    )
-
-            # Fall back to credentials_path
-            if not credentials and self._credentials_path:
-                creds_path = Path(self._credentials_path)
-                if creds_path.exists():
-                    credentials = service_account.Credentials.from_service_account_file(
-                        str(creds_path), scopes=SCOPES
-                    )
-
-            if not credentials:
-                raise PlayStoreClientError(
-                    "No valid credentials found. Set GOOGLE_APPLICATION_CREDENTIALS (path) "
-                    "or GOOGLE_PLAY_STORE_CREDENTIALS (JSON or path)."
-                )
-
+            credentials = self._resolve_credentials()
             self._service = build(
                 "androidpublisher",
                 "v3",
