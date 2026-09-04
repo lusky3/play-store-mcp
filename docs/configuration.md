@@ -85,7 +85,7 @@ docker run -p 8000:8000 \
 | `PLAY_STORE_MCP_ADMIN_TOKEN` | Require `Authorization: Bearer <token>` on the `/credentials` endpoint (needed behind a reverse proxy, where the localhost check is insufficient) | No | — |
 | `PLAY_STORE_MCP_READ_ONLY` | Disable all write operations | No | — |
 | `PLAY_STORE_MCP_DOWNLOAD_DIR` | Directory that APK/AAB downloads are confined to (guards against path traversal / arbitrary-file overwrite). Downloads are **always** confined; a destination outside this directory is rejected. **Recommended** for network/hosted deployments (`sse`/`streamable-http`) — the server warns if it is unset and falls back to the working directory, which may be read-only on some hosts (e.g. set it to `/tmp/play-store-downloads` on Render). | No (defaults to cwd) | cwd |
-| `CODE_MODE` | Enable the experimental code-mode transform (opt-in; requires the `code-mode` extra) | No | off |
+| `CODE_MODE` | Set to `0` to opt out of the code-mode transform and use the classic tool list (`execute` otherwise requires the `code-mode` extra) | No | on |
 
 ## HTTP Transport
 
@@ -148,11 +148,12 @@ Or the environment variable (truthy values: `1`, `true`, `yes`, `on`):
 export PLAY_STORE_MCP_READ_ONLY=1
 ```
 
-## Code Mode (Experimental)
+## Code Mode (Experimental, enabled by default)
 
-!!! warning "Experimental — off by default"
-    Code mode is opt-in and disabled by default. It wraps the tool surface in
-    FastMCP's experimental code-mode transform.
+!!! warning "Experimental — enabled by default"
+    Code mode wraps the tool surface in FastMCP's experimental code-mode
+    transform, and is **enabled by default** (breaking change from earlier
+    releases, which shipped it opt-in). Set `CODE_MODE=0` to opt out.
 
 Code mode replaces the individual tools with three meta-tools — `search`,
 `get_schema`, and `execute` — so the client discovers tools on demand and runs a
@@ -167,24 +168,26 @@ list on every request. This cuts the per-request tool-list token overhead.
     does not need writes, run code mode with `--read-only` /
     `PLAY_STORE_MCP_READ_ONLY=1` to block those operations.
 
-Enabling it requires two things:
+**Install the sandbox extra** (the `execute` meta-tool runs in the Monty
+sandbox) — `search`/`get_schema` work without it, but `execute` calls fail
+until it's installed:
 
-1. Install the sandbox extra (the `execute` meta-tool runs in the Monty sandbox):
+```bash
+pip install "play-store-mcp[code-mode]"
+# or: uvx --from "play-store-mcp[code-mode]" play-store-mcp
+```
 
-    ```bash
-    pip install "play-store-mcp[code-mode]"
-    # or: uvx --from "play-store-mcp[code-mode]" play-store-mcp
-    ```
+**To opt out** and get the classic full tool surface instead, set the
+environment variable to an opt-out value (`0`, `false`, `no`, or `off`,
+case-insensitive):
 
-2. Set the environment variable (truthy values: `1`, `true`, `yes`, `on`):
-
-    ```bash
-    export CODE_MODE=1
-    ```
+```bash
+export CODE_MODE=0
+```
 
 `CODE_MODE` is an environment variable only — there is no CLI flag — because the
 transform is fixed when the server is constructed (before command-line arguments
-are parsed). When it is unset, the classic full tool surface is served unchanged.
+are parsed).
 
 ## Logging
 
