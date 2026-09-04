@@ -77,17 +77,6 @@ pip install -e .
 play-store-mcp
 ```
 
-> **Note:** `uvx --from git+https://github.com/lusky3/play-store-mcp
-> play-store-mcp` (installing directly from Git via `uvx`, without cloning)
-> currently fails to resolve on the `main` branch, which nightly-tests a
-> FastMCP 4 beta pin — `uvx --from git+URL` always does a fresh dependency
-> resolution, and `uv`'s default resolver policy won't auto-allow the
-> transitive prerelease that pin requires. `git clone` + `pip install -e .`
-> (above) or `uv sync`/`uv run` both work fine, since they either use the
-> lockfile or (for pip) its more permissive prerelease handling. If you do
-> want `uvx --from git+URL` against `main`, add `--prerelease=allow`. For
-> normal use, prefer plain `uvx play-store-mcp` (from PyPI) instead.
-
 ### Configuration
 
 Set the path to your service account key:
