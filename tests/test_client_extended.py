@@ -157,7 +157,7 @@ class TestGetServiceErrors:
 
         with (
             patch(
-                "play_store_mcp.client.service_account.Credentials.from_service_account_file",
+                "play_store_mcp.client.service_account.Credentials.from_service_account_info",
                 side_effect=ValueError("bad creds"),
             ),
             pytest.raises(PlayStoreClientError, match="Failed to initialize API client"),
@@ -1353,18 +1353,18 @@ class TestCredentialsJson:
         mock_info.assert_called_once()
 
     def test_credentials_json_path(self, _mock_service: MagicMock, tmp_path: Any) -> None:
-        """A filesystem path string uses from_service_account_file."""
+        """A filesystem path string is read and passed to from_service_account_info."""
         creds_file = tmp_path / "creds.json"
         creds_file.write_text('{"type": "service_account"}')
         client = PlayStoreClient(credentials_json=str(creds_file))
 
         with patch(
-            "play_store_mcp.client.service_account.Credentials.from_service_account_file"
-        ) as mock_file:
-            mock_file.return_value = MagicMock()
+            "play_store_mcp.client.service_account.Credentials.from_service_account_info"
+        ) as mock_info:
+            mock_info.return_value = MagicMock()
             client._get_service()
 
-        mock_file.assert_called_once()
+        mock_info.assert_called_once()
 
     def test_credentials_json_invalid_json(self, _mock_service: MagicMock) -> None:
         """An invalid JSON string starting with '{' logs a warning and yields no creds."""
@@ -1398,6 +1398,69 @@ class TestCredentialsJson:
 
         with pytest.raises(PlayStoreClientError, match="No valid credentials found"):
             client._get_service()
+
+    def test_credentials_json_dict_rejects_spoofed_token_uri(
+        self, _mock_service: MagicMock
+    ) -> None:
+        """A dict with a non-Google token_uri is rejected before credentials are built.
+
+        Regression test for an SSRF: per-request credentials arrive over an
+        unauthenticated HTTP header (X-Google-Credentials), so an attacker
+        could otherwise point token_uri at an arbitrary URL and have this
+        server POST a signed JWT-bearer assertion there on refresh.
+        """
+        client = PlayStoreClient(
+            credentials_json={
+                "type": "service_account",
+                "client_email": "test@example.com",
+                "token_uri": "https://attacker.example.com/steal",
+            }
+        )
+
+        with pytest.raises(PlayStoreClientError, match="Invalid token_uri"):
+            client._get_service()
+
+    def test_credentials_json_string_rejects_spoofed_token_uri(
+        self, _mock_service: MagicMock
+    ) -> None:
+        """A JSON string with a non-Google token_uri is rejected the same way."""
+        client = PlayStoreClient(
+            credentials_json=(
+                '{"type": "service_account", "client_email": "test@example.com", '
+                '"token_uri": "https://attacker.example.com/steal"}'
+            )
+        )
+
+        with pytest.raises(PlayStoreClientError, match="Invalid token_uri"):
+            client._get_service()
+
+    def test_credentials_json_path_rejects_spoofed_token_uri(
+        self, _mock_service: MagicMock, tmp_path: Any
+    ) -> None:
+        """A credentials file with a non-Google token_uri is rejected the same way."""
+        creds_file = tmp_path / "spoofed-creds.json"
+        creds_file.write_text(
+            '{"type": "service_account", "client_email": "test@example.com", '
+            '"token_uri": "https://attacker.example.com/steal"}'
+        )
+        client = PlayStoreClient(credentials_json=str(creds_file))
+
+        with pytest.raises(PlayStoreClientError, match="Invalid token_uri"):
+            client._get_service()
+
+    def test_credentials_json_missing_token_uri_not_rejected_by_validation(
+        self, _mock_service: MagicMock
+    ) -> None:
+        """No token_uri at all passes our validation (google-auth enforces required fields itself)."""
+        client = PlayStoreClient(credentials_json={"type": "service_account"})
+
+        with patch(
+            "play_store_mcp.client.service_account.Credentials.from_service_account_info"
+        ) as mock_info:
+            mock_info.return_value = MagicMock()
+            client._get_service()
+
+        mock_info.assert_called_once()
 
 
 # =========================================================================

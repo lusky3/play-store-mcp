@@ -892,6 +892,73 @@ def test_run_http_warns_without_download_dir_but_starts(monkeypatch: pytest.Monk
     assert captured.get("served") is True
 
 
+def _stub_run_http_startup(monkeypatch: pytest.MonkeyPatch, server: Any) -> None:
+    """Stub out the ASGI app/uvicorn bits of _run_http so it returns immediately."""
+
+    def fake_http_app(**_kwargs: Any) -> str:
+        return "ASGI_APP"
+
+    class FakeUvicorn:
+        @staticmethod
+        def run(*_args: Any, **_kwargs: Any) -> None:
+            pass
+
+    monkeypatch.setattr(server.mcp, "http_app", fake_http_app)
+    monkeypatch.setattr(server, "uvicorn", FakeUvicorn)
+
+
+@pytest.mark.parametrize("admin_token", ["short", "a" * 15])
+def test_run_http_warns_on_weak_admin_token(
+    admin_token: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    """A PLAY_STORE_MCP_ADMIN_TOKEN under the recommended minimum length logs a warning."""
+    from play_store_mcp import server
+
+    monkeypatch.setenv("PLAY_STORE_MCP_ADMIN_TOKEN", admin_token)
+    monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(tmp_path))
+    _stub_run_http_startup(monkeypatch, server)
+
+    with patch.object(server.logger, "warning") as mock_warning:
+        server._run_http("streamable-http", "127.0.0.1", 8000)
+
+    messages = [call.args[0] for call in mock_warning.call_args_list]
+    assert any("PLAY_STORE_MCP_ADMIN_TOKEN is shorter than recommended" in m for m in messages)
+
+
+def test_run_http_no_warning_for_strong_admin_token(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    """An admin token at or above the recommended minimum length logs no warning."""
+    from play_store_mcp import server
+
+    monkeypatch.setenv("PLAY_STORE_MCP_ADMIN_TOKEN", "a" * 32)
+    monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(tmp_path))
+    _stub_run_http_startup(monkeypatch, server)
+
+    with patch.object(server.logger, "warning") as mock_warning:
+        server._run_http("streamable-http", "127.0.0.1", 8000)
+
+    messages = [call.args[0] for call in mock_warning.call_args_list]
+    assert not any("PLAY_STORE_MCP_ADMIN_TOKEN" in m for m in messages)
+
+
+def test_run_http_no_warning_when_admin_token_unset(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    """No admin token configured logs no admin-token warning (loopback-only mode is not weak)."""
+    from play_store_mcp import server
+
+    monkeypatch.delenv("PLAY_STORE_MCP_ADMIN_TOKEN", raising=False)
+    monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(tmp_path))
+    _stub_run_http_startup(monkeypatch, server)
+
+    with patch.object(server.logger, "warning") as mock_warning:
+        server._run_http("streamable-http", "127.0.0.1", 8000)
+
+    messages = [call.args[0] for call in mock_warning.call_args_list]
+    assert not any("PLAY_STORE_MCP_ADMIN_TOKEN" in m for m in messages)
+
+
 @pytest.mark.parametrize(
     ("host", "expected"),
     [
@@ -987,6 +1054,35 @@ class TestGetClientFromContext:
         monkeypatch.setitem(server._shared_state, "client", None)
         with pytest.raises(server.PlayStoreClientError, match="No credentials"):
             server.get_client_from_context()
+
+    def test_json_header_with_spoofed_token_uri_blocked_on_first_use(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """End-to-end SSRF regression test for the X-Google-Credentials header.
+
+        get_client_from_context() takes headers from any unauthenticated
+        request and builds a real PlayStoreClient from them (unlike
+        /credentials, which is gated). Confirm a spoofed token_uri is
+        rejected the first time the resulting client is actually used
+        (_get_service(), called at the top of every client method), before
+        any outbound request using it could occur.
+        """
+        from play_store_mcp import server
+
+        monkeypatch.setattr(
+            server,
+            "get_http_headers",
+            lambda: {
+                "x-google-credentials": (
+                    '{"type": "service_account", "client_email": "test@example.com", '
+                    '"token_uri": "https://attacker.example.com/steal"}'
+                )
+            },
+        )
+
+        client = server.get_client_from_context()
+        with pytest.raises(server.PlayStoreClientError, match="Invalid token_uri"):
+            client._get_service()
 
 
 # =========================================================================

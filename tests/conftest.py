@@ -58,9 +58,15 @@ def _reset_shared_state() -> Generator[None, None, None]:
 
 @pytest.fixture
 def _mock_credentials() -> Generator[MagicMock, None, None]:
-    """Mock Google credentials."""
+    """Mock Google credentials.
+
+    All credential-resolution branches (dict, JSON string, file path) funnel
+    through ``from_service_account_info`` so the token_uri validation in
+    ``_build_credentials_from_info`` is a single, universal choke point —
+    so that's the call this mocks, not ``from_service_account_file``.
+    """
     with patch(
-        "play_store_mcp.client.service_account.Credentials.from_service_account_file"
+        "play_store_mcp.client.service_account.Credentials.from_service_account_info"
     ) as mock:
         mock.return_value = MagicMock()
         yield mock
