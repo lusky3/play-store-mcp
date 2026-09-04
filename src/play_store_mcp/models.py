@@ -7,11 +7,18 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+_DESC_PACKAGE_NAME = "App package name"
+_DESC_STATUS_MESSAGE = "Status message"
+_DESC_ERROR = "Error details if failed"
+_DESC_PURCHASE_TOKEN = "Purchase token"  # noqa: S105 - field description, not a credential
+_DESC_ORDER_ID = "Order ID"
+_DESC_SUCCESS = "Whether the action succeeded"
+
 
 class Release(BaseModel):
     """Represents an app release on a track."""
 
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     track: str = Field(..., description="Release track")
     status: str = Field(..., description="Release status")
     version_codes: list[int] = Field(default_factory=list, description="Version codes in release")
@@ -34,17 +41,17 @@ class DeploymentResult(BaseModel):
 
     success: bool = Field(..., description="Whether deployment succeeded")
     edit_id: str | None = Field(None, description="Edit ID for the operation")
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     track: str = Field(..., description="Target track")
     version_code: int | None = Field(None, description="Deployed version code")
-    message: str = Field(..., description="Status message")
-    error: str | None = Field(None, description="Error details if failed")
+    message: str = Field(..., description=_DESC_STATUS_MESSAGE)
+    error: str | None = Field(None, description=_DESC_ERROR)
 
 
 class AppDetails(BaseModel):
     """Detailed app information."""
 
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     title: str | None = Field(None, description="App title")
     short_description: str | None = Field(None, description="Short description")
     full_description: str | None = Field(None, description="Full description")
@@ -76,15 +83,15 @@ class ReviewReplyResult(BaseModel):
 
     success: bool = Field(..., description="Whether reply succeeded")
     review_id: str = Field(..., description="Review ID")
-    message: str = Field(..., description="Status message")
-    error: str | None = Field(None, description="Error details if failed")
+    message: str = Field(..., description=_DESC_STATUS_MESSAGE)
+    error: str | None = Field(None, description=_DESC_ERROR)
 
 
 class SubscriptionProduct(BaseModel):
     """Subscription product definition."""
 
     product_id: str = Field(..., description="Subscription product ID")
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     status: str | None = Field(None, description="Subscription status")
     base_plans: list[dict[str, Any]] = Field(
         default_factory=list, description="Base plan definitions"
@@ -94,10 +101,10 @@ class SubscriptionProduct(BaseModel):
 class SubscriptionPurchase(BaseModel):
     """Subscription purchase status."""
 
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     subscription_id: str = Field(..., description="Subscription product ID")
-    purchase_token: str = Field(..., description="Purchase token")
-    order_id: str | None = Field(None, description="Order ID")
+    purchase_token: str = Field(..., description=_DESC_PURCHASE_TOKEN)
+    order_id: str | None = Field(None, description=_DESC_ORDER_ID)
     start_time: datetime | None = Field(None, description="Subscription start time")
     expiry_time: datetime | None = Field(None, description="Subscription expiry time")
     auto_renewing: bool = Field(False, description="Whether auto-renewing")
@@ -110,9 +117,9 @@ class SubscriptionPurchase(BaseModel):
 class VoidedPurchase(BaseModel):
     """Voided purchase record."""
 
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     purchase_token: str = Field(..., description="Original purchase token")
-    order_id: str | None = Field(None, description="Order ID")
+    order_id: str | None = Field(None, description=_DESC_ORDER_ID)
     voided_time: datetime | None = Field(None, description="Time of voiding")
     voided_reason: int | None = Field(None, description="Reason for voiding")
     voided_source: int | None = Field(None, description="Source of voiding")
@@ -122,7 +129,7 @@ class InAppProduct(BaseModel):
     """In-app product definition."""
 
     sku: str = Field(..., description="Product SKU")
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     product_type: str = Field(..., description="Product type (managed_product or subscription)")
     status: str | None = Field(None, description="Product status")
     default_language: str | None = Field(None, description="Default language")
@@ -134,11 +141,11 @@ class InAppProduct(BaseModel):
 class InAppProductActionResult(BaseModel):
     """Result of a delete/batch-delete action on in-app products."""
 
-    success: bool = Field(..., description="Whether the action succeeded")
-    package_name: str = Field(..., description="App package name")
+    success: bool = Field(..., description=_DESC_SUCCESS)
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     sku: str | None = Field(None, description="Product SKU (None for batch operations)")
-    message: str = Field(..., description="Status message")
-    error: str | None = Field(None, description="Error details if failed")
+    message: str = Field(..., description=_DESC_STATUS_MESSAGE)
+    error: str | None = Field(None, description=_DESC_ERROR)
 
 
 class Listing(BaseModel):
@@ -155,10 +162,10 @@ class ListingUpdateResult(BaseModel):
     """Result of updating a store listing."""
 
     success: bool = Field(..., description="Whether update succeeded")
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     language: str = Field(..., description="Language code")
-    message: str = Field(..., description="Status message")
-    error: str | None = Field(None, description="Error details if failed")
+    message: str = Field(..., description=_DESC_STATUS_MESSAGE)
+    error: str | None = Field(None, description=_DESC_ERROR)
 
 
 class TesterInfo(BaseModel):
@@ -185,8 +192,8 @@ class Order(BaseModel):
     purchase state.
     """
 
-    order_id: str = Field(..., description="Order ID")
-    package_name: str = Field(..., description="App package name")
+    order_id: str = Field(..., description=_DESC_ORDER_ID)
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     state: str | None = Field(
         None,
         description="Order state (e.g. PENDING, PROCESSED, CANCELED, PARTIALLY_REFUNDED, REFUNDED)",
@@ -197,7 +204,7 @@ class Order(BaseModel):
     product_ids: list[str] = Field(
         default_factory=list, description="Product IDs across all line items"
     )
-    purchase_token: str | None = Field(None, description="Purchase token")
+    purchase_token: str | None = Field(None, description=_DESC_PURCHASE_TOKEN)
     create_time: datetime | None = Field(None, description="Time the order was created")
 
 
@@ -213,7 +220,7 @@ class ExpansionFile(BaseModel):
 class Apk(BaseModel):
     """An APK belonging to an edit."""
 
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     version_code: int = Field(..., description="Version code from the manifest")
     sha1: str | None = Field(None, description="SHA1 hash of the APK payload")
     sha256: str | None = Field(None, description="SHA256 hash of the APK payload")
@@ -222,7 +229,7 @@ class Apk(BaseModel):
 class Bundle(BaseModel):
     """An Android App Bundle (.aab) belonging to an edit."""
 
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     version_code: int = Field(..., description="Version code from the base module manifest")
     sha1: str | None = Field(None, description="SHA1 hash of the upload payload")
     sha256: str | None = Field(None, description="SHA256 hash of the upload payload")
@@ -231,7 +238,7 @@ class Bundle(BaseModel):
 class DeobfuscationFile(BaseModel):
     """A deobfuscation (mapping/symbol) file uploaded for an APK version."""
 
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     version_code: int = Field(..., description="APK version code the file applies to")
     symbol_type: str | None = Field(
         None, description="Deobfuscation file type (proguard or nativeCode)"
@@ -241,7 +248,7 @@ class DeobfuscationFile(BaseModel):
 class AppImage(BaseModel):
     """A store-listing image belonging to an edit (edits.images resource)."""
 
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     language: str = Field(..., description="Language localization code (BCP-47 tag)")
     image_type: str = Field(
         ..., description="Image type (e.g. phoneScreenshots, icon, featureGraphic)"
@@ -256,12 +263,12 @@ class ImageDeleteResult(BaseModel):
     """Result of deleting one or all store-listing images."""
 
     success: bool = Field(..., description="Whether the delete action succeeded")
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     language: str = Field(..., description="Language localization code (BCP-47 tag)")
     image_type: str = Field(..., description="Image type the deletion applied to")
     deleted_count: int = Field(0, description="Number of images deleted")
-    message: str = Field(..., description="Status message")
-    error: str | None = Field(None, description="Error details if failed")
+    message: str = Field(..., description=_DESC_STATUS_MESSAGE)
+    error: str | None = Field(None, description=_DESC_ERROR)
 
 
 class BatchDeploymentResult(BaseModel):
@@ -279,10 +286,10 @@ class BatchDeploymentResult(BaseModel):
 class ProductPurchase(BaseModel):
     """Status of an in-app product purchase."""
 
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     product_id: str = Field(..., description="In-app product SKU")
-    purchase_token: str = Field(..., description="Purchase token")
-    order_id: str | None = Field(None, description="Order ID")
+    purchase_token: str = Field(..., description=_DESC_PURCHASE_TOKEN)
+    order_id: str | None = Field(None, description=_DESC_ORDER_ID)
     purchase_state: int | None = Field(
         None, description="Purchase state (0=purchased, 1=canceled, 2=pending)"
     )
@@ -304,13 +311,13 @@ class ProductPurchase(BaseModel):
 class ProductPurchaseActionResult(BaseModel):
     """Result of an acknowledge/consume action on an in-app product purchase."""
 
-    success: bool = Field(..., description="Whether the action succeeded")
-    package_name: str = Field(..., description="App package name")
+    success: bool = Field(..., description=_DESC_SUCCESS)
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     product_id: str = Field(..., description="In-app product SKU")
-    purchase_token: str = Field(..., description="Purchase token")
+    purchase_token: str = Field(..., description=_DESC_PURCHASE_TOKEN)
     action: str = Field(..., description="Action performed (acknowledge or consume)")
-    message: str = Field(..., description="Status message")
-    error: str | None = Field(None, description="Error details if failed")
+    message: str = Field(..., description=_DESC_STATUS_MESSAGE)
+    error: str | None = Field(None, description=_DESC_ERROR)
 
 
 class ValidationResult(BaseModel):
@@ -325,43 +332,43 @@ class OrderRefundResult(BaseModel):
     """Result of refunding an order."""
 
     success: bool = Field(..., description="Whether the refund succeeded")
-    package_name: str = Field(..., description="App package name")
-    order_id: str = Field(..., description="Order ID")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
+    order_id: str = Field(..., description=_DESC_ORDER_ID)
     revoked: bool = Field(..., description="Whether the entitlement was also revoked")
-    message: str = Field(..., description="Status message")
-    error: str | None = Field(None, description="Error details if failed")
+    message: str = Field(..., description=_DESC_STATUS_MESSAGE)
+    error: str | None = Field(None, description=_DESC_ERROR)
 
 
 class SubscriptionActionResult(BaseModel):
     """Result of a cancel/defer/revoke action on a subscription purchase."""
 
-    success: bool = Field(..., description="Whether the action succeeded")
-    package_name: str = Field(..., description="App package name")
-    purchase_token: str = Field(..., description="Purchase token")
+    success: bool = Field(..., description=_DESC_SUCCESS)
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
+    purchase_token: str = Field(..., description=_DESC_PURCHASE_TOKEN)
     action: str = Field(..., description="Action performed (cancel, defer, or revoke)")
-    message: str = Field(..., description="Status message")
+    message: str = Field(..., description=_DESC_STATUS_MESSAGE)
     details: dict[str, Any] | None = Field(
         None, description="Extra result data (e.g. defer expiry)"
     )
-    error: str | None = Field(None, description="Error details if failed")
+    error: str | None = Field(None, description=_DESC_ERROR)
 
 
 class SubscriptionCatalogResult(BaseModel):
     """Result of a delete action on a subscription catalog product."""
 
-    success: bool = Field(..., description="Whether the action succeeded")
-    package_name: str = Field(..., description="App package name")
+    success: bool = Field(..., description=_DESC_SUCCESS)
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     product_id: str | None = Field(
         None, description="Subscription product ID (None for batch operations)"
     )
-    message: str = Field(..., description="Status message")
-    error: str | None = Field(None, description="Error details if failed")
+    message: str = Field(..., description=_DESC_STATUS_MESSAGE)
+    error: str | None = Field(None, description=_DESC_ERROR)
 
 
 class SubscriptionOffer(BaseModel):
     """Subscription offer definition (basePlans.offers resource)."""
 
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     product_id: str = Field(..., description="Parent subscription product ID")
     base_plan_id: str = Field(..., description="Parent base plan ID")
     offer_id: str = Field(..., description="Subscription offer ID")
@@ -377,7 +384,7 @@ class OneTimeProduct(BaseModel):
     """One-time product definition (monetization.oneTimeProducts resource)."""
 
     product_id: str = Field(..., description="One-time product ID")
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     listings: list[dict[str, Any]] = Field(
         default_factory=list, description="Store listing definitions"
     )
@@ -395,19 +402,19 @@ class OneTimeProduct(BaseModel):
 class OneTimeProductActionResult(BaseModel):
     """Result of a delete/batch-delete action on a one-time product catalog resource."""
 
-    success: bool = Field(..., description="Whether the action succeeded")
-    package_name: str = Field(..., description="App package name")
+    success: bool = Field(..., description=_DESC_SUCCESS)
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     product_id: str | None = Field(
         None, description="One-time product ID (None for batch operations)"
     )
-    message: str = Field(..., description="Status message")
-    error: str | None = Field(None, description="Error details if failed")
+    message: str = Field(..., description=_DESC_STATUS_MESSAGE)
+    error: str | None = Field(None, description=_DESC_ERROR)
 
 
 class OneTimeProductOffer(BaseModel):
     """One-time product offer definition (purchaseOptions.offers resource)."""
 
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     product_id: str = Field(..., description="Parent one-time product ID")
     purchase_option_id: str = Field(..., description="Parent purchase option ID")
     offer_id: str = Field(..., description="One-time product offer ID")
@@ -419,9 +426,9 @@ class OneTimeProductOffer(BaseModel):
 class ProductPurchaseV2(BaseModel):
     """Status of an in-app product purchase (Purchases.productsv2)."""
 
-    package_name: str = Field(..., description="App package name")
-    purchase_token: str = Field(..., description="Purchase token")
-    order_id: str | None = Field(None, description="Order ID")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
+    purchase_token: str = Field(..., description=_DESC_PURCHASE_TOKEN)
+    order_id: str | None = Field(None, description=_DESC_ORDER_ID)
     acknowledgement_state: str | None = Field(None, description="Acknowledgement state (enum)")
     purchase_completion_time: str | None = Field(
         None, description="Purchase completion time (RFC3339)"
@@ -442,7 +449,7 @@ class ProductPurchaseV2(BaseModel):
 class ExternalTransaction(BaseModel):
     """External (alternative billing) transaction (externaltransactions resource)."""
 
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     external_transaction_id: str = Field(..., description="External transaction ID")
     transaction_state: str | None = Field(None, description="Current transaction state")
     create_time: str | None = Field(None, description="Time the transaction was created (RFC3339)")
@@ -458,7 +465,7 @@ class ExternalTransaction(BaseModel):
 class DeviceTierConfig(BaseModel):
     """Device tier config (applications.deviceTierConfigs resource)."""
 
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     device_tier_config_id: str | None = Field(None, description="Device tier config ID")
     device_groups: list[dict[str, Any]] = Field(
         default_factory=list, description="Device group definitions"
@@ -502,23 +509,23 @@ class AccessResult(BaseModel):
     """Result of a user/grant write that returns an empty response (delete)."""
 
     success: bool = Field(..., description="Whether the operation succeeded")
-    message: str = Field(..., description="Status message")
-    error: str | None = Field(None, description="Error details if failed")
+    message: str = Field(..., description=_DESC_STATUS_MESSAGE)
+    error: str | None = Field(None, description=_DESC_ERROR)
 
 
 class DataSafetyResult(BaseModel):
     """Result of updating an app's data safety labels (applications.dataSafety)."""
 
     success: bool = Field(..., description="Whether the update succeeded")
-    package_name: str = Field(..., description="App package name")
-    message: str = Field(..., description="Status message")
-    error: str | None = Field(None, description="Error details if failed")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
+    message: str = Field(..., description=_DESC_STATUS_MESSAGE)
+    error: str | None = Field(None, description=_DESC_ERROR)
 
 
 class AppRecovery(BaseModel):
     """App recovery action (applications.appRecoveries resource)."""
 
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     app_recovery_id: str | None = Field(None, description="App recovery action ID")
     status: str | None = Field(None, description="Recovery action status")
     targeting: dict[str, Any] | None = Field(
@@ -530,17 +537,17 @@ class AppRecovery(BaseModel):
 class AppRecoveryResult(BaseModel):
     """Result of a deploy/cancel/add-targeting action on an app recovery action."""
 
-    success: bool = Field(..., description="Whether the action succeeded")
-    package_name: str = Field(..., description="App package name")
+    success: bool = Field(..., description=_DESC_SUCCESS)
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     app_recovery_id: str | None = Field(None, description="App recovery action ID")
-    message: str = Field(..., description="Status message")
-    error: str | None = Field(None, description="Error details if failed")
+    message: str = Field(..., description=_DESC_STATUS_MESSAGE)
+    error: str | None = Field(None, description=_DESC_ERROR)
 
 
 class GeneratedApksDownload(BaseModel):
     """A single downloadable generated APK (generatedapks resource)."""
 
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     version_code: int = Field(..., description="Bundle version code the APK was generated from")
     download_id: str = Field(..., description="Download ID identifying the generated APK")
     apk_type: str = Field(
@@ -554,7 +561,7 @@ class GeneratedApksDownload(BaseModel):
 class SystemApkVariant(BaseModel):
     """A system APK variant (systemapks.variants resource)."""
 
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     version_code: int = Field(..., description="Version code of the App Bundle")
     variant_id: int | None = Field(None, description="ID of the system APK variant")
     device_spec: dict[str, Any] | None = Field(
@@ -568,14 +575,14 @@ class DownloadResult(BaseModel):
 
     success: bool = Field(..., description="Whether the download succeeded")
     destination_path: str = Field(..., description="Local path the file was written to")
-    message: str = Field(..., description="Status message")
-    error: str | None = Field(None, description="Error details if failed")
+    message: str = Field(..., description=_DESC_STATUS_MESSAGE)
+    error: str | None = Field(None, description=_DESC_ERROR)
 
 
 class InternalAppSharingArtifact(BaseModel):
     """An uploaded internal app sharing artifact (internalappsharingartifacts)."""
 
-    package_name: str = Field(..., description="App package name")
+    package_name: str = Field(..., description=_DESC_PACKAGE_NAME)
     download_url: str | None = Field(None, description="Download URL for the uploaded artifact")
     certificate_fingerprint: str | None = Field(
         None, description="SHA-256 fingerprint of the signing certificate"
