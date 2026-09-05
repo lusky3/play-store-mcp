@@ -584,6 +584,37 @@ class PlayStoreClient:
         finally:
             self._delete_edit(package_name, edit_id)
 
+    @staticmethod
+    def _build_release_body(
+        version_code: int,
+        rollout_percentage: float,
+        release_notes: str | dict[str, str] | None,
+        release_notes_language: str,
+    ) -> dict[str, Any]:
+        """Build the release body for edits().tracks().update() from upload results."""
+        release_body: dict[str, Any] = {"versionCodes": [str(version_code)]}
+
+        if rollout_percentage < 100:
+            release_body["status"] = "inProgress"
+            release_body["userFraction"] = rollout_percentage / 100.0
+        else:
+            release_body["status"] = "completed"
+
+        # Handle release notes - support both string and dict formats
+        if release_notes:
+            if isinstance(release_notes, dict):
+                # Multi-language release notes
+                release_body["releaseNotes"] = [
+                    {"language": lang, "text": text} for lang, text in release_notes.items()
+                ]
+            else:
+                # Single language release notes
+                release_body["releaseNotes"] = [
+                    {"language": release_notes_language, "text": release_notes}
+                ]
+
+        return release_body
+
     def deploy_app(
         self,
         package_name: str,
@@ -652,29 +683,9 @@ class PlayStoreClient:
             uploaded_version_code = int(upload_response.get("versionCode", 0))
             self._logger.info("Upload complete", version_code=uploaded_version_code)
 
-            # Build release
-            release_body: dict[str, Any] = {
-                "versionCodes": [str(uploaded_version_code)],
-            }
-
-            if rollout_percentage < 100:
-                release_body["status"] = "inProgress"
-                release_body["userFraction"] = rollout_percentage / 100.0
-            else:
-                release_body["status"] = "completed"
-
-            # Handle release notes - support both string and dict formats
-            if release_notes:
-                if isinstance(release_notes, dict):
-                    # Multi-language release notes
-                    release_body["releaseNotes"] = [
-                        {"language": lang, "text": text} for lang, text in release_notes.items()
-                    ]
-                else:
-                    # Single language release notes
-                    release_body["releaseNotes"] = [
-                        {"language": release_notes_language, "text": release_notes}
-                    ]
+            release_body = self._build_release_body(
+                uploaded_version_code, rollout_percentage, release_notes, release_notes_language
+            )
 
             # Update track
             track_body = {"releases": [release_body]}
