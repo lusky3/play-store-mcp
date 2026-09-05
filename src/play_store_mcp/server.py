@@ -91,6 +91,11 @@ def get_client_from_context() -> PlayStoreClient:
 # can reach it without depending on framework-internal context plumbing.
 _shared_state: dict[str, Any] = {"client": None, "credentials_updated": False}
 
+# Recommended minimum length for PLAY_STORE_MCP_ADMIN_TOKEN, below which
+# _run_http logs a startup warning. `openssl rand -hex 32` (the documented
+# recommendation) produces a 64-char token; this is a low bar, not a target.
+_MIN_ADMIN_TOKEN_LENGTH = 16
+
 
 @asynccontextmanager
 async def lifespan(_server: FastMCP):  # type: ignore[no-untyped-def]
@@ -3795,6 +3800,15 @@ def _run_http(transport: str, host: str, port: int) -> None:
             "the server's working directory. Set it to a writable directory to control where "
             "downloads are written on a network-exposed deployment.",
             transport=transport,
+        )
+    admin_token = os.environ.get("PLAY_STORE_MCP_ADMIN_TOKEN")
+    if admin_token and len(admin_token) < _MIN_ADMIN_TOKEN_LENGTH:
+        logger.warning(
+            "PLAY_STORE_MCP_ADMIN_TOKEN is shorter than recommended; a weak token makes "
+            "the /credentials endpoint's Bearer-token check easier to brute-force. Use a "
+            "long random value, e.g. `openssl rand -hex 32`.",
+            token_length=len(admin_token),
+            recommended_minimum=_MIN_ADMIN_TOKEN_LENGTH,
         )
     middleware: list[Middleware] = []
     if not _dns_rebinding_disabled():

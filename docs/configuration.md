@@ -74,6 +74,14 @@ docker run -p 8000:8000 \
   --transport streamable-http --host 0.0.0.0 --port 8000
 ```
 
+> **Warning:** `--host 0.0.0.0` binds the MCP tool-invocation endpoint (`/mcp`) itself,
+> which has **no built-in authentication** — only `/credentials` is gated (see
+> [Per-Request Credentials](#per-request-credentials) below). Exposing this port
+> directly, as above, gives anyone with network access to it full read/write access to
+> the Google Play account configured via `GOOGLE_APPLICATION_CREDENTIALS`. Put a reverse
+> proxy with its own authentication in front before exposing this port beyond
+> localhost/a private network.
+
 ## Environment Variables
 
 | Variable | Description | Required | Default |

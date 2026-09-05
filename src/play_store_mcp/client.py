@@ -78,6 +78,12 @@ logger = structlog.get_logger(__name__)
 # API scopes required for Play Developer API
 SCOPES = ["https://www.googleapis.com/auth/androidpublisher"]
 
+# The fixed OAuth token endpoint Google issues in every service account JSON
+# key. Enforced in _build_credentials_from_info to prevent a spoofed
+# token_uri (e.g. from an untrusted per-request credential header) from
+# being used as an SSRF primitive during credential refresh.
+_GOOGLE_OAUTH_TOKEN_URI = "https://oauth2.googleapis.com/token"  # noqa: S105 # nosec B105 — endpoint URL, not a credential
+
 # Retry configuration
 MAX_RETRIES = 3
 INITIAL_BACKOFF = 1.0  # seconds
@@ -392,9 +398,7 @@ class PlayStoreClient:
             return None
 
         if isinstance(self._credentials_json, dict):
-            return service_account.Credentials.from_service_account_info(
-                self._credentials_json, scopes=SCOPES
-            )
+            return self._build_credentials_from_info(self._credentials_json)
 
         if not isinstance(self._credentials_json, str):
             return None
@@ -403,13 +407,9 @@ class PlayStoreClient:
             # Check if it's actually JSON or a path to a file
             if self._credentials_json.strip().startswith("{"):
                 creds_info = json.loads(self._credentials_json)
-                return service_account.Credentials.from_service_account_info(
-                    creds_info, scopes=SCOPES
-                )
+                return self._build_credentials_from_info(creds_info)
             if Path(self._credentials_json).exists():
-                return service_account.Credentials.from_service_account_file(
-                    self._credentials_json, scopes=SCOPES
-                )
+                return self._build_credentials_from_file(self._credentials_json)
         except json.JSONDecodeError:
             # If it's not JSON, maybe it's a path that doesn't exist?
             self._logger.warning(
@@ -424,7 +424,34 @@ class PlayStoreClient:
         creds_path = Path(self._credentials_path)
         if not creds_path.exists():
             return None
-        return service_account.Credentials.from_service_account_file(str(creds_path), scopes=SCOPES)
+        return self._build_credentials_from_file(str(creds_path))
+
+    def _build_credentials_from_file(self, path: str) -> Any:
+        """Load a service account JSON key file and build validated credentials."""
+        with Path(path).open(encoding="utf-8") as f:
+            creds_info = json.load(f)
+        return self._build_credentials_from_info(creds_info)
+
+    def _build_credentials_from_info(self, creds_info: dict[str, Any]) -> Any:
+        """Build service-account credentials, rejecting a spoofed ``token_uri``.
+
+        Every service account key Google issues has a fixed, well-known
+        ``token_uri`` (``https://oauth2.googleapis.com/token``). This client
+        also accepts per-request credentials from untrusted HTTP headers
+        (``X-Google-Credentials``/``X-Google-Credentials-Base64`` in
+        server.py's ``get_client_from_context``), so without this check a
+        caller could supply a spoofed ``token_uri`` and turn the OAuth
+        refresh request google-auth makes internally into an SSRF primitive
+        (an outbound request to an attacker-chosen URL, on this server's
+        network, triggered by any tool call).
+        """
+        token_uri = creds_info.get("token_uri")
+        if token_uri is not None and token_uri != _GOOGLE_OAUTH_TOKEN_URI:
+            raise PlayStoreClientError(
+                f"Invalid token_uri in service account credentials: {token_uri!r} "
+                f"(expected {_GOOGLE_OAUTH_TOKEN_URI!r})"
+            )
+        return service_account.Credentials.from_service_account_info(creds_info, scopes=SCOPES)
 
     def _resolve_credentials(self) -> Any:
         """Resolve credentials, trying credentials_json before credentials_path."""
