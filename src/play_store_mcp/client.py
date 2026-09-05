@@ -625,10 +625,11 @@ class PlayStoreClient:
                 error="FileNotFoundError",
             )
 
-        service = self._get_service()
-        edit_id = self._create_edit(package_name)
-
+        edit_id: str | None = None
         try:
+            service = self._get_service()
+            edit_id = self._create_edit(package_name)
+
             # Determine content type and upload method
             is_bundle = file_path.lower().endswith(".aab")
             content_type = _MIME_TYPE_AAB if is_bundle else _MIME_TYPE_APK
@@ -702,7 +703,8 @@ class PlayStoreClient:
 
         except HttpError as e:
             self._logger.exception("Deployment failed", error=str(e))
-            self._delete_edit(package_name, edit_id)
+            if edit_id is not None:
+                self._delete_edit(package_name, edit_id)
             return DeploymentResult(
                 success=False,
                 package_name=package_name,
@@ -712,7 +714,8 @@ class PlayStoreClient:
             )
         except Exception as e:
             self._logger.exception("Deployment failed", error=str(e))
-            self._delete_edit(package_name, edit_id)
+            if edit_id is not None:
+                self._delete_edit(package_name, edit_id)
             return DeploymentResult(
                 success=False,
                 package_name=package_name,
@@ -749,10 +752,11 @@ class PlayStoreClient:
             version_code=version_code,
         )
 
-        service = self._get_service()
-        edit_id = self._create_edit(package_name)
-
+        edit_id: str | None = None
         try:
+            service = self._get_service()
+            edit_id = self._create_edit(package_name)
+
             # Get source track info
             source_track = self._execute(
                 service.edits()
@@ -816,7 +820,8 @@ class PlayStoreClient:
 
         except HttpError as e:
             self._logger.exception("Promotion failed", error=str(e))
-            self._delete_edit(package_name, edit_id)
+            if edit_id is not None:
+                self._delete_edit(package_name, edit_id)
             return DeploymentResult(
                 success=False,
                 package_name=package_name,
@@ -827,7 +832,8 @@ class PlayStoreClient:
             )
         except Exception as e:
             self._logger.exception("Promotion failed", error=str(e))
-            self._delete_edit(package_name, edit_id)
+            if edit_id is not None:
+                self._delete_edit(package_name, edit_id)
             return DeploymentResult(
                 success=False,
                 package_name=package_name,
@@ -855,10 +861,11 @@ class PlayStoreClient:
             version_code=version_code,
         )
 
-        service = self._get_service()
-        edit_id = self._create_edit(package_name)
-
+        edit_id: str | None = None
         try:
+            service = self._get_service()
+            edit_id = self._create_edit(package_name)
+
             # Get current track info
             current_track = self._execute(
                 service.edits().tracks().get(packageName=package_name, editId=edit_id, track=track)
@@ -910,7 +917,8 @@ class PlayStoreClient:
 
         except HttpError as e:
             self._logger.exception("Halt failed", error=str(e))
-            self._delete_edit(package_name, edit_id)
+            if edit_id is not None:
+                self._delete_edit(package_name, edit_id)
             return DeploymentResult(
                 success=False,
                 package_name=package_name,
@@ -921,7 +929,8 @@ class PlayStoreClient:
             )
         except Exception as e:
             self._logger.exception("Halt failed", error=str(e))
-            self._delete_edit(package_name, edit_id)
+            if edit_id is not None:
+                self._delete_edit(package_name, edit_id)
             return DeploymentResult(
                 success=False,
                 package_name=package_name,
@@ -957,10 +966,11 @@ class PlayStoreClient:
             rollout_percentage=rollout_percentage,
         )
 
-        service = self._get_service()
-        edit_id = self._create_edit(package_name)
-
+        edit_id: str | None = None
         try:
+            service = self._get_service()
+            edit_id = self._create_edit(package_name)
+
             # Get current track info
             current_track = self._execute(
                 service.edits().tracks().get(packageName=package_name, editId=edit_id, track=track)
@@ -1017,7 +1027,8 @@ class PlayStoreClient:
 
         except HttpError as e:
             self._logger.exception("Rollout update failed", error=str(e))
-            self._delete_edit(package_name, edit_id)
+            if edit_id is not None:
+                self._delete_edit(package_name, edit_id)
             return DeploymentResult(
                 success=False,
                 package_name=package_name,
@@ -1028,7 +1039,8 @@ class PlayStoreClient:
             )
         except Exception as e:
             self._logger.exception("Rollout update failed", error=str(e))
-            self._delete_edit(package_name, edit_id)
+            if edit_id is not None:
+                self._delete_edit(package_name, edit_id)
             return DeploymentResult(
                 success=False,
                 package_name=package_name,
@@ -3918,10 +3930,11 @@ class PlayStoreClient:
             Update result.
         """
         self._logger.info("Updating store listing", package_name=package_name, language=language)
-        service = self._get_service()
-        edit_id = self._create_edit(package_name)
-
+        edit_id: str | None = None
         try:
+            service = self._get_service()
+            edit_id = self._create_edit(package_name)
+
             # Get current listing
             try:
                 current_listing = self._execute(
@@ -3975,7 +3988,8 @@ class PlayStoreClient:
 
         except HttpError as e:
             self._logger.exception("Failed to update listing", error=str(e))
-            self._delete_edit(package_name, edit_id)
+            if edit_id is not None:
+                self._delete_edit(package_name, edit_id)
             return ListingUpdateResult(
                 success=False,
                 package_name=package_name,
@@ -3985,7 +3999,8 @@ class PlayStoreClient:
             )
         except Exception as e:
             self._logger.exception("Failed to update listing", error=str(e))
-            self._delete_edit(package_name, edit_id)
+            if edit_id is not None:
+                self._delete_edit(package_name, edit_id)
             return ListingUpdateResult(
                 success=False,
                 package_name=package_name,
@@ -4088,10 +4103,11 @@ class PlayStoreClient:
             track=track,
             count=len(google_groups),
         )
-        service = self._get_service()
-        edit_id = self._create_edit(package_name)
-
+        edit_id: str | None = None
         try:
+            service = self._get_service()
+            edit_id = self._create_edit(package_name)
+
             self._execute(
                 service.edits()
                 .testers()
@@ -4109,11 +4125,13 @@ class PlayStoreClient:
 
         except HttpError as e:
             self._logger.exception("Failed to update testers", error=str(e))
-            self._delete_edit(package_name, edit_id)
+            if edit_id is not None:
+                self._delete_edit(package_name, edit_id)
             return {"success": False, "track": track, "error": str(e)}
         except Exception as e:
             self._logger.exception("Failed to update testers", error=str(e))
-            self._delete_edit(package_name, edit_id)
+            if edit_id is not None:
+                self._delete_edit(package_name, edit_id)
             return {"success": False, "track": track, "error": str(e)}
 
     # =========================================================================
