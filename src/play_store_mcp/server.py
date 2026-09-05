@@ -14,7 +14,7 @@ import secrets
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 import structlog
 import uvicorn
@@ -85,11 +85,25 @@ def get_client_from_context() -> PlayStoreClient:
     )
 
 
+class AppState(TypedDict):
+    """Shared state threaded through the FastMCP lifespan context.
+
+    A TypedDict, not a dataclass, so every existing subscript access
+    (``_shared_state["client"]``, including the dict-style access FastMCP's
+    yielded lifespan context and this module's own tests use) keeps working
+    unchanged -- this only adds mypy key-name and value-type checking, no
+    runtime behavior change.
+    """
+
+    client: PlayStoreClient | None
+    credentials_updated: bool
+
+
 # Shared fallback client, used when a request carries no per-request
 # credential header. Populated by the lifespan on startup and swapped by the
 # /credentials route. Module-level so custom routes and get_client_from_context
 # can reach it without depending on framework-internal context plumbing.
-_shared_state: dict[str, Any] = {"client": None, "credentials_updated": False}
+_shared_state: AppState = {"client": None, "credentials_updated": False}
 
 # Recommended minimum length for PLAY_STORE_MCP_ADMIN_TOKEN, below which
 # _run_http logs a startup warning. `openssl rand -hex 32` (the documented
