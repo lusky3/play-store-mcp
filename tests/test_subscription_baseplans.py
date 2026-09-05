@@ -140,8 +140,10 @@ def test_delete_base_plan_http_error():
     _base_plans(service).delete.return_value.execute.side_effect = _make_http_error("bad")
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to delete base plan"):
-        client.delete_base_plan("com.example.app", "premium_monthly", "monthly")
+    result = client.delete_base_plan("com.example.app", "premium_monthly", "monthly")
+
+    assert result.success is False
+    assert "Failed to delete base plan" in result.message
 
 
 # ---------------------------------------------------------------------------

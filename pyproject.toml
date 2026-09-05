@@ -135,6 +135,9 @@ ignore = [
 ]
 "src/play_store_mcp/client.py" = [
     "C901",    # complexity in _get_service is acceptable for credential handling
+    "BLE001",  # write methods must return a Result rather than crash the MCP
+               # tool call on any failure; _fail_result always logs and
+               # constructs a proper error Result, never silently swallows
 ]
 
 [tool.ruff.lint.isort]

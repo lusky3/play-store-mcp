@@ -13,7 +13,7 @@ import threading
 import time
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeVar
 
 import structlog
 from google.oauth2 import service_account
@@ -48,6 +48,7 @@ from play_store_mcp.models import (
     OneTimeProduct,
     OneTimeProductActionResult,
     OneTimeProductOffer,
+    OperationResult,
     Order,
     OrderLineItem,
     OrderRefundResult,
@@ -83,6 +84,8 @@ SCOPES = ["https://www.googleapis.com/auth/androidpublisher"]
 # token_uri (e.g. from an untrusted per-request credential header) from
 # being used as an SSRF primitive during credential refresh.
 _GOOGLE_OAUTH_TOKEN_URI = "https://oauth2.googleapis.com/token"  # noqa: S105 # nosec B105 — endpoint URL, not a credential
+
+_ResultT = TypeVar("_ResultT", bound=OperationResult)
 
 # Retry configuration
 MAX_RETRIES = 3
@@ -554,6 +557,59 @@ class PlayStoreClient:
             # Edit may have already been committed or expired
             self._logger.debug("Edit cleanup failed", error=str(e))
 
+    def _fail_result(
+        self,
+        result_cls: type[_ResultT],
+        context: str,
+        error: Exception,
+        *,
+        edit_id: str | None = None,
+        package_name: str | None = None,
+        **extra_fields: Any,
+    ) -> _ResultT:
+        """Log an operation failure, clean up any open edit, and build its Result.
+
+        Collapses the ``except HttpError`` / ``except Exception`` pair that
+        nearly every write method used to repeat: both branches log, clean up,
+        and construct the same Result -- differing only in how the failure
+        reason is derived (HttpError.reason vs str(error)). Pass this as the
+        single ``except Exception as e`` handler's body via
+        ``return self._fail_result(...)``.
+
+        Args:
+            result_cls: The OperationResult subclass to construct.
+            context: Prefixes the log event and the message, e.g. "Deployment
+                failed" -- the constructed message is f"{context}: {reason}".
+                Named `context`, not `action`, since several result_cls have
+                their own `action` field (e.g. "acknowledge"/"consume") that
+                would otherwise collide with this parameter as a kwarg.
+            error: The caught exception.
+            edit_id: Open edit to clean up, if any (skipped when None -- e.g.
+                edit creation itself failed, so there's nothing to delete).
+            package_name: Used for edit cleanup (alongside edit_id) and,
+                since nearly every result_cls has a package_name field,
+                forwarded into the constructed result too. Omit entirely for
+                a result_cls with no package_name field (e.g. AccessResult)
+                and no edit to clean up.
+            **extra_fields: Additional fields for result_cls (e.g. track,
+                version_code, action).
+
+        Returns:
+            result_cls(success=False, message=..., error=str(error), **extra_fields).
+        """
+        reason = error.reason if isinstance(error, HttpError) else str(error)
+        self._logger.exception(context, error=str(error))
+        if edit_id is not None and package_name is not None:
+            self._delete_edit(package_name, edit_id)
+        if package_name is not None:
+            extra_fields = {"package_name": package_name, **extra_fields}
+        return result_cls(
+            success=False,
+            message=f"{context}: {reason}",
+            error=str(error),
+            **extra_fields,
+        )
+
     # =========================================================================
     # Publishing API
     # =========================================================================
@@ -739,27 +795,14 @@ class PlayStoreClient:
                 message=f"Successfully deployed version {uploaded_version_code} to {track}",
             )
 
-        except HttpError as e:
-            self._logger.exception("Deployment failed", error=str(e))
-            if edit_id is not None:
-                self._delete_edit(package_name, edit_id)
-            return DeploymentResult(
-                success=False,
-                package_name=package_name,
-                track=track,
-                message=f"Deployment failed: {e.reason}",
-                error=str(e),
-            )
         except Exception as e:
-            self._logger.exception("Deployment failed", error=str(e))
-            if edit_id is not None:
-                self._delete_edit(package_name, edit_id)
-            return DeploymentResult(
-                success=False,
+            return self._fail_result(
+                DeploymentResult,
+                "Deployment failed",
+                e,
+                edit_id=edit_id,
                 package_name=package_name,
                 track=track,
-                message=f"Deployment failed: {e}",
-                error=str(e),
             )
 
     def promote_release(
@@ -856,29 +899,15 @@ class PlayStoreClient:
                 message=f"Successfully promoted version {version_code} from {from_track} to {to_track}",
             )
 
-        except HttpError as e:
-            self._logger.exception("Promotion failed", error=str(e))
-            if edit_id is not None:
-                self._delete_edit(package_name, edit_id)
-            return DeploymentResult(
-                success=False,
-                package_name=package_name,
-                track=to_track,
-                version_code=version_code,
-                message=f"Promotion failed: {e.reason}",
-                error=str(e),
-            )
         except Exception as e:
-            self._logger.exception("Promotion failed", error=str(e))
-            if edit_id is not None:
-                self._delete_edit(package_name, edit_id)
-            return DeploymentResult(
-                success=False,
+            return self._fail_result(
+                DeploymentResult,
+                "Promotion failed",
+                e,
+                edit_id=edit_id,
                 package_name=package_name,
                 track=to_track,
                 version_code=version_code,
-                message=f"Promotion failed: {e}",
-                error=str(e),
             )
 
     def halt_release(self, package_name: str, track: str, version_code: int) -> DeploymentResult:
@@ -953,29 +982,15 @@ class PlayStoreClient:
                 message=f"Successfully halted version {version_code} on {track}",
             )
 
-        except HttpError as e:
-            self._logger.exception("Halt failed", error=str(e))
-            if edit_id is not None:
-                self._delete_edit(package_name, edit_id)
-            return DeploymentResult(
-                success=False,
-                package_name=package_name,
-                track=track,
-                version_code=version_code,
-                message=f"Halt failed: {e.reason}",
-                error=str(e),
-            )
         except Exception as e:
-            self._logger.exception("Halt failed", error=str(e))
-            if edit_id is not None:
-                self._delete_edit(package_name, edit_id)
-            return DeploymentResult(
-                success=False,
+            return self._fail_result(
+                DeploymentResult,
+                "Halt failed",
+                e,
+                edit_id=edit_id,
                 package_name=package_name,
                 track=track,
                 version_code=version_code,
-                message=f"Halt failed: {e}",
-                error=str(e),
             )
 
     def update_rollout(
@@ -1063,29 +1078,15 @@ class PlayStoreClient:
                 message=f"Successfully updated rollout to {rollout_percentage}% for version {version_code}",
             )
 
-        except HttpError as e:
-            self._logger.exception("Rollout update failed", error=str(e))
-            if edit_id is not None:
-                self._delete_edit(package_name, edit_id)
-            return DeploymentResult(
-                success=False,
-                package_name=package_name,
-                track=track,
-                version_code=version_code,
-                message=f"Rollout update failed: {e.reason}",
-                error=str(e),
-            )
         except Exception as e:
-            self._logger.exception("Rollout update failed", error=str(e))
-            if edit_id is not None:
-                self._delete_edit(package_name, edit_id)
-            return DeploymentResult(
-                success=False,
+            return self._fail_result(
+                DeploymentResult,
+                "Rollout update failed",
+                e,
+                edit_id=edit_id,
                 package_name=package_name,
                 track=track,
                 version_code=version_code,
-                message=f"Rollout update failed: {e}",
-                error=str(e),
             )
 
     def get_app_details(self, package_name: str, language: str = "en-US") -> AppDetails:
@@ -1260,13 +1261,12 @@ class PlayStoreClient:
                 message="Reply posted successfully",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to reply to review", error=str(e))
-            return ReviewReplyResult(
-                success=False,
+        except Exception as e:
+            return self._fail_result(
+                ReviewReplyResult,
+                "Failed to reply",
+                e,
                 review_id=review_id,
-                message=f"Failed to reply: {e.reason}",
-                error=str(e),
             )
 
     # =========================================================================
@@ -1524,9 +1524,16 @@ class PlayStoreClient:
                 message="Purchase acknowledged successfully",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to acknowledge product purchase", error=str(e))
-            raise PlayStoreClientError(f"Failed to acknowledge product purchase: {e.reason}") from e
+        except Exception as e:
+            return self._fail_result(
+                ProductPurchaseActionResult,
+                "Failed to acknowledge product purchase",
+                e,
+                package_name=package_name,
+                product_id=product_id,
+                purchase_token=token,
+                action="acknowledge",
+            )
 
     def consume_product_purchase(
         self,
@@ -1569,9 +1576,16 @@ class PlayStoreClient:
                 message="Purchase consumed successfully",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to consume product purchase", error=str(e))
-            raise PlayStoreClientError(f"Failed to consume product purchase: {e.reason}") from e
+        except Exception as e:
+            return self._fail_result(
+                ProductPurchaseActionResult,
+                "Failed to consume product purchase",
+                e,
+                package_name=package_name,
+                product_id=product_id,
+                purchase_token=token,
+                action="consume",
+            )
 
     def refund_order(
         self,
@@ -1608,9 +1622,15 @@ class PlayStoreClient:
                 message=message,
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to refund order", error=str(e))
-            raise PlayStoreClientError(f"Failed to refund order: {e.reason}") from e
+        except Exception as e:
+            return self._fail_result(
+                OrderRefundResult,
+                "Failed to refund order",
+                e,
+                package_name=package_name,
+                order_id=order_id,
+                revoked=False,
+            )
 
     def cancel_subscription_purchase(
         self,
@@ -1651,9 +1671,15 @@ class PlayStoreClient:
                 message="Subscription cancellation scheduled",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to cancel subscription", error=str(e))
-            raise PlayStoreClientError(f"Failed to cancel subscription: {e.reason}") from e
+        except Exception as e:
+            return self._fail_result(
+                SubscriptionActionResult,
+                "Failed to cancel subscription",
+                e,
+                package_name=package_name,
+                purchase_token=token,
+                action="cancel",
+            )
 
     def defer_subscription_purchase(
         self,
@@ -1696,9 +1722,15 @@ class PlayStoreClient:
                 details={"itemExpiryTimeDetails": result.get("itemExpiryTimeDetails", [])},
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to defer subscription", error=str(e))
-            raise PlayStoreClientError(f"Failed to defer subscription: {e.reason}") from e
+        except Exception as e:
+            return self._fail_result(
+                SubscriptionActionResult,
+                "Failed to defer subscription",
+                e,
+                package_name=package_name,
+                purchase_token=token,
+                action="defer",
+            )
 
     def revoke_subscription_purchase(
         self,
@@ -1720,9 +1752,16 @@ class PlayStoreClient:
             "Revoking subscription purchase", package_name=package_name, refund_type=refund_type
         )
         if refund_type not in _REVOCATION_CONTEXTS:
-            raise PlayStoreClientError(
-                f"Invalid refund_type '{refund_type}'; must be one of: "
-                f"{', '.join(sorted(_REVOCATION_CONTEXTS))}"
+            return SubscriptionActionResult(
+                success=False,
+                package_name=package_name,
+                purchase_token=token,
+                action="revoke",
+                message=(
+                    f"Invalid refund_type '{refund_type}'; must be one of: "
+                    f"{', '.join(sorted(_REVOCATION_CONTEXTS))}"
+                ),
+                error="InvalidRefundType",
             )
         service = self._get_service()
 
@@ -1745,9 +1784,15 @@ class PlayStoreClient:
                 message=f"Subscription revoked ({refund_type} refund)",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to revoke subscription", error=str(e))
-            raise PlayStoreClientError(f"Failed to revoke subscription: {e.reason}") from e
+        except Exception as e:
+            return self._fail_result(
+                SubscriptionActionResult,
+                "Failed to revoke subscription",
+                e,
+                package_name=package_name,
+                purchase_token=token,
+                action="revoke",
+            )
 
     def get_product_purchase_v2(
         self,
@@ -2051,9 +2096,14 @@ class PlayStoreClient:
                 message=f"In-app product {sku} deleted successfully",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to delete in-app product", error=str(e))
-            raise PlayStoreClientError(f"Failed to delete in-app product: {e.reason}") from e
+        except Exception as e:
+            return self._fail_result(
+                InAppProductActionResult,
+                "Failed to delete in-app product",
+                e,
+                package_name=package_name,
+                sku=sku,
+            )
 
     def batch_get_in_app_products(self, package_name: str, skus: list[str]) -> list[InAppProduct]:
         """Get details for multiple in-app products.
@@ -2116,9 +2166,14 @@ class PlayStoreClient:
                 message=f"Deleted {len(skus)} in-app product(s) successfully",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to batch delete in-app products", error=str(e))
-            raise PlayStoreClientError(f"Failed to batch delete in-app products: {e.reason}") from e
+        except Exception as e:
+            return self._fail_result(
+                InAppProductActionResult,
+                "Failed to batch delete in-app products",
+                e,
+                package_name=package_name,
+                sku=None,
+            )
 
     # =========================================================================
     # One-Time Product Catalog API
@@ -2304,9 +2359,14 @@ class PlayStoreClient:
                 message=f"One-time product {product_id} deleted successfully",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to delete one-time product", error=str(e))
-            raise PlayStoreClientError(f"Failed to delete one-time product: {e.reason}") from e
+        except Exception as e:
+            return self._fail_result(
+                OneTimeProductActionResult,
+                "Failed to delete one-time product",
+                e,
+                package_name=package_name,
+                product_id=product_id,
+            )
 
     def batch_update_one_time_products(
         self, package_name: str, requests: list[dict[str, Any]]
@@ -2374,11 +2434,14 @@ class PlayStoreClient:
                 message=f"Deleted {len(requests)} one-time product(s) successfully",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to batch delete one-time products", error=str(e))
-            raise PlayStoreClientError(
-                f"Failed to batch delete one-time products: {e.reason}"
-            ) from e
+        except Exception as e:
+            return self._fail_result(
+                OneTimeProductActionResult,
+                "Failed to batch delete one-time products",
+                e,
+                package_name=package_name,
+                product_id=None,
+            )
 
     # =========================================================================
     # One-Time Product Purchase Options API
@@ -2424,11 +2487,14 @@ class PlayStoreClient:
                 message=f"Deleted {len(requests)} purchase option(s) successfully",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to batch delete purchase options", error=str(e))
-            raise PlayStoreClientError(
-                f"Failed to batch delete purchase options: {e.reason}"
-            ) from e
+        except Exception as e:
+            return self._fail_result(
+                OneTimeProductActionResult,
+                "Failed to batch delete purchase options",
+                e,
+                package_name=package_name,
+                product_id=product_id,
+            )
 
     def batch_update_purchase_option_states(
         self, package_name: str, product_id: str, requests: list[dict[str, Any]]
@@ -2899,11 +2965,14 @@ class PlayStoreClient:
                 message=f"Deleted {len(requests)} one-time product offer(s) successfully",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to batch delete purchase option offers", error=str(e))
-            raise PlayStoreClientError(
-                f"Failed to batch delete purchase option offers: {e.reason}"
-            ) from e
+        except Exception as e:
+            return self._fail_result(
+                OneTimeProductActionResult,
+                "Failed to batch delete purchase option offers",
+                e,
+                package_name=package_name,
+                product_id=product_id,
+            )
 
     # =========================================================================
     # Subscription Catalog API
@@ -3050,9 +3119,14 @@ class PlayStoreClient:
                 message=f"Subscription {product_id} deleted successfully",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to delete subscription", error=str(e))
-            raise PlayStoreClientError(f"Failed to delete subscription: {e.reason}") from e
+        except Exception as e:
+            return self._fail_result(
+                SubscriptionCatalogResult,
+                "Failed to delete subscription",
+                e,
+                package_name=package_name,
+                product_id=product_id,
+            )
 
     def batch_get_subscriptions(
         self, package_name: str, product_ids: list[str]
@@ -3250,9 +3324,14 @@ class PlayStoreClient:
                 message=f"Base plan {base_plan_id} deleted successfully",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to delete base plan", error=str(e))
-            raise PlayStoreClientError(f"Failed to delete base plan: {e.reason}") from e
+        except Exception as e:
+            return self._fail_result(
+                SubscriptionCatalogResult,
+                "Failed to delete base plan",
+                e,
+                package_name=package_name,
+                product_id=product_id,
+            )
 
     def migrate_base_plan_prices(
         self,
@@ -3748,9 +3827,14 @@ class PlayStoreClient:
                 message=f"Subscription offer {offer_id} deleted successfully",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to delete subscription offer", error=str(e))
-            raise PlayStoreClientError(f"Failed to delete subscription offer: {e.reason}") from e
+        except Exception as e:
+            return self._fail_result(
+                SubscriptionCatalogResult,
+                "Failed to delete subscription offer",
+                e,
+                package_name=package_name,
+                product_id=product_id,
+            )
 
     def batch_get_subscription_offers(
         self,
@@ -4024,27 +4108,14 @@ class PlayStoreClient:
                 message=f"Successfully updated listing for {language}",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to update listing", error=str(e))
-            if edit_id is not None:
-                self._delete_edit(package_name, edit_id)
-            return ListingUpdateResult(
-                success=False,
-                package_name=package_name,
-                language=language,
-                message=f"Failed to update listing: {e.reason}",
-                error=str(e),
-            )
         except Exception as e:
-            self._logger.exception("Failed to update listing", error=str(e))
-            if edit_id is not None:
-                self._delete_edit(package_name, edit_id)
-            return ListingUpdateResult(
-                success=False,
+            return self._fail_result(
+                ListingUpdateResult,
+                "Failed to update listing",
+                e,
+                edit_id=edit_id,
                 package_name=package_name,
                 language=language,
-                message=f"Failed to update listing: {e}",
-                error=str(e),
             )
 
     def list_all_listings(self, package_name: str) -> list[Listing]:
@@ -4731,10 +4802,11 @@ class PlayStoreClient:
             image_type=image_type,
             image_id=image_id,
         )
-        service = self._get_service()
-        edit_id = self._create_edit(package_name)
-
+        edit_id: str | None = None
         try:
+            service = self._get_service()
+            edit_id = self._create_edit(package_name)
+
             self._execute(
                 service.edits()
                 .images()
@@ -4755,14 +4827,17 @@ class PlayStoreClient:
                 deleted_count=1,
                 message=f"Deleted image {image_id}",
             )
-        except HttpError as e:
-            self._logger.exception("Failed to delete image", error=str(e))
-            self._delete_edit(package_name, edit_id)
-            raise PlayStoreClientError(f"Failed to delete image: {e.reason}") from e
         except Exception as e:
-            self._logger.exception("Failed to delete image", error=str(e))
-            self._delete_edit(package_name, edit_id)
-            raise PlayStoreClientError(f"Failed to delete image: {e}") from e
+            return self._fail_result(
+                ImageDeleteResult,
+                "Failed to delete image",
+                e,
+                edit_id=edit_id,
+                package_name=package_name,
+                language=language,
+                image_type=image_type,
+                deleted_count=0,
+            )
 
     def delete_all_images(
         self,
@@ -4786,10 +4861,11 @@ class PlayStoreClient:
             language=language,
             image_type=image_type,
         )
-        service = self._get_service()
-        edit_id = self._create_edit(package_name)
-
+        edit_id: str | None = None
         try:
+            service = self._get_service()
+            edit_id = self._create_edit(package_name)
+
             result = self._execute(
                 service.edits()
                 .images()
@@ -4810,14 +4886,17 @@ class PlayStoreClient:
                 deleted_count=deleted_count,
                 message=f"Deleted {deleted_count} image(s)",
             )
-        except HttpError as e:
-            self._logger.exception("Failed to delete all images", error=str(e))
-            self._delete_edit(package_name, edit_id)
-            raise PlayStoreClientError(f"Failed to delete all images: {e.reason}") from e
         except Exception as e:
-            self._logger.exception("Failed to delete all images", error=str(e))
-            self._delete_edit(package_name, edit_id)
-            raise PlayStoreClientError(f"Failed to delete all images: {e}") from e
+            return self._fail_result(
+                ImageDeleteResult,
+                "Failed to delete all images",
+                e,
+                edit_id=edit_id,
+                package_name=package_name,
+                language=language,
+                image_type=image_type,
+                deleted_count=0,
+            )
 
     # =========================================================================
     # External Transactions API (alternative billing)
@@ -5219,9 +5298,8 @@ class PlayStoreClient:
                 message=f"User {email} removed successfully",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to delete user", error=str(e))
-            raise PlayStoreClientError(f"Failed to delete user: {e.reason}") from e
+        except Exception as e:
+            return self._fail_result(AccessResult, "Failed to delete user", e)
 
     def create_grant(self, developer_id: str, email: str, grant: dict[str, Any]) -> Grant:
         """Grant a user app-level access.
@@ -5314,9 +5392,8 @@ class PlayStoreClient:
                 message=f"Grant for {package_name} removed successfully",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to delete grant", error=str(e))
-            raise PlayStoreClientError(f"Failed to delete grant: {e.reason}") from e
+        except Exception as e:
+            return self._fail_result(AccessResult, "Failed to delete grant", e)
 
     # =========================================================================
     # Data Safety API
@@ -5353,9 +5430,13 @@ class PlayStoreClient:
                 message="Data safety labels updated",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to update data safety labels", error=str(e))
-            raise PlayStoreClientError(f"Failed to update data safety labels: {e.reason}") from e
+        except Exception as e:
+            return self._fail_result(
+                DataSafetyResult,
+                "Failed to update data safety labels",
+                e,
+                package_name=package_name,
+            )
 
     # =========================================================================
     # App Recovery API
@@ -5466,9 +5547,14 @@ class PlayStoreClient:
                 message="App recovery deployed",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to deploy app recovery", error=str(e))
-            raise PlayStoreClientError(f"Failed to deploy app recovery: {e.reason}") from e
+        except Exception as e:
+            return self._fail_result(
+                AppRecoveryResult,
+                "Failed to deploy app recovery",
+                e,
+                package_name=package_name,
+                app_recovery_id=app_recovery_id,
+            )
 
     def cancel_app_recovery(
         self,
@@ -5506,9 +5592,14 @@ class PlayStoreClient:
                 message="App recovery canceled",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to cancel app recovery", error=str(e))
-            raise PlayStoreClientError(f"Failed to cancel app recovery: {e.reason}") from e
+        except Exception as e:
+            return self._fail_result(
+                AppRecoveryResult,
+                "Failed to cancel app recovery",
+                e,
+                package_name=package_name,
+                app_recovery_id=app_recovery_id,
+            )
 
     def add_app_recovery_targeting(
         self,
@@ -5549,9 +5640,14 @@ class PlayStoreClient:
                 message="App recovery targeting added",
             )
 
-        except HttpError as e:
-            self._logger.exception("Failed to add app recovery targeting", error=str(e))
-            raise PlayStoreClientError(f"Failed to add app recovery targeting: {e.reason}") from e
+        except Exception as e:
+            return self._fail_result(
+                AppRecoveryResult,
+                "Failed to add app recovery targeting",
+                e,
+                package_name=package_name,
+                app_recovery_id=app_recovery_id,
+            )
 
     # =========================================================================
     # Generated APKs API
@@ -5745,13 +5841,19 @@ class PlayStoreClient:
             )
 
         except HttpError as e:
-            self._logger.exception("Failed to download generated APK", error=str(e))
-            raise PlayStoreClientError(f"Failed to download generated APK: {e.reason}") from e
+            return self._fail_result(
+                DownloadResult,
+                "Failed to download generated APK",
+                e,
+                destination_path=destination_path,
+            )
         except OSError as e:
-            self._logger.exception("Failed to write generated APK", error=str(e))
-            raise PlayStoreClientError(
-                f"Failed to write generated APK to {destination_path}: {e}"
-            ) from e
+            return self._fail_result(
+                DownloadResult,
+                f"Failed to write generated APK to {destination_path}",
+                e,
+                destination_path=destination_path,
+            )
 
     # =========================================================================
     # System APK Variants API
@@ -5937,13 +6039,19 @@ class PlayStoreClient:
             )
 
         except HttpError as e:
-            self._logger.exception("Failed to download system APK variant", error=str(e))
-            raise PlayStoreClientError(f"Failed to download system APK variant: {e.reason}") from e
+            return self._fail_result(
+                DownloadResult,
+                "Failed to download system APK variant",
+                e,
+                destination_path=destination_path,
+            )
         except OSError as e:
-            self._logger.exception("Failed to write system APK variant", error=str(e))
-            raise PlayStoreClientError(
-                f"Failed to write system APK variant to {destination_path}: {e}"
-            ) from e
+            return self._fail_result(
+                DownloadResult,
+                f"Failed to write system APK variant to {destination_path}",
+                e,
+                destination_path=destination_path,
+            )
 
     # =========================================================================
     # Internal App Sharing API

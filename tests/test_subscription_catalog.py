@@ -243,8 +243,10 @@ def test_delete_subscription_http_error():
     _subs(service).delete.return_value.execute.side_effect = _make_http_error("bad")
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to delete subscription"):
-        client.delete_subscription("com.example.app", "premium_monthly")
+    result = client.delete_subscription("com.example.app", "premium_monthly")
+
+    assert result.success is False
+    assert "Failed to delete subscription" in result.message
 
 
 # ---------------------------------------------------------------------------
