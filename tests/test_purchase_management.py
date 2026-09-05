@@ -103,8 +103,10 @@ def test_refund_order_http_error():
     service.orders.return_value.refund.return_value.execute.side_effect = _make_http_error("bad")
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to refund order"):
-        client.refund_order("com.example.app", "GPA.1")
+    result = client.refund_order("com.example.app", "GPA.1")
+
+    assert result.success is False
+    assert "Failed to refund order" in result.message
 
 
 def test_cancel_subscription_success():
@@ -126,8 +128,10 @@ def test_cancel_subscription_http_error():
     _subs_v2(service).cancel.return_value.execute.side_effect = _make_http_error("bad")
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to cancel subscription"):
-        client.cancel_subscription_purchase("com.example.app", "tok")
+    result = client.cancel_subscription_purchase("com.example.app", "tok")
+
+    assert result.success is False
+    assert "Failed to cancel subscription" in result.message
 
 
 def test_defer_subscription_success():
@@ -155,8 +159,10 @@ def test_defer_subscription_http_error():
     _subs_v2(service).defer.return_value.execute.side_effect = _make_http_error("bad")
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to defer subscription"):
-        client.defer_subscription_purchase("com.example.app", "tok", "604800s", "etag")
+    result = client.defer_subscription_purchase("com.example.app", "tok", "604800s", "etag")
+
+    assert result.success is False
+    assert "Failed to defer subscription" in result.message
 
 
 def test_revoke_subscription_full():
@@ -189,8 +195,10 @@ def test_revoke_subscription_http_error():
     _subs_v2(service).revoke.return_value.execute.side_effect = _make_http_error("bad")
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to revoke subscription"):
-        client.revoke_subscription_purchase("com.example.app", "tok")
+    result = client.revoke_subscription_purchase("com.example.app", "tok")
+
+    assert result.success is False
+    assert "Failed to revoke subscription" in result.message
 
 
 def test_get_product_purchase_v2_success():

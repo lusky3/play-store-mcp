@@ -228,8 +228,10 @@ def test_delete_user_http_error():
     _users(service).delete.return_value.execute.side_effect = _make_http_error("bad")
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to delete user"):
-        client.delete_user("dev123", "a@b.com")
+    result = client.delete_user("dev123", "a@b.com")
+
+    assert result.success is False
+    assert "Failed to delete user" in result.message
 
 
 # ---------------------------------------------------------------------------
@@ -340,8 +342,10 @@ def test_delete_grant_http_error():
     _grants(service).delete.return_value.execute.side_effect = _make_http_error("bad")
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to delete grant"):
-        client.delete_grant("dev123", "a@b.com", "com.example.app")
+    result = client.delete_grant("dev123", "a@b.com", "com.example.app")
+
+    assert result.success is False
+    assert "Failed to delete grant" in result.message
 
 
 # ---------------------------------------------------------------------------

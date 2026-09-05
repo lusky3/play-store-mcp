@@ -135,10 +135,12 @@ def test_batch_delete_purchase_options_http_error():
     _options(service).batchDelete.return_value.execute.side_effect = _make_http_error("bad")
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to batch delete purchase options"):
-        client.batch_delete_purchase_options(
-            "com.example.app", "coins_pack", [{"purchaseOptionId": "opt1"}]
-        )
+    result = client.batch_delete_purchase_options(
+        "com.example.app", "coins_pack", [{"purchaseOptionId": "opt1"}]
+    )
+
+    assert result.success is False
+    assert "Failed to batch delete purchase options" in result.message
 
 
 # ---------------------------------------------------------------------------
@@ -536,10 +538,12 @@ def test_batch_delete_purchase_option_offers_http_error():
     _offers(service).batchDelete.return_value.execute.side_effect = _make_http_error("bad")
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to batch delete purchase option offers"):
-        client.batch_delete_purchase_option_offers(
-            "com.example.app", "coins_pack", "opt1", [{"offerId": "intro"}]
-        )
+    result = client.batch_delete_purchase_option_offers(
+        "com.example.app", "coins_pack", "opt1", [{"offerId": "intro"}]
+    )
+
+    assert result.success is False
+    assert "Failed to batch delete purchase option offers" in result.message
 
 
 # ---------------------------------------------------------------------------

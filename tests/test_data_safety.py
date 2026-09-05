@@ -4,11 +4,10 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
 from googleapiclient.errors import HttpError
 
 import play_store_mcp.server as server
-from play_store_mcp.client import PlayStoreClient, PlayStoreClientError
+from play_store_mcp.client import PlayStoreClient
 from play_store_mcp.models import DataSafetyResult
 
 # ---------------------------------------------------------------------------
@@ -78,8 +77,10 @@ def test_set_data_safety_http_error():
     )
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to update data safety labels"):
-        client.set_data_safety("com.example.app", {"safetyLabels": "csv"})
+    result = client.set_data_safety("com.example.app", {"safetyLabels": "csv"})
+
+    assert result.success is False
+    assert "Failed to update data safety labels" in result.message
 
 
 # ---------------------------------------------------------------------------

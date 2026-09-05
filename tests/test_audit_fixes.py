@@ -100,9 +100,10 @@ class TestExecuteRetryThroughOperation:
             {},
         ]
 
-        with pytest.raises(PlayStoreClientError, match="Failed to acknowledge"):
-            client.acknowledge_product_purchase("com.example.app", "sku-1", "tok-1")
+        result = client.acknowledge_product_purchase("com.example.app", "sku-1", "tok-1")
 
+        assert result.success is False
+        assert "Failed to acknowledge" in result.message
         assert ack.execute.call_count == 1
 
     def test_non_idempotent_operation_retries_on_429(
@@ -436,9 +437,10 @@ class TestEditOrphanCleanup:
         # The image delete itself succeeds; the commit step blows up.
         edits.commit.return_value.execute.side_effect = RuntimeError("commit boom")
 
-        with pytest.raises(PlayStoreClientError, match="Failed to delete image"):
-            client.delete_image("com.example.app", "en-US", "icon", "img-1")
+        result = client.delete_image("com.example.app", "en-US", "icon", "img-1")
 
+        assert result.success is False
+        assert "Failed to delete image" in result.message
         edits.delete.assert_called()
 
     def test_delete_all_images_cleanup_on_runtime_error(
@@ -450,9 +452,10 @@ class TestEditOrphanCleanup:
         edits.images.return_value.deleteall.return_value.execute.return_value = {"deleted": []}
         edits.commit.return_value.execute.side_effect = RuntimeError("commit boom")
 
-        with pytest.raises(PlayStoreClientError, match="Failed to delete all images"):
-            client.delete_all_images("com.example.app", "en-US", "icon")
+        result = client.delete_all_images("com.example.app", "en-US", "icon")
 
+        assert result.success is False
+        assert "Failed to delete all images" in result.message
         edits.delete.assert_called()
 
     def test_update_testers_cleanup_on_runtime_error(
@@ -477,13 +480,17 @@ class TestEditOrphanCleanup:
 
 
 class TestRevokeSubscriptionRefundType:
-    def test_invalid_refund_type_raises(
+    def test_invalid_refund_type_returns_failure_result(
         self,
         client: PlayStoreClient,
         _mock_service: MagicMock,
     ) -> None:
-        with pytest.raises(PlayStoreClientError, match="Invalid refund_type"):
-            client.revoke_subscription_purchase("com.example.app", "token-1", refund_type="bogus")
+        result = client.revoke_subscription_purchase(
+            "com.example.app", "token-1", refund_type="bogus"
+        )
+
+        assert result.success is False
+        assert "Invalid refund_type" in result.message
 
 
 # =========================================================================
@@ -740,8 +747,10 @@ class TestDownloadOsError:
         # exist, so the write (mkstemp) raises OSError rather than confinement.
         client._download_dir = str(tmp_path)
         bad = str(tmp_path / "missing_subdir" / "out.apk")
-        with pytest.raises(PlayStoreClientError, match="Failed to write generated APK"):
-            client.download_generated_apk("com.example.app", 100, "download-1", bad)
+        result = client.download_generated_apk("com.example.app", 100, "download-1", bad)
+
+        assert result.success is False
+        assert "Failed to write generated APK" in result.message
 
     def test_download_system_apk_variant_wraps_oserror(
         self,
@@ -751,8 +760,10 @@ class TestDownloadOsError:
     ) -> None:
         client._download_dir = str(tmp_path)
         bad = str(tmp_path / "missing_subdir" / "out.apk")
-        with pytest.raises(PlayStoreClientError, match="Failed to write system APK variant"):
-            client.download_system_apk_variant("com.example.app", 100, 1, bad)
+        result = client.download_system_apk_variant("com.example.app", 100, 1, bad)
+
+        assert result.success is False
+        assert "Failed to write system APK variant" in result.message
 
 
 # =========================================================================

@@ -213,8 +213,10 @@ def test_delete_in_app_product_http_error():
     _iap(service).delete.return_value.execute.side_effect = _make_http_error("bad")
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to delete in-app product"):
-        client.delete_in_app_product("com.example.app", "sku1")
+    result = client.delete_in_app_product("com.example.app", "sku1")
+
+    assert result.success is False
+    assert "Failed to delete in-app product" in result.message
 
 
 # ---------------------------------------------------------------------------
@@ -291,8 +293,10 @@ def test_batch_delete_in_app_products_http_error():
     _iap(service).batchDelete.return_value.execute.side_effect = _make_http_error("bad")
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to batch delete in-app products"):
-        client.batch_delete_in_app_products("com.example.app", ["sku1"])
+    result = client.batch_delete_in_app_products("com.example.app", ["sku1"])
+
+    assert result.success is False
+    assert "Failed to batch delete in-app products" in result.message
 
 
 # ---------------------------------------------------------------------------
