@@ -8,6 +8,7 @@ below). These bring branch coverage of the newly hardened code paths back to
 from __future__ import annotations
 
 import json
+import threading
 from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -175,6 +176,51 @@ class TestExecuteThreadSafety:
 
         assert observed["locked_during_chunk"] is True
         assert client._http_lock.locked() is False
+
+
+class TestGetServiceThreadSafety:
+    """_get_service double-checked locking closes a cold-start race.
+
+    Without the lock, concurrent first calls could each pass the initial
+    None-check before either assigned self._service, each redundantly
+    resolving credentials and calling build().
+    """
+
+    def test_concurrent_first_calls_build_service_exactly_once(self, tmp_path: Any) -> None:
+        creds_file = tmp_path / "creds.json"
+        creds_file.write_text('{"type": "service_account"}')
+        client = PlayStoreClient(credentials_path=str(creds_file))
+
+        build_calls = 0
+        start_gate = threading.Event()
+
+        def fake_build(*_args: Any, **_kwargs: Any) -> MagicMock:
+            nonlocal build_calls
+            build_calls += 1
+            return MagicMock()
+
+        def call_get_service() -> None:
+            start_gate.wait()
+            client._get_service()
+
+        with (
+            patch(
+                "play_store_mcp.client.service_account.Credentials.from_service_account_info"
+            ) as mock_creds,
+            patch("play_store_mcp.client.build", side_effect=fake_build),
+        ):
+            mock_creds.return_value = MagicMock()
+            # Every thread blocks on start_gate, then all race _get_service()
+            # at once -- this is what would expose the race without the lock.
+            threads = [threading.Thread(target=call_get_service) for _ in range(20)]
+            for t in threads:
+                t.start()
+            start_gate.set()
+            for t in threads:
+                t.join(timeout=5)
+
+        assert build_calls == 1
+        assert client._service is not None
 
 
 # =========================================================================

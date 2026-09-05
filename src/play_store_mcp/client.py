@@ -276,6 +276,12 @@ class PlayStoreClient:
         # transport. The shared fallback client is used across concurrent tool
         # worker threads; per-request header clients each get their own lock.
         self._http_lock = threading.Lock()
+        # Guards the check-then-build sequence in _get_service so concurrent
+        # first calls (MCP tools dispatch to worker threads) don't each
+        # redundantly resolve credentials and build() a service. Separate from
+        # _http_lock since that guards the transport call itself, which this
+        # never touches.
+        self._service_lock = threading.Lock()
         self._logger = logger.bind(component="PlayStoreClient")
 
     # =========================================================================
@@ -468,27 +474,38 @@ class PlayStoreClient:
 
     @retry_with_backoff
     def _get_service(self) -> AndroidPublisherResource:
-        """Get or create the API service instance."""
+        """Get or create the API service instance.
+
+        Double-checked locking: MCP tools are plain ``def``s, so FastMCP
+        dispatches concurrent tool calls to worker threads. Without the lock,
+        two threads could both pass the first None-check before either
+        assigns ``self._service``, each redundantly resolving credentials and
+        calling ``build()``.
+        """
         if self._service is not None:
             return self._service
 
-        self._logger.info("Initializing Google Play Developer API client")
+        with self._service_lock:
+            if self._service is not None:
+                return self._service
 
-        try:
-            credentials = self._resolve_credentials()
-            self._service = build(
-                "androidpublisher",
-                "v3",
-                credentials=credentials,
-                cache_discovery=False,
-            )
-            self._logger.info("API client initialized successfully")
-            return self._service  # type: ignore[return-value]
-        except Exception as e:
-            if isinstance(e, PlayStoreClientError):
-                raise
-            self._logger.exception("Failed to initialize API client", error=str(e))
-            raise PlayStoreClientError(f"Failed to initialize API client: {e}") from e
+            self._logger.info("Initializing Google Play Developer API client")
+
+            try:
+                credentials = self._resolve_credentials()
+                self._service = build(
+                    "androidpublisher",
+                    "v3",
+                    credentials=credentials,
+                    cache_discovery=False,
+                )
+                self._logger.info("API client initialized successfully")
+                return self._service  # type: ignore[return-value]
+            except Exception as e:
+                if isinstance(e, PlayStoreClientError):
+                    raise
+                self._logger.exception("Failed to initialize API client", error=str(e))
+                raise PlayStoreClientError(f"Failed to initialize API client: {e}") from e
 
     def _execute(self, request: Any) -> Any:
         """Execute a googleapiclient request with retry/backoff.
