@@ -2,6 +2,17 @@
 
 Complete reference for all MCP tools provided by the Play Store MCP server.
 
+## Error Handling
+
+Tools follow one of two conventions, depending on what they return:
+
+- **Write tools that document a result object** (fields like `success`, `message`,
+  `error` — e.g. `deploy_app`, `update_listing`, `refund_order`) always return that
+  object, even on failure: check `success` rather than expecting an MCP tool error.
+- **Tools that return plain data** (a single resource or a list — e.g. `get_listing`,
+  `get_order`, `list_subscriptions`) raise an MCP tool error on failure instead, since
+  there's no result shape to report `success: false` in.
+
 ## Publishing Tools
 
 | Tool | Description |
