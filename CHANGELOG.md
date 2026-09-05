@@ -16,6 +16,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   related operations, to lower per-request tool-list overhead — with no planned
   loss of functionality.
 
+## [0.6.2] - 2026-09-05
+
+### Fixed
+- `stable`'s copied CI/security workflows (`ci`, `codeql`, `sonarcloud`, `snyk`,
+  `safety`, `dependency-review`, `qlty-coverage`, `docker`) still filtered on
+  `branches: [main]` — a leftover from copying them from `main` — so none of
+  them ever actually ran on a PR or push targeting `stable`. Retargeted all
+  eight to `branches: [stable]`. (`docs` and `scorecard` deliberately left
+  unchanged: `docs` deploys to the single shared GitHub Pages site and
+  `scorecard` isn't a PR gate on either branch, so both need their own
+  ownership decision rather than a mechanical fix here.)
+- `Dockerfile` still used the pre-`uv.lock`-aware build pattern
+  (`uv build --wheel` + `uv pip install` into a fresh venv), already fixed on
+  `main`: that pattern re-resolves dependencies instead of honoring the
+  lockfile, and can fail to reproduce a pin `uv.lock` already settled on.
+  Ported `main`'s fix (`uv sync --frozen --no-editable` straight into the
+  runtime venv path). Verified with a real local `docker build` + boot.
+
 ## [0.6.1] - 2026-09-04
 
 ### Added

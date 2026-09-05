@@ -2,7 +2,7 @@ name: Docker
 
 on:
   push:
-    branches: [main]
+    branches: [stable]
     tags: ["v*"]
     paths:
       - "Dockerfile"
@@ -11,7 +11,7 @@ on:
       - "pyproject.toml"
       - "uv.lock"
   pull_request:
-    branches: [main]
+    branches: [stable]
     paths:
       - "Dockerfile"
       - ".dockerignore"
