@@ -1,0 +1,21 @@
+vulnerabilities:
+  # Both vendored inside pip itself (pip 26.2.1, the latest release on
+  # PyPI as of 2026-09-06 -- no newer pip exists yet to pull a patched
+  # vendor copy from). Re-review after expiry: if pip has released a
+  # newer version by then, drop these entries and re-scan; if not, push
+  # the expiry out further.
+  - id: GHSA-6v7p-g79w-8964 # msgpack, vendored in pip/_vendor
+    statement: >-
+      Vendored inside pip 26.2.1 (latest PyPI release as of 2026-09-06);
+      no newer pip exists to pull a patched msgpack from.
+    expired_at: 2026-12-05
+  - id: CVE-2025-47273 # setuptools, referenced in pip's own packaging metadata
+    statement: >-
+      Referenced only in pip 26.2.1's own packaging metadata, not a
+      separately installed package; no newer pip exists yet.
+    expired_at: 2026-12-05
+  - id: CVE-2026-59890 # setuptools, same root cause as CVE-2025-47273
+    statement: >-
+      Same root cause as CVE-2025-47273 -- setuptools referenced in pip
+      26.2.1's own packaging metadata, not independently upgradable.
+    expired_at: 2026-12-05
