@@ -7,17 +7,23 @@ on:
     paths:
       - "Dockerfile"
       - ".dockerignore"
+      - ".grype.yaml"
+      - ".trivyignore.yaml"
       - "src/**"
       - "pyproject.toml"
       - "uv.lock"
+      - ".github/workflows/docker.yml"
   pull_request:
     branches: [main]
     paths:
       - "Dockerfile"
       - ".dockerignore"
+      - ".grype.yaml"
+      - ".trivyignore.yaml"
       - "src/**"
       - "pyproject.toml"
       - "uv.lock"
+      - ".github/workflows/docker.yml"
   workflow_dispatch:
 
 permissions: {}
