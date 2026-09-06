@@ -20,12 +20,7 @@ on:
       - "uv.lock"
   workflow_dispatch:
 
-permissions:
-  contents: read
-  packages: write
-  security-events: write
-  id-token: write
-  attestations: write
+permissions: {}
 
 env:
   REGISTRY: ghcr.io
@@ -35,6 +30,12 @@ jobs:
   build:
     name: Build & Publish
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+      id-token: write
+      attestations: write
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@05e31511f85b41b11d1cf0ef85d0992719546e2c # v2.21.0
