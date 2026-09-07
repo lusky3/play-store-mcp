@@ -1456,14 +1456,15 @@ are writes and are disabled in
 
 ### list_app_recoveries
 
-List app recovery actions for an app. Read-only (available in read-only mode).
+List app recovery actions for an app version. Read-only (available in read-only mode).
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `package_name` | string | Yes | App package name |
+| `version_code` | int | Yes | App version code the recovery actions target |
 
 ```python
-list_app_recoveries("com.example.myapp")
+list_app_recoveries("com.example.myapp", version_code=42)
 ```
 
 ### create_app_recovery
