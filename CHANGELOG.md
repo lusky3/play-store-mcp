@@ -25,6 +25,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   works out of the box with no separate install step. Read-only enforcement
   still applies inside the sandbox.
 
+### Security
+- Upgraded `pyjwt` 2.13.0 → 2.15.1 (14 known vulnerabilities, 2 critical, fixed;
+  declared floor raised to `>=2.15.1` so published metadata carries the fix) and
+  `urllib3` 2.7.0 → 2.8.0 (3 known vulnerabilities).
+
+### Dependencies
+- Refreshed the full lockfile, including `fastmcp` 4.0.3 → 4.0.11, `mcp` 2.1.1 →
+  2.3.0, `google-auth` 2.57.1 → 2.61.0, and the `python:3.14-alpine` base image digest.
+- CI: all `github/codeql-action` refs now pin the same version (v4.38.1) and are
+  grouped in Dependabot, fixing a CodeQL `Analyze` failure from mismatched
+  `init`/`autobuild`/`analyze` versions.
+
 ### Planned
 - Consolidate and reduce the MCP tool surface (now 117 tools) by grouping
   related operations, to lower per-request tool-list overhead — with no planned
