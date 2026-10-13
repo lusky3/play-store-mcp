@@ -157,6 +157,10 @@ def _parse_review(review_data: dict[str, Any]) -> Review | None:
     if not user_comment:
         return None
 
+    # The API sends androidOsVersion as an integer SDK level (e.g. 34); the model
+    # keeps it as a string, so convert rather than fail validation of the whole review.
+    android_version = user_comment.get("androidOsVersion")
+
     return Review(
         review_id=review_data.get("reviewId", ""),
         author_name=review_data.get("authorName", "Anonymous"),
@@ -164,7 +168,7 @@ def _parse_review(review_data: dict[str, Any]) -> Review | None:
         comment=user_comment.get("text", ""),
         language=user_comment.get("reviewerLanguage", "en"),
         device=user_comment.get("device"),
-        android_version=user_comment.get("androidOsVersion"),
+        android_version=str(android_version) if android_version is not None else None,
         app_version_code=user_comment.get("appVersionCode"),
         app_version_name=user_comment.get("appVersionName"),
         last_modified=_parse_timestamp(user_comment.get("lastModified")),

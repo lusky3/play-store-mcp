@@ -142,7 +142,7 @@ def sample_reviews_response() -> dict[str, Any]:
                             "text": "Great app!",
                             "reviewerLanguage": "en",
                             "device": "Pixel 6",
-                            "androidOsVersion": "13",
+                            "androidOsVersion": 33,
                             "appVersionCode": 100,
                             "appVersionName": "1.0.0",
                             "lastModified": {"seconds": "1700000000", "nanos": 0},

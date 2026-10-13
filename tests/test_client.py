@@ -262,6 +262,8 @@ class TestReviews:
         assert reviews[0].review_id == "review-123"
         assert reviews[0].star_rating == 5
         assert reviews[0].comment == "Great app!"
+        # The API sends androidOsVersion as an integer SDK level.
+        assert reviews[0].android_version == "33"
         assert reviews[1].developer_reply == "Thanks for the feedback!"
 
     def test_reply_to_review_success(

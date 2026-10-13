@@ -25,6 +25,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   works out of the box with no separate install step. Read-only enforcement
   still applies inside the sandbox.
 
+### Fixed
+- `get_reviews` and `get_review` failed on every real response with a pydantic
+  `string_type` error: the Reviews API sends `androidOsVersion` as an integer
+  SDK level (e.g. `34`), while `Review.android_version` is a string. It is now
+  converted; a missing value is still `None`. The test fixtures used `"13"`,
+  which is why the suite never caught it.
+
 ### Security
 - Upgraded `pyjwt` 2.13.0 → 2.15.1 (14 known vulnerabilities, 2 critical, fixed;
   declared floor raised to `>=2.15.1` so published metadata carries the fix) and
