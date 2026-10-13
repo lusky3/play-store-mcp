@@ -1,5 +1,5 @@
 # Build stage
-FROM python:3.14-alpine@sha256:26730869004e2b9c4b9ad09cab8625e81d256d1ce97e72df5520e806b1709f92 AS builder
+FROM python:3.14-alpine@sha256:f6a589d43c42b9e7f7dc67a12d37132491f362859a5d750607710cc56da3bc72 AS builder
 
 WORKDIR /build
 
@@ -16,7 +16,7 @@ COPY src/ src/
 RUN UV_PROJECT_ENVIRONMENT=/app/.venv uv sync --frozen --no-editable
 
 # Runtime stage
-FROM python:3.14-alpine@sha256:26730869004e2b9c4b9ad09cab8625e81d256d1ce97e72df5520e806b1709f92
+FROM python:3.14-alpine@sha256:f6a589d43c42b9e7f7dc67a12d37132491f362859a5d750607710cc56da3bc72
 
 LABEL org.opencontainers.image.source="https://github.com/lusky3/play-store-mcp"
 LABEL org.opencontainers.image.url="https://github.com/lusky3/play-store-mcp"
