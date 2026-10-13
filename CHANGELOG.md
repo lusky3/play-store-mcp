@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI: all `github/codeql-action` refs now pin the same version (v4.38.1) and are
   grouped in Dependabot, fixing a CodeQL `Analyze` failure from mismatched
   `init`/`autobuild`/`analyze` versions.
+- Refreshed the lockfile again: `fastmcp` 4.0.11 → 4.1.0, the code-mode sandbox
+  `pydantic-monty` 0.0.21 → 1.1.0, `pydantic` 2.13.5 → 2.14.1, `google-auth`
+  2.61.0 → 2.62.0. Verified `execute` still runs correctly in the new sandbox.
+- Dev hooks: `gitleaks` v8.24.0 → v8.30.1, `pre-commit-hooks` v5.0.0 → v6.0.0.
 
 ### Planned
 - Consolidate and reduce the MCP tool surface (now 117 tools) by grouping
