@@ -37,7 +37,7 @@ _REVIEW_RESPONSE = {
                 "text": "Nice app",
                 "reviewerLanguage": "en",
                 "device": "Pixel",
-                "androidOsVersion": "13",
+                "androidOsVersion": 33,
                 "appVersionCode": 100,
                 "appVersionName": "1.0.0",
                 "lastModified": {"seconds": "1767225600", "nanos": 0},
@@ -57,10 +57,26 @@ def test_get_review_success():
 
     assert review.review_id == "rev-1"
     assert review.star_rating == 4
+    assert review.android_version == "33"
     assert review.developer_reply == "Thanks!"
     service.reviews.return_value.get.assert_called_once_with(
         packageName="com.example.app", reviewId="rev-1"
     )
+
+
+def test_get_review_without_android_version():
+    user_comment = dict(_REVIEW_RESPONSE["comments"][0]["userComment"])
+    del user_comment["androidOsVersion"]
+    service = MagicMock()
+    service.reviews.return_value.get.return_value.execute.return_value = {
+        **_REVIEW_RESPONSE,
+        "comments": [{"userComment": user_comment}],
+    }
+    client = _client(service)
+
+    review = client.get_review("com.example.app", "rev-1")
+
+    assert review.android_version is None
 
 
 def test_get_review_with_translation():
