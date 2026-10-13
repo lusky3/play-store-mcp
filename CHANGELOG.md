@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Planned
+- Consolidate and reduce the MCP tool surface (now 117 tools) by grouping
+  related operations, to lower per-request tool-list overhead — with no planned
+  loss of functionality.
+
+## [0.6.3] - 2026-10-13
+
 ### Security
 - Upgraded `pyjwt` 2.13.0 → 2.15.1 (14 known vulnerabilities, 2 critical, fixed;
   declared floor raised to `>=2.15.1` so published metadata carries the fix) and
@@ -26,11 +33,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (Dependabot only targets `main`, so `stable` had drifted), with every
   `github/codeql-action` ref on the same version (v4.38.2) to avoid CodeQL's
   `init`/`autobuild`/`analyze` version-mismatch failure.
-
-### Planned
-- Consolidate and reduce the MCP tool surface (now 117 tools) by grouping
-  related operations, to lower per-request tool-list overhead — with no planned
-  loss of functionality.
 
 ## [0.6.2] - 2026-09-05
 
