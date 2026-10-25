@@ -12,7 +12,7 @@ permissions:
 jobs:
   lint:
     name: Lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
@@ -29,7 +29,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.13.2"
+          python-version: "3.14.9"
 
       - name: Install dependencies
         run: uv sync --extra dev
@@ -42,7 +42,7 @@ jobs:
 
   type-check:
     name: Type Check
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Harden the runner (Audit all outbound calls)
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
@@ -59,7 +59,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.13.2"
+          python-version: "3.14.9"
 
       - name: Install dependencies
         run: uv sync --extra dev
@@ -69,11 +69,11 @@ jobs:
 
   test:
     name: Test (Python ${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13.2", "3.14.2"]
+        python-version: ["3.11", "3.12", "3.13.2", "3.14.9"]
 
     steps:
       - name: Harden the runner (Audit all outbound calls)
@@ -109,7 +109,7 @@ jobs:
 
   build:
     name: Build Package
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     needs: [lint, type-check, test]
     steps:
       - name: Harden the runner (Audit all outbound calls)
@@ -127,7 +127,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: "3.13.2"
+          python-version: "3.14.9"
 
       - name: Build package
         run: uv build
