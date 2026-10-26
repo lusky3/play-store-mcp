@@ -16,7 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   related operations, to lower per-request tool-list overhead — with no planned
   loss of functionality.
 
-## [0.6.3] - 2026-10-13
+## [0.6.4] - 2026-10-26
+
+Released together with 0.6.3, which was never tagged on its own.
 
 ### Fixed
 - `get_reviews` and `get_review` failed on every real response with a pydantic
