@@ -549,20 +549,43 @@ def get_review(
 # =============================================================================
 
 
+def _summarize_regional_prices(base_plan: dict[str, Any]) -> dict[str, Any]:
+    """Replace a base plan's per-region price table with a count of its regions."""
+    if "regionalConfigs" not in base_plan:
+        return base_plan
+    summary = {key: value for key, value in base_plan.items() if key != "regionalConfigs"}
+    summary["regionalConfigCount"] = len(base_plan["regionalConfigs"])
+    return summary
+
+
 @mcp.tool()
-def list_subscriptions(package_name: str) -> list[dict[str, Any]]:
+def list_subscriptions(
+    package_name: str,
+    include_regional_prices: bool = False,
+) -> list[dict[str, Any]]:
     """List all subscription products for an app.
+
+    Per-region prices are omitted by default: each base plan carries ~170
+    regional prices, so even a few subscriptions exceed a tool result's size
+    limit. Each base plan reports ``regionalConfigCount`` instead. Use
+    get_subscription for one product's prices, or include_regional_prices=True
+    for all of them.
 
     Args:
         package_name: App package name
+        include_regional_prices: Include each base plan's full ``regionalConfigs``
+            price table (default: False)
 
     Returns:
         List of subscription products with their base plans
     """
     client = get_client_from_context()
 
-    subscriptions = client.list_subscriptions(package_name)
-    return [sub.model_dump() for sub in subscriptions]
+    subscriptions = [sub.model_dump() for sub in client.list_subscriptions(package_name)]
+    if not include_regional_prices:
+        for sub in subscriptions:
+            sub["base_plans"] = [_summarize_regional_prices(bp) for bp in sub["base_plans"]]
+    return subscriptions
 
 
 @mcp.tool()
