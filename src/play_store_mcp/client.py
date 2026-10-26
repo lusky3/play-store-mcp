@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import contextlib
 import functools
+import http.client
 import json
 import os
 import random
 import re
+import ssl
 import tempfile
 import threading
 import time
@@ -105,6 +107,17 @@ DEFAULT_REGIONS_VERSION = "2022/02"
 # commit, ...) are only retried on 429 (throttled, so never applied).
 _IDEMPOTENT_HTTP_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "PUT", "DELETE"})
 
+# Connection-level failures that never produced an HTTP response, typically a
+# pooled keep-alive socket that Google closed while idle (BrokenPipeError,
+# ConnectionResetError, SSL EOF). Retried on the same terms as a 500/503: the
+# request may already have reached the server, so only idempotent ones.
+_TRANSPORT_ERRORS: tuple[type[BaseException], ...] = (
+    ConnectionError,
+    ssl.SSLError,
+    TimeoutError,
+    http.client.HTTPException,
+)
+
 # Revocation contexts for subscription refunds (Purchases.subscriptionsv2.revoke)
 _REVOCATION_CONTEXTS: dict[str, dict[str, dict]] = {
     "full": {"fullRefund": {}},
@@ -192,6 +205,18 @@ def _is_retryable_status(status: int, *, retry_server_errors: bool) -> bool:
     return retry_server_errors and status in (500, 503)
 
 
+def _is_retryable_error(error: BaseException, *, retry_server_errors: bool) -> bool:
+    """Whether a failed request should be retried.
+
+    Transport errors follow the same rule as 500/503: retried only when
+    ``retry_server_errors`` is set, since the request may already have been
+    applied before the connection failed.
+    """
+    if isinstance(error, HttpError):
+        return _is_retryable_status(error.resp.status, retry_server_errors=retry_server_errors)
+    return retry_server_errors and isinstance(error, _TRANSPORT_ERRORS)
+
+
 def _run_with_backoff(call, *, retry_server_errors=True):  # type: ignore[no-untyped-def]
     """Run ``call`` with exponential-backoff retries on transient errors."""
     retries = 0
@@ -200,8 +225,8 @@ def _run_with_backoff(call, *, retry_server_errors=True):  # type: ignore[no-unt
     while retries < MAX_RETRIES:
         try:
             return call()
-        except HttpError as e:
-            if not _is_retryable_status(e.resp.status, retry_server_errors=retry_server_errors):
+        except (HttpError, *_TRANSPORT_ERRORS) as e:
+            if not _is_retryable_error(e, retry_server_errors=retry_server_errors):
                 raise
             retries += 1
             if retries >= MAX_RETRIES:
@@ -211,7 +236,8 @@ def _run_with_backoff(call, *, retry_server_errors=True):  # type: ignore[no-unt
             sleep_time = backoff * (0.5 + random.random())  # noqa: S311 # nosec B311 — non-crypto jitter for retry backoff
             logger.warning(
                 "API error, retrying",
-                status=e.resp.status,
+                status=e.resp.status if isinstance(e, HttpError) else None,
+                error=type(e).__name__,
                 retry=retries,
                 sleep=sleep_time,
             )
@@ -227,7 +253,7 @@ def _run_with_backoff(call, *, retry_server_errors=True):  # type: ignore[no-unt
 
 
 def retry_with_backoff(func):  # type: ignore[no-untyped-def]
-    """Decorator to retry a call on transient errors (429/500/503).
+    """Decorator to retry a call on transient errors (429/500/503, transport errors).
 
     For idempotent operations only (e.g. building the API service). Individual
     Play API requests go through ``PlayStoreClient._execute``, which decides
@@ -511,27 +537,48 @@ class PlayStoreClient:
                 self._logger.exception("Failed to initialize API client", error=str(e))
                 raise PlayStoreClientError(f"Failed to initialize API client: {e}") from e
 
-    def _execute(self, request: Any) -> Any:
+    def _execute(self, request: Any, *, retry_ambiguous: bool | None = None) -> Any:
         """Execute a googleapiclient request with retry/backoff.
 
         All Play API calls go through here. 429 (rate limited) is always
-        retried; 500/503 are retried only for idempotent HTTP methods. A
-        non-idempotent request (POST: create, upload, acknowledge, consume,
-        refund, revoke, defer, commit, ...) is not retried on a 5xx, because
-        the server may have already applied it and a retry could duplicate the
-        side effect. Non-transient errors (e.g. 400/403/404) propagate to each
-        caller's own ``except HttpError`` handling.
+        retried; 500/503 and transport errors (a dead keep-alive socket, SSL
+        EOF) are retried only for idempotent HTTP methods. A non-idempotent
+        request (POST: create, upload, acknowledge, consume, refund, revoke,
+        defer, commit, ...) is not retried on those, because the server may have
+        already applied it and a retry could duplicate the side effect. Pass
+        ``retry_ambiguous=True`` for a POST whose duplicate is harmless.
+        Non-transient errors (e.g. 400/403/404) propagate to each caller's own
+        ``except HttpError`` handling.
         """
-        method = (getattr(request, "method", "") or "").upper()
-        retry_server_errors = method in _IDEMPOTENT_HTTP_METHODS
+        if retry_ambiguous is None:
+            method = (getattr(request, "method", "") or "").upper()
+            retry_ambiguous = method in _IDEMPOTENT_HTTP_METHODS
 
         def _locked_execute() -> Any:
             # Hold the lock only around the actual transport call, not the
             # backoff sleep between attempts, so retries don't serialize waits.
             with self._http_lock:
-                return request.execute()
+                try:
+                    return request.execute()
+                except _TRANSPORT_ERRORS:
+                    self._drop_pooled_connections(request)
+                    raise
 
-        return _run_with_backoff(_locked_execute, retry_server_errors=retry_server_errors)
+        return _run_with_backoff(_locked_execute, retry_server_errors=retry_ambiguous)
+
+    def _drop_pooled_connections(self, request: Any) -> None:
+        """Close the transport's pooled connections after a transport error.
+
+        httplib2 re-raises a send-side socket error (e.g. BrokenPipeError on a
+        socket Google closed while idle) without discarding that connection,
+        so every later request on the shared transport would fail the same way.
+        Closing the pool makes the retry, or the next call, reconnect. Callers
+        must hold ``_http_lock`` (``Http.close`` is not thread-safe).
+        """
+        close = getattr(getattr(request, "http", None), "close", None)
+        if callable(close):
+            close()
+            self._logger.warning("Transport error; dropped pooled connections")
 
     def _create_edit(self, package_name: str) -> str:
         """Create a new edit for the package.
@@ -544,7 +591,13 @@ class PlayStoreClient:
         """
         service = self._get_service()
         try:
-            result = self._execute(service.edits().insert(packageName=package_name, body={}))
+            # edits.insert is a POST, but a duplicate uncommitted edit is
+            # harmless, and this is the first call after an idle period for most
+            # edit-based tools, so let it retry a dead keep-alive socket.
+            result = self._execute(
+                service.edits().insert(packageName=package_name, body={}),
+                retry_ambiguous=True,
+            )
         except HttpError as e:
             self._logger.exception("Failed to create edit", error=str(e))
             raise PlayStoreClientError(f"Failed to create edit: {e.reason}") from e
@@ -5809,7 +5862,11 @@ class PlayStoreClient:
                 done = False
                 while not done:
                     with self._http_lock:
-                        _status, done = downloader.next_chunk()
+                        try:
+                            _status, done = downloader.next_chunk()
+                        except _TRANSPORT_ERRORS:
+                            self._drop_pooled_connections(request)
+                            raise
             Path(tmp_name).replace(safe_path)
             succeeded = True
         finally:
