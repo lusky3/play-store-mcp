@@ -16,6 +16,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > see three meta-tools (`search`/`get_schema`/`execute`) unless `CODE_MODE=0`
 > is set. See Changed below.
 
+### Added
+- Opt-in tool-failure log. Set `PLAY_STORE_MCP_FAILURE_LOG=1` to record each
+  failed tool call (raised errors, argument-validation failures, and results
+  with `success: false` or an `error`) to a JSON-lines file at
+  `PLAY_STORE_MCP_FAILURE_LOG_PATH` (default
+  `$XDG_STATE_HOME/play-store-mcp/tool-failures.jsonl`). MCP clients log such
+  calls as successes, so this is the only record of why they failed. Off by
+  default for every transport. Secret-named arguments are redacted (including
+  from error text), long values are truncated, and the file is `0600` and
+  rotates at 5MB. With code-mode on, calls inside `execute` are recorded under
+  their own tool names. The idea came from
+  [abd3lraouf-studios/google-play-console-mcp](https://github.com/abd3lraouf-studios/google-play-console-mcp)
+  and was implemented independently here.
+
 ### Changed
 - **Breaking:** `CODE_MODE` now defaults to **enabled** (was opt-in/default-off).
   Set `CODE_MODE=0` (or `false`/`no`/`off`, case-insensitive) to opt out and

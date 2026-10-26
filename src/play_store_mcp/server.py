@@ -30,6 +30,7 @@ from play_store_mcp.client import (
     PlayStoreClient,
     PlayStoreClientError,
 )
+from play_store_mcp.failure_log import FailureLogMiddleware
 
 # Configure structured logging to stderr (stdout is reserved for MCP JSON-RPC)
 log_level = os.environ.get("PLAY_STORE_MCP_LOG_LEVEL", "INFO")
@@ -220,6 +221,8 @@ mcp = FastMCP(
     lifespan=lifespan,
     transforms=_build_transforms(),
 )
+# No-op unless PLAY_STORE_MCP_FAILURE_LOG is on (checked per call).
+mcp.add_middleware(FailureLogMiddleware())
 
 
 # =============================================================================
