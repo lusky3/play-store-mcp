@@ -77,15 +77,27 @@ def _sanitize(value: Any, depth: int = 0) -> Any:
     if depth > MAX_DEPTH:
         return "[truncated: nested too deeply]"
     if isinstance(value, dict):
-        return {
-            str(key): _REDACTED if _is_secret(str(key)) else _sanitize(item, depth + 1)
-            for key, item in value.items()
-        }
+        return _sanitize_mapping(value, depth)
     if isinstance(value, list | tuple):
-        items = [_sanitize(item, depth + 1) for item in value[:MAX_ITEMS]]
-        if len(value) > MAX_ITEMS:
-            items.append(f"[{len(value) - MAX_ITEMS} more items]")
-        return items
+        return _sanitize_sequence(value, depth)
+    return _sanitize_scalar(value)
+
+
+def _sanitize_mapping(value: dict[Any, Any], depth: int) -> dict[str, Any]:
+    return {
+        str(key): _REDACTED if _is_secret(str(key)) else _sanitize(item, depth + 1)
+        for key, item in value.items()
+    }
+
+
+def _sanitize_sequence(value: list[Any] | tuple[Any, ...], depth: int) -> list[Any]:
+    items = [_sanitize(item, depth + 1) for item in value[:MAX_ITEMS]]
+    if len(value) > MAX_ITEMS:
+        items.append(f"[{len(value) - MAX_ITEMS} more items]")
+    return items
+
+
+def _sanitize_scalar(value: Any) -> Any:
     if value is None or isinstance(value, bool | int | float):
         return value
     text = str(value)
