@@ -45,11 +45,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   SDK level (e.g. `34`), while `Review.android_version` is a string. It is now
   converted; a missing value is still `None`. The test fixtures used `"13"`,
   which is why the suite never caught it.
+- A pooled keep-alive connection that Google closed while idle made calls fail
+  with `BrokenPipeError` or an SSL EOF, and kept failing: httplib2 leaves a
+  connection whose send failed in its pool, so the next call reused the dead
+  socket. Transport errors now drop the pool so the next request reconnects,
+  and are retried on the same terms as a 500/503 (idempotent requests only,
+  plus edit creation, where a duplicate uncommitted edit is harmless). This
+  mostly hit long-running HTTP deployments. The bug was reported in
+  [abd3lraouf-studios/google-play-console-mcp](https://github.com/abd3lraouf-studios/google-play-console-mcp)
+  and fixed independently here.
 
 ### Security
 - Upgraded `pyjwt` 2.13.0 → 2.15.1 (14 known vulnerabilities, 2 critical, fixed;
   declared floor raised to `>=2.15.1` so published metadata carries the fix) and
   `urllib3` 2.7.0 → 2.8.0 (3 known vulnerabilities).
+- Upgraded `authlib` 1.8.0 → 1.9.1 (7 known vulnerabilities, 1 critical, fixed).
+  It's a transitive dependency of `fastmcp`.
 
 ### Dependencies
 - Refreshed the full lockfile, including `fastmcp` 4.0.3 → 4.0.11, `mcp` 2.1.1 →
