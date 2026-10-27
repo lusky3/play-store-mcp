@@ -54,6 +54,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   mostly hit long-running HTTP deployments. The bug was reported in
   [abd3lraouf-studios/google-play-console-mcp](https://github.com/abd3lraouf-studios/google-play-console-mcp)
   and fixed independently here.
+- `list_subscriptions` returned every base plan's full per-region price table
+  (`regionalConfigs`, ~170 regions each), so a handful of subscriptions exceeded
+  a tool result's size limit. One subscription with two base plans was already
+  ~40KB. Each base plan now reports `regionalConfigCount` instead, cutting that
+  to ~1.2KB; `include_regional_prices=True` restores the full table, and
+  `get_subscription` still returns one product's prices. The bug was reported
+  in [abd3lraouf-studios/google-play-console-mcp](https://github.com/abd3lraouf-studios/google-play-console-mcp)
+  and fixed independently here.
 
 ### Security
 - Upgraded `pyjwt` 2.13.0 → 2.15.1 (14 known vulnerabilities, 2 critical, fixed;

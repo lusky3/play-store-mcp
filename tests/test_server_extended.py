@@ -423,6 +423,50 @@ class TestSubscriptionTools:
         assert len(result) == 1
         assert result[0]["product_id"] == "premium"
 
+    @staticmethod
+    def _subscription_with_regional_prices() -> SubscriptionProduct:
+        regional = [
+            {"regionCode": code, "price": {"currencyCode": "USD", "units": "4"}}
+            for code in ("US", "CA", "GB")
+        ]
+        return SubscriptionProduct(
+            product_id="premium",
+            package_name="com.example.app",
+            base_plans=[
+                {
+                    "basePlanId": "monthly",
+                    "state": "ACTIVE",
+                    "otherRegionsConfig": {"usdPrice": {"units": "4"}},
+                    "regionalConfigs": regional,
+                },
+                {"basePlanId": "draft", "state": "DRAFT"},
+            ],
+        )
+
+    def test_list_subscriptions_summarizes_regional_prices_by_default(
+        self, mock_client: MagicMock
+    ) -> None:
+        """The ~170-region price table is replaced with a count to keep results small."""
+        mock_client.list_subscriptions.return_value = [self._subscription_with_regional_prices()]
+
+        monthly, draft = list_subscriptions("com.example.app")[0]["base_plans"]
+
+        assert "regionalConfigs" not in monthly
+        assert monthly["regionalConfigCount"] == 3
+        assert monthly["basePlanId"] == "monthly"
+        assert monthly["otherRegionsConfig"] == {"usdPrice": {"units": "4"}}
+        assert draft == {"basePlanId": "draft", "state": "DRAFT"}
+
+    def test_list_subscriptions_can_include_regional_prices(self, mock_client: MagicMock) -> None:
+        mock_client.list_subscriptions.return_value = [self._subscription_with_regional_prices()]
+
+        monthly = list_subscriptions("com.example.app", include_regional_prices=True)[0][
+            "base_plans"
+        ][0]
+
+        assert len(monthly["regionalConfigs"]) == 3
+        assert "regionalConfigCount" not in monthly
+
     def test_get_subscription_status(self, mock_client: MagicMock) -> None:
         """Test get_subscription_status tool."""
         from play_store_mcp.server import get_subscription_status
