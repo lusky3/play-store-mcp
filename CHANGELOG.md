@@ -45,6 +45,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Upgraded `pyjwt` 2.13.0 → 2.15.1 (14 known vulnerabilities, 2 critical, fixed;
   declared floor raised to `>=2.15.1` so published metadata carries the fix) and
   `urllib3` 2.7.0 → 2.8.0 (3 known vulnerabilities).
+- Upgraded `authlib` 1.8.0 → 1.9.1 (7 known vulnerabilities, 1 critical, fixed).
+  It's a transitive dependency of `fastmcp`.
 
 ### Dependencies
 - Refreshed the full lockfile, including `fastmcp` 4.0.3 → 4.0.11, `mcp` 2.1.1 →
