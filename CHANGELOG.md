@@ -80,6 +80,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `pydantic-monty` 0.0.21 → 1.1.0, `pydantic` 2.13.5 → 2.14.1, `google-auth`
   2.61.0 → 2.62.0. Verified `execute` still runs correctly in the new sandbox.
 - Dev hooks: `gitleaks` v8.24.0 → v8.30.1, `pre-commit-hooks` v5.0.0 → v6.0.0.
+- Refreshed the lockfile: `fastmcp` 4.1.2 → 4.1.4, the code-mode sandbox
+  `pydantic-monty` 1.1.0 → 1.4.0, `starlette` 1.7.0 → 1.10.0, `httpx2`/`httpcore2`
+  2.13.1 → 2.16.0, `google-api-core` 2.42.0 → 2.43.0, `ruff` 0.17.0 → 0.17.3, and
+  others. 12 packages drop out because upstream no longer needs them (`keyring`
+  and its dependency chain, via `py-key-value-aio`, and `tomli`, via `coverage`).
+  Also bumped the `python:3.15-alpine` base image digest and `mkdocs-material`
+  9.7.7 → 9.8.0.
 
 ### Planned
 - Consolidate and reduce the MCP tool surface (now 117 tools) by grouping
