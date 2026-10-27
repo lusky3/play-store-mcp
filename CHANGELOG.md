@@ -87,6 +87,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and its dependency chain, via `py-key-value-aio`, and `tomli`, via `coverage`).
   Also bumped the `python:3.15-alpine` base image digest and `mkdocs-material`
   9.7.7 → 9.8.0.
+- CI and the Docker build now pin `uv` 0.13.6 (was 0.11.26). Its breaking
+  changes don't touch the commands used here (`sync`, `run`, `build`, `export`),
+  and it reads the existing lockfile unchanged.
 
 ### Planned
 - Consolidate and reduce the MCP tool surface (now 117 tools) by grouping
