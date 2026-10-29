@@ -1,10 +1,10 @@
 # Build stage
-FROM python:3.14-alpine@sha256:f6a589d43c42b9e7f7dc67a12d37132491f362859a5d750607710cc56da3bc72 AS builder
+FROM python:3.15-alpine@sha256:0aa144e9ec2ae8fd80dfd94070ef3e432a0df17b6e5e0091dc05323974ce9913 AS builder
 
 WORKDIR /build
 
 # Install uv for fast dependency resolution
-COPY --from=ghcr.io/astral-sh/uv:0.11.26@sha256:3d868e555f8f1dbc324afa005066cd11e1053fc4743b9808ca8025283e65efa5 /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 /uv /usr/local/bin/uv
 
 COPY pyproject.toml uv.lock README.md ./
 COPY src/ src/
@@ -16,7 +16,7 @@ COPY src/ src/
 RUN UV_PROJECT_ENVIRONMENT=/app/.venv uv sync --frozen --no-editable
 
 # Runtime stage
-FROM python:3.14-alpine@sha256:f6a589d43c42b9e7f7dc67a12d37132491f362859a5d750607710cc56da3bc72
+FROM python:3.15-alpine@sha256:0aa144e9ec2ae8fd80dfd94070ef3e432a0df17b6e5e0091dc05323974ce9913
 
 LABEL org.opencontainers.image.source="https://github.com/lusky3/play-store-mcp"
 LABEL org.opencontainers.image.url="https://github.com/lusky3/play-store-mcp"
@@ -24,6 +24,11 @@ LABEL org.opencontainers.image.documentation="https://lusky3.github.io/play-stor
 LABEL org.opencontainers.image.description="MCP server for Google Play Developer API — deploy apps, manage releases, reviews, and more"
 LABEL org.opencontainers.image.licenses="MIT"
 LABEL org.opencontainers.image.title="play-store-mcp"
+
+# Pick up any Alpine security patches released since this base image digest
+# was built (e.g. libuuid), without waiting on a new upstream base-image
+# build to bump the pin.
+RUN apk upgrade --no-cache
 
 # Security hardening: non-root user, no shell
 RUN addgroup -S mcp && \

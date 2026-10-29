@@ -157,7 +157,7 @@ class TestGetServiceErrors:
 
         with (
             patch(
-                "play_store_mcp.client.service_account.Credentials.from_service_account_file",
+                "play_store_mcp.client.service_account.Credentials.from_service_account_info",
                 side_effect=ValueError("bad creds"),
             ),
             pytest.raises(PlayStoreClientError, match="Failed to initialize API client"),
@@ -1289,6 +1289,97 @@ class TestEditFailures:
             client._commit_edit("com.example.app", "edit-123")
 
 
+class TestEditSetupFailureReturnsResult:
+    """A failure creating the edit (before any upload/track work) must still
+
+    return the method's documented Result object, not raise uncaught -- these
+    methods promise a typed Result on every path, and _create_edit's failure
+    is a routine one (bad package name, no permission, edit-quota exceeded,
+    transient outage), not something callers should need a try/except for.
+    """
+
+    def test_deploy_app_returns_result_on_create_edit_failure(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+        tmp_path: Any,
+    ) -> None:
+        apk = tmp_path / "app.apk"
+        apk.write_bytes(b"fake apk")
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.insert.return_value.execute.side_effect = _make_http_error(403, "forbidden")
+
+        result = client.deploy_app("com.example.app", "internal", str(apk))
+
+        assert result.success is False
+        assert "Deployment failed" in result.message
+
+    def test_promote_release_returns_result_on_create_edit_failure(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.insert.return_value.execute.side_effect = _make_http_error(403, "forbidden")
+
+        result = client.promote_release("com.example.app", "beta", "production", 100)
+
+        assert result.success is False
+        assert "Promotion failed" in result.message
+
+    def test_halt_release_returns_result_on_create_edit_failure(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.insert.return_value.execute.side_effect = _make_http_error(403, "forbidden")
+
+        result = client.halt_release("com.example.app", "production", 100)
+
+        assert result.success is False
+        assert "Halt failed" in result.message
+
+    def test_update_rollout_returns_result_on_create_edit_failure(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.insert.return_value.execute.side_effect = _make_http_error(403, "forbidden")
+
+        result = client.update_rollout("com.example.app", "production", 100, 50.0)
+
+        assert result.success is False
+        assert "Rollout update failed" in result.message
+
+    def test_update_listing_returns_result_on_create_edit_failure(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.insert.return_value.execute.side_effect = _make_http_error(403, "forbidden")
+
+        result = client.update_listing("com.example.app", "en-US", title="New Title")
+
+        assert result.success is False
+        assert "Failed to update listing" in result.message
+
+    def test_update_testers_returns_result_on_create_edit_failure(
+        self,
+        client: PlayStoreClient,
+        _mock_service: MagicMock,
+    ) -> None:
+        mock_edits = _mock_service.edits.return_value
+        mock_edits.insert.return_value.execute.side_effect = _make_http_error(403, "forbidden")
+
+        result = client.update_testers("com.example.app", "internal", ["testers@example.com"])
+
+        assert result["success"] is False
+        assert "error" in result
+
+
 # =========================================================================
 # _parse_timestamp helper
 # =========================================================================
@@ -1353,18 +1444,18 @@ class TestCredentialsJson:
         mock_info.assert_called_once()
 
     def test_credentials_json_path(self, _mock_service: MagicMock, tmp_path: Any) -> None:
-        """A filesystem path string uses from_service_account_file."""
+        """A filesystem path string is read and passed to from_service_account_info."""
         creds_file = tmp_path / "creds.json"
         creds_file.write_text('{"type": "service_account"}')
         client = PlayStoreClient(credentials_json=str(creds_file))
 
         with patch(
-            "play_store_mcp.client.service_account.Credentials.from_service_account_file"
-        ) as mock_file:
-            mock_file.return_value = MagicMock()
+            "play_store_mcp.client.service_account.Credentials.from_service_account_info"
+        ) as mock_info:
+            mock_info.return_value = MagicMock()
             client._get_service()
 
-        mock_file.assert_called_once()
+        mock_info.assert_called_once()
 
     def test_credentials_json_invalid_json(self, _mock_service: MagicMock) -> None:
         """An invalid JSON string starting with '{' logs a warning and yields no creds."""
@@ -1398,6 +1489,69 @@ class TestCredentialsJson:
 
         with pytest.raises(PlayStoreClientError, match="No valid credentials found"):
             client._get_service()
+
+    def test_credentials_json_dict_rejects_spoofed_token_uri(
+        self, _mock_service: MagicMock
+    ) -> None:
+        """A dict with a non-Google token_uri is rejected before credentials are built.
+
+        Regression test for an SSRF: per-request credentials arrive over an
+        unauthenticated HTTP header (X-Google-Credentials), so an attacker
+        could otherwise point token_uri at an arbitrary URL and have this
+        server POST a signed JWT-bearer assertion there on refresh.
+        """
+        client = PlayStoreClient(
+            credentials_json={
+                "type": "service_account",
+                "client_email": "test@example.com",
+                "token_uri": "https://attacker.example.com/steal",
+            }
+        )
+
+        with pytest.raises(PlayStoreClientError, match="Invalid token_uri"):
+            client._get_service()
+
+    def test_credentials_json_string_rejects_spoofed_token_uri(
+        self, _mock_service: MagicMock
+    ) -> None:
+        """A JSON string with a non-Google token_uri is rejected the same way."""
+        client = PlayStoreClient(
+            credentials_json=(
+                '{"type": "service_account", "client_email": "test@example.com", '
+                '"token_uri": "https://attacker.example.com/steal"}'
+            )
+        )
+
+        with pytest.raises(PlayStoreClientError, match="Invalid token_uri"):
+            client._get_service()
+
+    def test_credentials_json_path_rejects_spoofed_token_uri(
+        self, _mock_service: MagicMock, tmp_path: Any
+    ) -> None:
+        """A credentials file with a non-Google token_uri is rejected the same way."""
+        creds_file = tmp_path / "spoofed-creds.json"
+        creds_file.write_text(
+            '{"type": "service_account", "client_email": "test@example.com", '
+            '"token_uri": "https://attacker.example.com/steal"}'
+        )
+        client = PlayStoreClient(credentials_json=str(creds_file))
+
+        with pytest.raises(PlayStoreClientError, match="Invalid token_uri"):
+            client._get_service()
+
+    def test_credentials_json_missing_token_uri_not_rejected_by_validation(
+        self, _mock_service: MagicMock
+    ) -> None:
+        """No token_uri at all passes our validation (google-auth enforces required fields itself)."""
+        client = PlayStoreClient(credentials_json={"type": "service_account"})
+
+        with patch(
+            "play_store_mcp.client.service_account.Credentials.from_service_account_info"
+        ) as mock_info:
+            mock_info.return_value = MagicMock()
+            client._get_service()
+
+        mock_info.assert_called_once()
 
 
 # =========================================================================

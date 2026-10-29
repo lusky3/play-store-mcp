@@ -204,8 +204,12 @@ def test_download_generated_apk_http_error(monkeypatch, tmp_path):
 
     monkeypatch.setattr(client_module, "MediaIoBaseDownload", MagicMock())
 
-    with pytest.raises(PlayStoreClientError, match="Failed to download generated APK"):
-        client.download_generated_apk("com.example.app", 42, "split-1", str(tmp_path / "app.apk"))
+    result = client.download_generated_apk(
+        "com.example.app", 42, "split-1", str(tmp_path / "app.apk")
+    )
+
+    assert result.success is False
+    assert "Failed to download generated APK" in result.message
 
 
 def test_download_generated_apk_failure_preserves_destination(monkeypatch, tmp_path):
@@ -225,8 +229,10 @@ def test_download_generated_apk_failure_preserves_destination(monkeypatch, tmp_p
     destination = tmp_path / "existing.apk"
     destination.write_bytes(b"original-contents")
 
-    with pytest.raises(PlayStoreClientError, match="Failed to download generated APK"):
-        client.download_generated_apk("com.example.app", 42, "split-1", str(destination))
+    result = client.download_generated_apk("com.example.app", 42, "split-1", str(destination))
+
+    assert result.success is False
+    assert "Failed to download generated APK" in result.message
 
     # The pre-existing file is untouched and no partial/temp file is left behind.
     assert destination.read_bytes() == b"original-contents"

@@ -16,32 +16,98 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   related operations, to lower per-request tool-list overhead — with no planned
   loss of functionality.
 
-## [0.6.4] - 2026-10-26
+## [0.7.0] - 2026-10-29
 
-Released together with 0.6.3, which was never tagged on its own.
+> **Breaking — code-mode is now enabled by default.** Clients that expect the
+> full 117-tool list (e.g. anything enumerating tools by name) will instead
+> see three meta-tools (`search`/`get_schema`/`execute`) unless `CODE_MODE=0`
+> is set. See Changed below.
+
+This is the first published release since 0.6.1. It also ships 0.6.3 and 0.6.4,
+which were never tagged (0.6.2, also untagged, is listed separately below).
+
+### Security
+- Blocked SSRF via a spoofed `token_uri` in credential JSON. Credentials passed
+  in the `X-Google-Credentials`/`X-Google-Credentials-Base64` headers (accepted
+  on any request) could name an arbitrary `token_uri`, which google-auth POSTs
+  to on token refresh. Credentials are now rejected unless `token_uri` is
+  Google's own `https://oauth2.googleapis.com/token`.
+- Upgraded `pyjwt` 2.13.0 → 2.15.1 (14 known vulnerabilities, 2 critical, fixed;
+  declared floor raised to `>=2.15.1` so published metadata carries the fix),
+  `urllib3` 2.7.0 → 2.8.0 (3 known vulnerabilities), and `authlib` 1.7.2 → 1.9.1
+  (7 known vulnerabilities in 1.8.0, 1 critical).
+- The server warns at startup if `PLAY_STORE_MCP_ADMIN_TOKEN` is set but shorter
+  than 16 characters, and the docs warn that `--host 0.0.0.0` exposes the
+  unauthenticated `/mcp` endpoint.
+
+### Added
+- Opt-in tool-failure log. Set `PLAY_STORE_MCP_FAILURE_LOG=1` to record each
+  failed tool call (raised errors, argument-validation failures, and results
+  with `success: false` or an `error`) to a JSON-lines file at
+  `PLAY_STORE_MCP_FAILURE_LOG_PATH` (default
+  `$XDG_STATE_HOME/play-store-mcp/tool-failures.jsonl`). MCP clients log such
+  calls as successes, so this is the only record of why they failed. Off by
+  default for every transport. Secret-named arguments are redacted (including
+  from error text), long values are truncated, and the file is `0600` and
+  rotates at 5MB. With code-mode on, calls inside `execute` are recorded under
+  their own tool names. The idea came from
+  [abd3lraouf-studios/google-play-console-mcp](https://github.com/abd3lraouf-studios/google-play-console-mcp)
+  and was implemented independently here.
+- `list_subscriptions` gains `include_regional_prices` (see Changed).
+
+### Changed
+- **Breaking:** `CODE_MODE` now defaults to **enabled** (was opt-in/default-off).
+  Set `CODE_MODE=0` (or `false`/`no`/`off`, case-insensitive) to opt out and
+  get the classic 117-tool list back. The `execute` meta-tool's sandbox
+  (Monty) is now a base dependency — not an optional extra — so every
+  install path (`pip install play-store-mcp`, `uvx play-store-mcp`, Docker)
+  works out of the box with no separate install step. Read-only enforcement
+  still applies inside the sandbox.
+- `list_subscriptions` no longer returns each base plan's per-region price
+  table by default (see Fixed); pass `include_regional_prices=True` for it.
+- The Docker image now runs on Python 3.15 (`python:3.15-alpine`, was 3.14).
 
 ### Fixed
 - `get_reviews` and `get_review` failed on every real response with a pydantic
   `string_type` error: the Reviews API sends `androidOsVersion` as an integer
   SDK level (e.g. `34`), while `Review.android_version` is a string. It is now
-  converted; a missing value is still `None`. The test fixtures used `"13"`,
-  which is why the suite never caught it.
-
-### Security
-- Upgraded `pyjwt` 2.13.0 → 2.15.1 (14 known vulnerabilities, 2 critical, fixed;
-  declared floor raised to `>=2.15.1` so published metadata carries the fix) and
-  `urllib3` 2.7.0 → 2.8.0 (3 known vulnerabilities).
+  converted; a missing value is still `None`. Reported and fixed by @j4velin
+  (#178).
+- `deploy_app`, `promote_release`, `halt_release`, `update_rollout`,
+  `update_listing` and `update_testers` raised instead of returning their
+  documented failure result when setting up the edit failed (bad package name,
+  missing permission, edit quota, transient API errors).
+- A pooled keep-alive connection that Google closed while idle made calls fail
+  with `BrokenPipeError` or an SSL EOF, and kept failing: httplib2 leaves a
+  connection whose send failed in its pool, so the next call reused the dead
+  socket. Transport errors now drop the pool so the next request reconnects,
+  and are retried on the same terms as a 500/503 (idempotent requests only,
+  plus edit creation, where a duplicate uncommitted edit is harmless). This
+  mostly hit long-running HTTP deployments. The bug was reported in
+  [abd3lraouf-studios/google-play-console-mcp](https://github.com/abd3lraouf-studios/google-play-console-mcp)
+  and fixed independently here.
+- `list_subscriptions` returned every base plan's full per-region price table
+  (`regionalConfigs`, ~170 regions each), so a handful of subscriptions exceeded
+  a tool result's size limit. One subscription with two base plans was already
+  ~40KB. Each base plan now reports `regionalConfigCount` instead, cutting that
+  to ~1.2KB; `include_regional_prices=True` restores the full table, and
+  `get_subscription` still returns one product's prices. The bug was reported
+  in [abd3lraouf-studios/google-play-console-mcp](https://github.com/abd3lraouf-studios/google-play-console-mcp)
+  and fixed independently here.
+- Concurrent first tool calls could each build their own API client (a race in
+  the lazy client setup); the client is now built once.
 
 ### Dependencies
-- Refreshed the full lockfile, including `fastmcp` 4.0.2 → 4.1.0, `mcp` 2.1.1 →
-  2.3.0, the code-mode sandbox `pydantic-monty` 0.0.18 → 1.1.0, `cryptography`
-  50.0.0 → 50.0.2, `starlette` 1.3.1 → 1.7.0, and `google-auth` 2.55.1 → 2.62.0.
-  Verified `execute` still runs correctly in the new sandbox.
-- Bumped the `python:3.14-alpine` base image digest.
-- CI: synced all GitHub Actions pins to the versions already running on `main`
-  (Dependabot only targets `main`, so `stable` had drifted), with every
-  `github/codeql-action` ref on the same version (v4.38.2) to avoid CodeQL's
-  `init`/`autobuild`/`analyze` version-mismatch failure.
+- `fastmcp` 4.0.2 → 4.1.4, `mcp` 2.1.1 → 2.3.0, the code-mode sandbox
+  `pydantic-monty` 0.0.18 → 1.4.0, `starlette` 1.3.1 → 1.10.0,
+  `google-api-python-client` 2.198.0 → 2.201.0, `google-auth` 2.55.1 → 2.62.0,
+  `cryptography` 50.0.0 → 50.0.2, and the rest of the lockfile.
+- Container: newer base image digest, plus `apk upgrade` in the runtime stage to
+  pick up Alpine fixes that the base image hasn't yet.
+- CI: `uv` 0.13.6; GitHub Actions updated (all `github/codeql-action` refs pinned
+  to one version and grouped in Dependabot); runners on `ubuntu-26.04` with
+  Python 3.14.9; Grype/Trivy suppress only no-fix-yet CVEs, using each
+  scanner's native mechanism (state-based or with an expiry).
 
 ## [0.6.2] - 2026-09-05
 

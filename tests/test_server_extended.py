@@ -60,7 +60,12 @@ from play_store_mcp.server import (
 
 
 def test_server_uses_fastmcp_and_registers_all_tools() -> None:
-    """The server is built on the standalone fastmcp package with all 117 tools."""
+    """The server is built on the standalone fastmcp package with all 117 tools.
+
+    Depends on conftest.py pinning CODE_MODE=0 for the test process, since
+    `server.mcp` is a module-level singleton built once at import time and
+    CODE_MODE now defaults to enabled (meta-tool surface) in production.
+    """
     import asyncio
 
     import fastmcp
@@ -95,13 +100,12 @@ def tmp_aab(tmp_path: Any) -> str:
 
 
 @pytest.fixture(autouse=True)
-def _patch_mcp_context(mock_client: MagicMock, monkeypatch: pytest.MonkeyPatch) -> Any:
+def _patch_mcp_context(mock_client: MagicMock, monkeypatch: pytest.MonkeyPatch) -> None:
     """Route get_client_from_context to the mock client for tool tests."""
     from play_store_mcp import server
 
     monkeypatch.setattr(server, "get_http_headers", dict)
     monkeypatch.setitem(server._shared_state, "client", mock_client)
-    yield
 
 
 # =========================================================================
@@ -418,6 +422,50 @@ class TestSubscriptionTools:
         mock_client.list_subscriptions.assert_called_once_with("com.example.app")
         assert len(result) == 1
         assert result[0]["product_id"] == "premium"
+
+    @staticmethod
+    def _subscription_with_regional_prices() -> SubscriptionProduct:
+        regional = [
+            {"regionCode": code, "price": {"currencyCode": "USD", "units": "4"}}
+            for code in ("US", "CA", "GB")
+        ]
+        return SubscriptionProduct(
+            product_id="premium",
+            package_name="com.example.app",
+            base_plans=[
+                {
+                    "basePlanId": "monthly",
+                    "state": "ACTIVE",
+                    "otherRegionsConfig": {"usdPrice": {"units": "4"}},
+                    "regionalConfigs": regional,
+                },
+                {"basePlanId": "draft", "state": "DRAFT"},
+            ],
+        )
+
+    def test_list_subscriptions_summarizes_regional_prices_by_default(
+        self, mock_client: MagicMock
+    ) -> None:
+        """The ~170-region price table is replaced with a count to keep results small."""
+        mock_client.list_subscriptions.return_value = [self._subscription_with_regional_prices()]
+
+        monthly, draft = list_subscriptions("com.example.app")[0]["base_plans"]
+
+        assert "regionalConfigs" not in monthly
+        assert monthly["regionalConfigCount"] == 3
+        assert monthly["basePlanId"] == "monthly"
+        assert monthly["otherRegionsConfig"] == {"usdPrice": {"units": "4"}}
+        assert draft == {"basePlanId": "draft", "state": "DRAFT"}
+
+    def test_list_subscriptions_can_include_regional_prices(self, mock_client: MagicMock) -> None:
+        mock_client.list_subscriptions.return_value = [self._subscription_with_regional_prices()]
+
+        monthly = list_subscriptions("com.example.app", include_regional_prices=True)[0][
+            "base_plans"
+        ][0]
+
+        assert len(monthly["regionalConfigs"]) == 3
+        assert "regionalConfigCount" not in monthly
 
     def test_get_subscription_status(self, mock_client: MagicMock) -> None:
         """Test get_subscription_status tool."""
@@ -888,6 +936,73 @@ def test_run_http_warns_without_download_dir_but_starts(monkeypatch: pytest.Monk
     assert captured.get("served") is True
 
 
+def _stub_run_http_startup(monkeypatch: pytest.MonkeyPatch, server: Any) -> None:
+    """Stub out the ASGI app/uvicorn bits of _run_http so it returns immediately."""
+
+    def fake_http_app(**_kwargs: Any) -> str:
+        return "ASGI_APP"
+
+    class FakeUvicorn:
+        @staticmethod
+        def run(*_args: Any, **_kwargs: Any) -> None:
+            pass
+
+    monkeypatch.setattr(server.mcp, "http_app", fake_http_app)
+    monkeypatch.setattr(server, "uvicorn", FakeUvicorn)
+
+
+@pytest.mark.parametrize("admin_token", ["short", "a" * 15])
+def test_run_http_warns_on_weak_admin_token(
+    admin_token: str, monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    """A PLAY_STORE_MCP_ADMIN_TOKEN under the recommended minimum length logs a warning."""
+    from play_store_mcp import server
+
+    monkeypatch.setenv("PLAY_STORE_MCP_ADMIN_TOKEN", admin_token)
+    monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(tmp_path))
+    _stub_run_http_startup(monkeypatch, server)
+
+    with patch.object(server.logger, "warning") as mock_warning:
+        server._run_http("streamable-http", "127.0.0.1", 8000)
+
+    messages = [call.args[0] for call in mock_warning.call_args_list]
+    assert any("PLAY_STORE_MCP_ADMIN_TOKEN is shorter than recommended" in m for m in messages)
+
+
+def test_run_http_no_warning_for_strong_admin_token(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    """An admin token at or above the recommended minimum length logs no warning."""
+    from play_store_mcp import server
+
+    monkeypatch.setenv("PLAY_STORE_MCP_ADMIN_TOKEN", "a" * 32)
+    monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(tmp_path))
+    _stub_run_http_startup(monkeypatch, server)
+
+    with patch.object(server.logger, "warning") as mock_warning:
+        server._run_http("streamable-http", "127.0.0.1", 8000)
+
+    messages = [call.args[0] for call in mock_warning.call_args_list]
+    assert not any("PLAY_STORE_MCP_ADMIN_TOKEN" in m for m in messages)
+
+
+def test_run_http_no_warning_when_admin_token_unset(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+) -> None:
+    """No admin token configured logs no admin-token warning (loopback-only mode is not weak)."""
+    from play_store_mcp import server
+
+    monkeypatch.delenv("PLAY_STORE_MCP_ADMIN_TOKEN", raising=False)
+    monkeypatch.setenv("PLAY_STORE_MCP_DOWNLOAD_DIR", str(tmp_path))
+    _stub_run_http_startup(monkeypatch, server)
+
+    with patch.object(server.logger, "warning") as mock_warning:
+        server._run_http("streamable-http", "127.0.0.1", 8000)
+
+    messages = [call.args[0] for call in mock_warning.call_args_list]
+    assert not any("PLAY_STORE_MCP_ADMIN_TOKEN" in m for m in messages)
+
+
 @pytest.mark.parametrize(
     ("host", "expected"),
     [
@@ -983,6 +1098,35 @@ class TestGetClientFromContext:
         monkeypatch.setitem(server._shared_state, "client", None)
         with pytest.raises(server.PlayStoreClientError, match="No credentials"):
             server.get_client_from_context()
+
+    def test_json_header_with_spoofed_token_uri_blocked_on_first_use(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """End-to-end SSRF regression test for the X-Google-Credentials header.
+
+        get_client_from_context() takes headers from any unauthenticated
+        request and builds a real PlayStoreClient from them (unlike
+        /credentials, which is gated). Confirm a spoofed token_uri is
+        rejected the first time the resulting client is actually used
+        (_get_service(), called at the top of every client method), before
+        any outbound request using it could occur.
+        """
+        from play_store_mcp import server
+
+        monkeypatch.setattr(
+            server,
+            "get_http_headers",
+            lambda: {
+                "x-google-credentials": (
+                    '{"type": "service_account", "client_email": "test@example.com", '
+                    '"token_uri": "https://attacker.example.com/steal"}'
+                )
+            },
+        )
+
+        client = server.get_client_from_context()
+        with pytest.raises(server.PlayStoreClientError, match="Invalid token_uri"):
+            client._get_service()
 
 
 # =========================================================================
@@ -1264,25 +1408,36 @@ class TestMainEntryPoint:
         ("true", True),
         ("YES", True),
         ("on", True),
+        ("", True),
+        ("anything-else", True),
         ("0", False),
         ("false", False),
-        ("no", False),
-        ("", False),
+        ("NO", False),
+        ("off", False),
     ],
 )
 def test_code_mode_flag_parsing(monkeypatch: pytest.MonkeyPatch, val: str, expected: bool) -> None:
-    """CODE_MODE parses like the read-only flag (case-insensitive truthy set)."""
+    """CODE_MODE defaults to enabled; only an explicit opt-out value disables it."""
     from play_store_mcp import server
 
     monkeypatch.setenv("CODE_MODE", val)
     assert server._code_mode_enabled() is expected
 
 
-def test_code_mode_disabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    """With CODE_MODE unset, no transforms are built (classic tool surface)."""
+def test_code_mode_enabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With CODE_MODE unset, the code-mode transform is built (meta-tool surface)."""
     from play_store_mcp import server
 
     monkeypatch.delenv("CODE_MODE", raising=False)
+    assert server._code_mode_enabled() is True
+    assert len(server._build_transforms()) == 1
+
+
+def test_code_mode_disabled_via_opt_out(monkeypatch: pytest.MonkeyPatch) -> None:
+    """CODE_MODE=0 opts out, falling back to the classic tool list (no transforms)."""
+    from play_store_mcp import server
+
+    monkeypatch.setenv("CODE_MODE", "0")
     assert server._code_mode_enabled() is False
     assert server._build_transforms() == []
 
@@ -1295,7 +1450,7 @@ def test_build_transforms_enabled_wraps_tools(monkeypatch: pytest.MonkeyPatch) -
 
     from play_store_mcp import server
 
-    monkeypatch.setenv("CODE_MODE", "1")
+    monkeypatch.delenv("CODE_MODE", raising=False)
     transforms = server._build_transforms()
     assert len(transforms) == 1
 
@@ -1405,8 +1560,10 @@ class TestDownloadPathConfinement:
         allowed.mkdir()
         client = PlayStoreClient(download_dir=str(allowed))
         evil = tmp_path / "evil.apk"
+        evil_path = str(evil)
+        mock_request = MagicMock()
         with pytest.raises(PlayStoreClientError, match="PLAY_STORE_MCP_DOWNLOAD_DIR"):
-            client._download_to_file(MagicMock(), str(evil))
+            client._download_to_file(mock_request, evil_path)
         # Nothing written, and no stray .part file left in the parent.
         assert not evil.exists()
         assert not list(tmp_path.glob(".evil.apk.*.part"))

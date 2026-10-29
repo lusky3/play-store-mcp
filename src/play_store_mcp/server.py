@@ -14,7 +14,7 @@ import secrets
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 import structlog
 import uvicorn
@@ -25,7 +25,12 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
-from play_store_mcp.client import PlayStoreClient, PlayStoreClientError
+from play_store_mcp.client import (
+    DEFAULT_REGIONS_VERSION,
+    PlayStoreClient,
+    PlayStoreClientError,
+)
+from play_store_mcp.failure_log import FailureLogMiddleware
 
 # Configure structured logging to stderr (stdout is reserved for MCP JSON-RPC)
 log_level = os.environ.get("PLAY_STORE_MCP_LOG_LEVEL", "INFO")
@@ -81,11 +86,30 @@ def get_client_from_context() -> PlayStoreClient:
     )
 
 
+class AppState(TypedDict):
+    """Shared state threaded through the FastMCP lifespan context.
+
+    A TypedDict, not a dataclass, so every existing subscript access
+    (``_shared_state["client"]``, including the dict-style access FastMCP's
+    yielded lifespan context and this module's own tests use) keeps working
+    unchanged -- this only adds mypy key-name and value-type checking, no
+    runtime behavior change.
+    """
+
+    client: PlayStoreClient | None
+    credentials_updated: bool
+
+
 # Shared fallback client, used when a request carries no per-request
 # credential header. Populated by the lifespan on startup and swapped by the
 # /credentials route. Module-level so custom routes and get_client_from_context
 # can reach it without depending on framework-internal context plumbing.
-_shared_state: dict[str, Any] = {"client": None, "credentials_updated": False}
+_shared_state: AppState = {"client": None, "credentials_updated": False}
+
+# Recommended minimum length for PLAY_STORE_MCP_ADMIN_TOKEN, below which
+# _run_http logs a startup warning. `openssl rand -hex 32` (the documented
+# recommendation) produces a 64-char token; this is a low bar, not a target.
+_MIN_ADMIN_TOKEN_LENGTH = 16
 
 
 @asynccontextmanager
@@ -160,30 +184,33 @@ def _read_only_block(operation: str) -> dict[str, Any] | None:
 
 
 def _code_mode_enabled() -> bool:
-    """Return True if CODE_MODE enables the experimental code-mode transform."""
-    return os.environ.get("CODE_MODE", "").strip().lower() in {"1", "true", "yes", "on"}
+    """Return True unless CODE_MODE explicitly opts out of the code-mode transform.
+
+    Enabled by default; set CODE_MODE=0/false/no/off (case-insensitive) to opt
+    out and fall back to the classic tool list.
+    """
+    return os.environ.get("CODE_MODE", "").strip().lower() not in {"0", "false", "no", "off"}
 
 
 def _build_transforms() -> list[Any]:
     """Return the FastMCP transforms for this process.
 
-    When CODE_MODE is enabled, wrap the tool surface in the experimental CodeMode
-    transform (search/get_schema/execute meta-tools + sandboxed execution), which
-    cuts per-request tool-list overhead. Default: no transforms — the classic
-    117-tool surface, unchanged.
+    Default: the tool surface is wrapped in the experimental CodeMode transform
+    (search/get_schema/execute meta-tools + sandboxed execution), which cuts
+    per-request tool-list overhead. Set CODE_MODE=0 to opt out and expose the
+    classic 117-tool surface instead.
     """
     if not _code_mode_enabled():
         return []
-    # Imported lazily so the base install (without the code-mode extra) never
-    # pays for it when the flag is off.
-    from fastmcp.experimental.transforms.code_mode import (  # noqa: PLC0415 - lazy import: code-mode extra is optional
+    # Imported lazily so opting out (CODE_MODE=0) never touches fastmcp's
+    # experimental module.
+    from fastmcp.experimental.transforms.code_mode import (  # noqa: PLC0415
         CodeMode,
     )
 
-    logger.warning(
-        "CODE_MODE enabled: exposing tools via the experimental code-mode transform "
-        "(search/get_schema/execute). The 'execute' sandbox requires the code-mode "
-        "extra — install play-store-mcp[code-mode]."
+    logger.info(
+        "Exposing tools via the code-mode transform (search/get_schema/execute); "
+        "set CODE_MODE=0 to opt out and use the classic tool list instead."
     )
     return [CodeMode()]
 
@@ -194,6 +221,8 @@ mcp = FastMCP(
     lifespan=lifespan,
     transforms=_build_transforms(),
 )
+# No-op unless PLAY_STORE_MCP_FAILURE_LOG is on (checked per call).
+mcp.add_middleware(FailureLogMiddleware())
 
 
 # =============================================================================
@@ -523,20 +552,43 @@ def get_review(
 # =============================================================================
 
 
+def _summarize_regional_prices(base_plan: dict[str, Any]) -> dict[str, Any]:
+    """Replace a base plan's per-region price table with a count of its regions."""
+    if "regionalConfigs" not in base_plan:
+        return base_plan
+    summary = {key: value for key, value in base_plan.items() if key != "regionalConfigs"}
+    summary["regionalConfigCount"] = len(base_plan["regionalConfigs"])
+    return summary
+
+
 @mcp.tool()
-def list_subscriptions(package_name: str) -> list[dict[str, Any]]:
+def list_subscriptions(
+    package_name: str,
+    include_regional_prices: bool = False,
+) -> list[dict[str, Any]]:
     """List all subscription products for an app.
+
+    Per-region prices are omitted by default: each base plan carries ~170
+    regional prices, so even a few subscriptions exceed a tool result's size
+    limit. Each base plan reports ``regionalConfigCount`` instead. Use
+    get_subscription for one product's prices, or include_regional_prices=True
+    for all of them.
 
     Args:
         package_name: App package name
+        include_regional_prices: Include each base plan's full ``regionalConfigs``
+            price table (default: False)
 
     Returns:
         List of subscription products with their base plans
     """
     client = get_client_from_context()
 
-    subscriptions = client.list_subscriptions(package_name)
-    return [sub.model_dump() for sub in subscriptions]
+    subscriptions = [sub.model_dump() for sub in client.list_subscriptions(package_name)]
+    if not include_regional_prices:
+        for sub in subscriptions:
+            sub["base_plans"] = [_summarize_regional_prices(bp) for bp in sub["base_plans"]]
+    return subscriptions
 
 
 @mcp.tool()
@@ -1089,7 +1141,7 @@ def patch_one_time_product(
     product_id: str,
     product: dict[str, Any],
     update_mask: str,
-    regions_version: str = "2022/02",
+    regions_version: str = DEFAULT_REGIONS_VERSION,
 ) -> dict[str, Any]:
     """Create or update a one-time product (patch is create-or-update).
 
@@ -1547,7 +1599,7 @@ def create_subscription(
     package_name: str,
     product_id: str,
     subscription: dict[str, Any],
-    regions_version: str = "2022/02",
+    regions_version: str = DEFAULT_REGIONS_VERSION,
 ) -> dict[str, Any]:
     """Create a new subscription product in the catalog.
 
@@ -1581,7 +1633,7 @@ def patch_subscription(
     product_id: str,
     subscription: dict[str, Any],
     update_mask: str,
-    regions_version: str = "2022/02",
+    regions_version: str = DEFAULT_REGIONS_VERSION,
 ) -> dict[str, Any]:
     """Partially update an existing subscription product.
 
@@ -1939,7 +1991,7 @@ def create_subscription_offer(
     base_plan_id: str,
     offer_id: str,
     offer: dict[str, Any],
-    regions_version: str = "2022/02",
+    regions_version: str = DEFAULT_REGIONS_VERSION,
 ) -> dict[str, Any]:
     """Create a new subscription offer.
 
@@ -1979,7 +2031,7 @@ def patch_subscription_offer(
     offer_id: str,
     offer: dict[str, Any],
     update_mask: str,
-    regions_version: str = "2022/02",
+    regions_version: str = DEFAULT_REGIONS_VERSION,
 ) -> dict[str, Any]:
     """Partially update an existing subscription offer.
 
@@ -3604,6 +3656,78 @@ def _authorize_credentials_request(request: Request) -> JSONResponse | None:
     return None
 
 
+def _parse_base64_credentials_payload(
+    credentials_base64: str,
+) -> tuple[PlayStoreClient | None, JSONResponse | None]:
+    """Decode a base64-encoded service account JSON payload into a new client.
+
+    Returns (client, None) on success, or (None, error_response) on failure.
+    """
+    try:
+        decoded = base64.b64decode(credentials_base64).decode("utf-8")
+        credentials_dict = json.loads(decoded)
+    except (binascii.Error, UnicodeDecodeError) as e:
+        return None, JSONResponse(
+            {"success": False, "error": f"Invalid base64 encoding: {e}"},
+            status_code=400,
+        )
+    except json.JSONDecodeError:
+        return None, JSONResponse(
+            {"success": False, "error": "Invalid JSON in base64-decoded credentials"},
+            status_code=400,
+        )
+    return PlayStoreClient(credentials_json=credentials_dict), None
+
+
+def _parse_inline_credentials_payload(
+    credentials: Any,
+) -> tuple[PlayStoreClient | None, JSONResponse | None]:
+    """Parse an inline ``credentials`` value (JSON string or object) into a new client.
+
+    Returns (client, None) on success, or (None, error_response) on failure.
+    """
+    if isinstance(credentials, str):
+        # Validate it's valid JSON
+        try:
+            json.loads(credentials)
+        except json.JSONDecodeError:
+            return None, JSONResponse(
+                {"success": False, "error": "Invalid JSON in credentials string"},
+                status_code=400,
+            )
+        return PlayStoreClient(credentials_json=credentials), None
+    if isinstance(credentials, dict):
+        return PlayStoreClient(credentials_json=credentials), None
+    return None, JSONResponse(
+        {"success": False, "error": "credentials must be a string or object"},
+        status_code=400,
+    )
+
+
+def _parse_credentials_request_body(
+    body: dict[str, Any],
+) -> tuple[PlayStoreClient | None, JSONResponse | None]:
+    """Parse a /credentials POST body into a new ``PlayStoreClient``.
+
+    Returns (client, None) on success, or (None, error_response) on failure.
+    """
+    credentials = body.get("credentials")
+    credentials_base64 = body.get("credentials_base64")
+
+    if not credentials and not credentials_base64:
+        return None, JSONResponse(
+            {
+                "success": False,
+                "error": "Missing 'credentials' or 'credentials_base64' in request body",
+            },
+            status_code=400,
+        )
+
+    if credentials_base64:
+        return _parse_base64_credentials_payload(credentials_base64)
+    return _parse_inline_credentials_payload(credentials)
+
+
 @mcp.custom_route("/credentials", methods=["POST"])
 async def update_credentials(request: Request) -> JSONResponse:
     """Update Google Play Store credentials via HTTP POST.
@@ -3626,57 +3750,12 @@ async def update_credentials(request: Request) -> JSONResponse:
     if auth_error is not None:
         return auth_error
 
-    new_client: PlayStoreClient | None = None
     try:
         body = await request.json()
 
-        credentials = body.get("credentials")
-        credentials_base64 = body.get("credentials_base64")
-
-        if not credentials and not credentials_base64:
-            return JSONResponse(
-                {
-                    "success": False,
-                    "error": "Missing 'credentials' or 'credentials_base64' in request body",
-                },
-                status_code=400,
-            )
-
-        # Create new client with provided credentials
-        if credentials_base64:
-            # Decode base64 credentials
-            try:
-                decoded = base64.b64decode(credentials_base64).decode("utf-8")
-                credentials_dict = json.loads(decoded)
-                new_client = PlayStoreClient(credentials_json=credentials_dict)
-            except (binascii.Error, UnicodeDecodeError) as e:
-                return JSONResponse(
-                    {"success": False, "error": f"Invalid base64 encoding: {e}"},
-                    status_code=400,
-                )
-            except json.JSONDecodeError:
-                return JSONResponse(
-                    {"success": False, "error": "Invalid JSON in base64-decoded credentials"},
-                    status_code=400,
-                )
-        elif credentials:
-            if isinstance(credentials, str):
-                # Validate it's valid JSON
-                try:
-                    json.loads(credentials)
-                except json.JSONDecodeError:
-                    return JSONResponse(
-                        {"success": False, "error": "Invalid JSON in credentials string"},
-                        status_code=400,
-                    )
-                new_client = PlayStoreClient(credentials_json=credentials)
-            elif isinstance(credentials, dict):
-                new_client = PlayStoreClient(credentials_json=credentials)
-            else:
-                return JSONResponse(
-                    {"success": False, "error": "credentials must be a string or object"},
-                    status_code=400,
-                )
+        new_client, parse_error = _parse_credentials_request_body(body)
+        if parse_error is not None:
+            return parse_error
 
         if (
             new_client is None
@@ -3761,6 +3840,15 @@ def _run_http(transport: str, host: str, port: int) -> None:
             "the server's working directory. Set it to a writable directory to control where "
             "downloads are written on a network-exposed deployment.",
             transport=transport,
+        )
+    admin_token = os.environ.get("PLAY_STORE_MCP_ADMIN_TOKEN")
+    if admin_token and len(admin_token) < _MIN_ADMIN_TOKEN_LENGTH:
+        logger.warning(
+            "PLAY_STORE_MCP_ADMIN_TOKEN is shorter than recommended; a weak token makes "
+            "the /credentials endpoint's Bearer-token check easier to brute-force. Use a "
+            "long random value, e.g. `openssl rand -hex 32`.",
+            token_length=len(admin_token),
+            recommended_minimum=_MIN_ADMIN_TOKEN_LENGTH,
         )
     middleware: list[Middleware] = []
     if not _dns_rebinding_disabled():

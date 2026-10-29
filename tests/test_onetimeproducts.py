@@ -306,8 +306,10 @@ def test_delete_one_time_product_http_error():
     _otp(service).delete.return_value.execute.side_effect = _make_http_error("bad")
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to delete one-time product"):
-        client.delete_one_time_product("com.example.app", "coins_pack")
+    result = client.delete_one_time_product("com.example.app", "coins_pack")
+
+    assert result.success is False
+    assert "Failed to delete one-time product" in result.message
 
 
 # ---------------------------------------------------------------------------
@@ -383,8 +385,10 @@ def test_batch_delete_one_time_products_http_error():
     _otp(service).batchDelete.return_value.execute.side_effect = _make_http_error("bad")
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to batch delete one-time products"):
-        client.batch_delete_one_time_products("com.example.app", [{"productId": "coins_pack"}])
+    result = client.batch_delete_one_time_products("com.example.app", [{"productId": "coins_pack"}])
+
+    assert result.success is False
+    assert "Failed to batch delete one-time products" in result.message
 
 
 # ---------------------------------------------------------------------------

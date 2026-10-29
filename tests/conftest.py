@@ -12,6 +12,17 @@ import structlog
 if TYPE_CHECKING:
     from collections.abc import Generator
 
+# CODE_MODE now defaults to enabled, but the module-level `mcp` singleton in
+# server.py is built once at import time from whatever CODE_MODE is in the
+# environment at that moment — most of this suite (and the "117 tools"
+# classic-surface assertion) exercises that singleton directly, so pin it to
+# the classic tool list here. Must run before ANY `play_store_mcp` import
+# below (even `play_store_mcp.client`), since `play_store_mcp/__init__.py`
+# eagerly imports `server`. Code-mode-specific tests build fresh transforms
+# via server._build_transforms() with their own monkeypatched CODE_MODE and
+# are unaffected by this default.
+os.environ.setdefault("CODE_MODE", "0")
+
 import pytest
 
 from play_store_mcp.client import PlayStoreClient
@@ -47,9 +58,15 @@ def _reset_shared_state() -> Generator[None, None, None]:
 
 @pytest.fixture
 def _mock_credentials() -> Generator[MagicMock, None, None]:
-    """Mock Google credentials."""
+    """Mock Google credentials.
+
+    All credential-resolution branches (dict, JSON string, file path) funnel
+    through ``from_service_account_info`` so the token_uri validation in
+    ``_build_credentials_from_info`` is a single, universal choke point —
+    so that's the call this mocks, not ``from_service_account_file``.
+    """
     with patch(
-        "play_store_mcp.client.service_account.Credentials.from_service_account_file"
+        "play_store_mcp.client.service_account.Credentials.from_service_account_info"
     ) as mock:
         mock.return_value = MagicMock()
         yield mock

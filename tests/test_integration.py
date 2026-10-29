@@ -72,12 +72,9 @@ class TestRealAPIConnection:
 
     def test_can_get_service(self, real_client: PlayStoreClient) -> None:
         """Test that we can get the API service."""
-        try:
-            service = real_client._get_service()
-            assert service is not None
-            print("✓ API service obtained successfully")
-        except PlayStoreClientError as e:
-            pytest.fail(f"Failed to get API service: {e}")
+        service = real_client._get_service()
+        assert service is not None
+        print("✓ API service obtained successfully")
 
 
 class TestReadOnlyOperations:
@@ -89,20 +86,17 @@ class TestReadOnlyOperations:
         test_package_name: str,
     ) -> None:
         """Test getting releases for an app."""
-        try:
-            tracks = real_client.get_releases(test_package_name)
-            assert isinstance(tracks, list)
-            print(f"✓ get_releases() returned {len(tracks)} tracks")
+        tracks = real_client.get_releases(test_package_name)
+        assert isinstance(tracks, list)
+        print(f"✓ get_releases() returned {len(tracks)} tracks")
 
-            for track in tracks:
-                print(f"  - Track: {track.track}")
-                for release in track.releases:
-                    print(f"    Version codes: {release.version_codes}")
-                    print(f"    Status: {release.status}")
-                    if release.rollout_percentage < 100:
-                        print(f"    Rollout: {release.rollout_percentage}%")
-        except PlayStoreClientError as e:
-            pytest.fail(f"Failed to get releases: {e}")
+        for track in tracks:
+            print(f"  - Track: {track.track}")
+            for release in track.releases:
+                print(f"    Version codes: {release.version_codes}")
+                print(f"    Status: {release.status}")
+                if release.rollout_percentage < 100:
+                    print(f"    Rollout: {release.rollout_percentage}%")
 
     def test_get_app_details(
         self,
@@ -110,14 +104,11 @@ class TestReadOnlyOperations:
         test_package_name: str,
     ) -> None:
         """Test getting app details."""
-        try:
-            details = real_client.get_app_details(test_package_name)
-            assert details.package_name == test_package_name
-            print("✓ get_app_details() succeeded")
-            print(f"  Title: {details.title}")
-            print(f"  Default language: {details.default_language}")
-        except PlayStoreClientError as e:
-            pytest.fail(f"Failed to get app details: {e}")
+        details = real_client.get_app_details(test_package_name)
+        assert details.package_name == test_package_name
+        print("✓ get_app_details() succeeded")
+        print(f"  Title: {details.title}")
+        print(f"  Default language: {details.default_language}")
 
     def test_get_reviews(
         self,
@@ -177,16 +168,13 @@ class TestReadOnlyOperations:
         test_package_name: str,
     ) -> None:
         """Test getting store listing."""
-        try:
-            listing = real_client.get_listing(test_package_name, "en-US")
-            assert listing.language == "en-US"
-            print("✓ get_listing() succeeded")
-            print(f"  Title: {listing.title}")
-            print(
-                f"  Short description: {listing.short_description[:50] if listing.short_description else 'None'}..."
-            )
-        except PlayStoreClientError as e:
-            pytest.fail(f"Failed to get listing: {e}")
+        listing = real_client.get_listing(test_package_name, "en-US")
+        assert listing.language == "en-US"
+        print("✓ get_listing() succeeded")
+        print(f"  Title: {listing.title}")
+        print(
+            f"  Short description: {listing.short_description[:50] if listing.short_description else 'None'}..."
+        )
 
     def test_list_all_listings(
         self,
@@ -194,15 +182,12 @@ class TestReadOnlyOperations:
         test_package_name: str,
     ) -> None:
         """Test listing all store listings."""
-        try:
-            listings = real_client.list_all_listings(test_package_name)
-            assert isinstance(listings, list)
-            print(f"✓ list_all_listings() returned {len(listings)} listings")
+        listings = real_client.list_all_listings(test_package_name)
+        assert isinstance(listings, list)
+        print(f"✓ list_all_listings() returned {len(listings)} listings")
 
-            for listing in listings:
-                print(f"  - {listing.language}: {listing.title}")
-        except PlayStoreClientError as e:
-            pytest.fail(f"Failed to list all listings: {e}")
+        for listing in listings:
+            print(f"  - {listing.language}: {listing.title}")
 
     def test_get_testers(
         self,

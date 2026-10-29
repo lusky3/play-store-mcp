@@ -312,9 +312,10 @@ def test_delete_image_http_error_abandons_edit():
     _images(service).delete.return_value.execute.side_effect = _make_http_error("nope")
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to delete image"):
-        client.delete_image("com.example.app", "en-US", "icon", "img-1")
+    result = client.delete_image("com.example.app", "en-US", "icon", "img-1")
 
+    assert result.success is False
+    assert "Failed to delete image" in result.message
     _edits(service).delete.assert_called_once_with(packageName="com.example.app", editId="edit-123")
     _edits(service).commit.assert_not_called()
 
@@ -365,9 +366,10 @@ def test_delete_all_images_http_error_abandons_edit():
     _images(service).deleteall.return_value.execute.side_effect = _make_http_error("nope")
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to delete all images"):
-        client.delete_all_images("com.example.app", "en-US", "icon")
+    result = client.delete_all_images("com.example.app", "en-US", "icon")
 
+    assert result.success is False
+    assert "Failed to delete all images" in result.message
     _edits(service).delete.assert_called_once_with(packageName="com.example.app", editId="edit-123")
     _edits(service).commit.assert_not_called()
 

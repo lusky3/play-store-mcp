@@ -74,6 +74,14 @@ docker run -p 8000:8000 \
   --transport streamable-http --host 0.0.0.0 --port 8000
 ```
 
+> **Warning:** `--host 0.0.0.0` binds the MCP tool-invocation endpoint (`/mcp`) itself,
+> which has **no built-in authentication** — only `/credentials` is gated (see
+> [Per-Request Credentials](#per-request-credentials) below). Exposing this port
+> directly, as above, gives anyone with network access to it full read/write access to
+> the Google Play account configured via `GOOGLE_APPLICATION_CREDENTIALS`. Put a reverse
+> proxy with its own authentication in front before exposing this port beyond
+> localhost/a private network.
+
 ## Environment Variables
 
 | Variable | Description | Required | Default |
@@ -85,7 +93,9 @@ docker run -p 8000:8000 \
 | `PLAY_STORE_MCP_ADMIN_TOKEN` | Require `Authorization: Bearer <token>` on the `/credentials` endpoint (needed behind a reverse proxy, where the localhost check is insufficient) | No | — |
 | `PLAY_STORE_MCP_READ_ONLY` | Disable all write operations | No | — |
 | `PLAY_STORE_MCP_DOWNLOAD_DIR` | Directory that APK/AAB downloads are confined to (guards against path traversal / arbitrary-file overwrite). Downloads are **always** confined; a destination outside this directory is rejected. **Recommended** for network/hosted deployments (`sse`/`streamable-http`) — the server warns if it is unset and falls back to the working directory, which may be read-only on some hosts (e.g. set it to `/tmp/play-store-downloads` on Render). | No (defaults to cwd) | cwd |
-| `CODE_MODE` | Enable the experimental code-mode transform (opt-in; requires the `code-mode` extra) | No | off |
+| `CODE_MODE` | Set to `0` to opt out of the code-mode transform and use the classic tool list | No | on |
+| `PLAY_STORE_MCP_FAILURE_LOG` | Set to `1` to record failed tool calls to a JSON-lines file (see [Tool-Failure Log](#tool-failure-log)) | No | off |
+| `PLAY_STORE_MCP_FAILURE_LOG_PATH` | Where the tool-failure log is written | No | `$XDG_STATE_HOME/play-store-mcp/tool-failures.jsonl` (else `~/.local/state/...`) |
 
 ## HTTP Transport
 
@@ -148,11 +158,12 @@ Or the environment variable (truthy values: `1`, `true`, `yes`, `on`):
 export PLAY_STORE_MCP_READ_ONLY=1
 ```
 
-## Code Mode (Experimental)
+## Code Mode (Experimental, enabled by default)
 
-!!! warning "Experimental — off by default"
-    Code mode is opt-in and disabled by default. It wraps the tool surface in
-    FastMCP's experimental code-mode transform.
+!!! warning "Experimental — enabled by default"
+    Code mode wraps the tool surface in FastMCP's experimental code-mode
+    transform, and is **enabled by default** (breaking change from earlier
+    releases, which shipped it opt-in). Set `CODE_MODE=0` to opt out.
 
 Code mode replaces the individual tools with three meta-tools — `search`,
 `get_schema`, and `execute` — so the client discovers tools on demand and runs a
@@ -167,24 +178,21 @@ list on every request. This cuts the per-request tool-list token overhead.
     does not need writes, run code mode with `--read-only` /
     `PLAY_STORE_MCP_READ_ONLY=1` to block those operations.
 
-Enabling it requires two things:
+The `execute` meta-tool runs in the Monty sandbox, which is a base
+dependency — no extra install needed; a plain `pip install play-store-mcp`
+or `uvx play-store-mcp` includes it.
 
-1. Install the sandbox extra (the `execute` meta-tool runs in the Monty sandbox):
+**To opt out** and get the classic full tool surface instead, set the
+environment variable to an opt-out value (`0`, `false`, `no`, or `off`,
+case-insensitive):
 
-    ```bash
-    pip install "play-store-mcp[code-mode]"
-    # or: uvx --from "play-store-mcp[code-mode]" play-store-mcp
-    ```
-
-2. Set the environment variable (truthy values: `1`, `true`, `yes`, `on`):
-
-    ```bash
-    export CODE_MODE=1
-    ```
+```bash
+export CODE_MODE=0
+```
 
 `CODE_MODE` is an environment variable only — there is no CLI flag — because the
 transform is fixed when the server is constructed (before command-line arguments
-are parsed). When it is unset, the classic full tool surface is served unchanged.
+are parsed).
 
 ## Logging
 
@@ -212,6 +220,42 @@ Or set it in your MCP client config:
   }
 }
 ```
+
+## Tool-Failure Log
+
+MCP clients log that a tool call *completed*, not what it returned, so a tool
+that answers `{"error": ...}` looks like a success in every client log. The
+tool-failure log records each failed call to a JSON-lines file. It's **off by
+default** for every transport:
+
+```bash
+export PLAY_STORE_MCP_FAILURE_LOG=1
+# optional; default $XDG_STATE_HOME/play-store-mcp/tool-failures.jsonl,
+# else ~/.local/state/play-store-mcp/tool-failures.jsonl
+export PLAY_STORE_MCP_FAILURE_LOG_PATH=/path/to/tool-failures.jsonl
+```
+
+Each line records `ts`, `tool`, `kind`, `error_type`, `error` and `arguments`.
+`kind` is one of:
+
+- `raised`: the tool raised (including argument-validation failures).
+- `returned_error`: the tool returned a result with `success: false` or an
+  `error`, including read-only refusals.
+- `error_result`: the tool returned an MCP error result.
+
+With code-mode on, calls made inside `execute` are recorded under their own
+tool names, and a failing `execute` is recorded too.
+
+- **Redaction:** arguments whose names contain `token`, `secret`, `password`,
+  `credential`, `apikey`, `privatekey`, `accesskey` or `authorization` (case and
+  `_`/`-` ignored) are replaced with `[redacted]`. Their values are also removed
+  from the error text, since API errors can echo a purchase token in the URL.
+  Long strings and lists are truncated. Successful calls and result payloads are
+  never written.
+- **File:** created with mode `0600`. It rotates at 5MB, keeping one older copy
+  (`tool-failures.jsonl.1`).
+- **Never breaks a call:** writing is best-effort. If the path isn't writable,
+  the server logs one warning to stderr and stops trying that path.
 
 ## Retry Behavior
 

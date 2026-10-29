@@ -11,11 +11,18 @@ List all subscription products for an app.
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `package_name` | string | Yes | App package name |
+| `include_regional_prices` | boolean | No | Include each base plan's full `regionalConfigs` price table (default: `false`) |
 
 Each subscription includes: `product_id`, `status`, `base_plans`
 
+By default each base plan's per-region price table (`regionalConfigs`, about 170
+regions) is replaced with `regionalConfigCount`. The full table quickly exceeds a
+tool result's size limit. Use [`get_subscription`](#get_subscription) for one
+product's prices, or `include_regional_prices=True` for all of them.
+
 ```python
 list_subscriptions("com.example.myapp")
+list_subscriptions("com.example.myapp", include_regional_prices=True)
 ```
 
 ---
@@ -1456,14 +1463,15 @@ are writes and are disabled in
 
 ### list_app_recoveries
 
-List app recovery actions for an app. Read-only (available in read-only mode).
+List app recovery actions for an app version. Read-only (available in read-only mode).
 
 | Parameter | Type | Required | Description |
 |---|---|---|---|
 | `package_name` | string | Yes | App package name |
+| `version_code` | int | Yes | App version code the recovery actions target |
 
 ```python
-list_app_recoveries("com.example.myapp")
+list_app_recoveries("com.example.myapp", version_code=42)
 ```
 
 ### create_app_recovery

@@ -169,8 +169,10 @@ def test_deploy_app_recovery_http_error():
     _rec(service).deploy.return_value.execute.side_effect = _make_http_error("bad")
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to deploy app recovery"):
-        client.deploy_app_recovery("com.example.app", "123")
+    result = client.deploy_app_recovery("com.example.app", "123")
+
+    assert result.success is False
+    assert "Failed to deploy app recovery" in result.message
 
 
 # ---------------------------------------------------------------------------
@@ -199,8 +201,10 @@ def test_cancel_app_recovery_http_error():
     _rec(service).cancel.return_value.execute.side_effect = _make_http_error("bad")
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to cancel app recovery"):
-        client.cancel_app_recovery("com.example.app", "123")
+    result = client.cancel_app_recovery("com.example.app", "123")
+
+    assert result.success is False
+    assert "Failed to cancel app recovery" in result.message
 
 
 # ---------------------------------------------------------------------------
@@ -230,8 +234,10 @@ def test_add_app_recovery_targeting_http_error():
     _rec(service).addTargeting.return_value.execute.side_effect = _make_http_error("bad")
     client = _client(service)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to add app recovery targeting"):
-        client.add_app_recovery_targeting("com.example.app", "123", {})
+    result = client.add_app_recovery_targeting("com.example.app", "123", {})
+
+    assert result.success is False
+    assert "Failed to add app recovery targeting" in result.message
 
 
 # ---------------------------------------------------------------------------

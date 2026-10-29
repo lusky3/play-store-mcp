@@ -12,6 +12,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=lusky3_play-store-mcp&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=lusky3_play-store-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![play-store-mcp MCP server](https://glama.ai/mcp/servers/lusky3/play-store-mcp/badges/score.svg)](https://glama.ai/mcp/servers/lusky3/play-store-mcp)
 
 An MCP (Model Context Protocol) server that connects to the Google Play Developer API. Deploy apps, manage releases, respond to reviews, and monitor app health — all through your AI assistant.
 
@@ -146,17 +147,18 @@ play-store-mcp --read-only
 export PLAY_STORE_MCP_READ_ONLY=1
 ```
 
-### Code Mode (Experimental)
+### Code Mode (Experimental, enabled by default)
 
-Opt in to the experimental code-mode transform to serve the tools as three
-meta-tools (`search`/`get_schema`/`execute`) instead of the full tool list,
-cutting per-request tool-list token overhead. It is off by default. Install the
-sandbox extra and set the environment variable (`CODE_MODE` is env-only — there
-is no CLI flag):
+By default the tools are served as three meta-tools (`search`/`get_schema`/
+`execute`) instead of the full tool list, cutting per-request tool-list token
+overhead. The sandbox `execute` runs in is a base dependency, so this works
+out of the box — no extra install needed.
+
+To opt out and use the classic tool list instead (`CODE_MODE` is env-only —
+there is no CLI flag):
 
 ```bash
-pip install "play-store-mcp[code-mode]"
-export CODE_MODE=1
+export CODE_MODE=0
 ```
 
 Under code mode one `execute` call can invoke up to 50 tool calls (including mutations) behind a single approval. Read-only enforcement still applies inside the sandbox, so pair it with `--read-only` / `PLAY_STORE_MCP_READ_ONLY=1` unless you need writes.
@@ -326,7 +328,7 @@ Add to `.kiro/settings/mcp.json`:
 | `PLAY_STORE_MCP_ADMIN_TOKEN` | Require `Authorization: Bearer <token>` on the `/credentials` endpoint (for deployments behind a reverse proxy) | No |
 | `PLAY_STORE_MCP_READ_ONLY` | Disable all write operations (deploy, promote, rollout, reply, listing/tester updates) | No (default: off) |
 | `PLAY_STORE_MCP_DOWNLOAD_DIR` | Directory that APK/AAB downloads are confined to (path-traversal / arbitrary-write protection). Downloads are always confined; defaults to the working directory when unset | No (defaults to cwd); **recommended** for network/hosted deployments — the server warns if unset |
-| `CODE_MODE` | Enable the experimental code-mode transform (opt-in; requires the `play-store-mcp[code-mode]` extra) | No (default: off) |
+| `CODE_MODE` | Set to `0` to opt out of the code-mode transform and use the classic tool list | No (default: on) |
 
 ## 🧪 Development
 
