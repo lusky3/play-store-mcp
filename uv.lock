@@ -1321,12 +1321,14 @@ name = "play-store-mcp"
 version = "0.7.0"
 source = { editable = "." }
 dependencies = [
+    { name = "authlib" },
     { name = "fastmcp", extra = ["code-mode"] },
     { name = "google-api-python-client" },
     { name = "google-auth" },
     { name = "pydantic" },
     { name = "pyjwt", extra = ["crypto"] },
     { name = "structlog" },
+    { name = "urllib3" },
 ]
 
 [package.optional-dependencies]
@@ -1340,6 +1342,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "authlib", specifier = ">=1.9.1" },
     { name = "fastmcp", extras = ["code-mode"], specifier = ">=4.0.0,<5.0" },
     { name = "google-api-python-client", specifier = ">=2.180.0" },
     { name = "google-auth", specifier = ">=2.40.0" },
@@ -1351,6 +1354,7 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=6.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.9.0" },
     { name = "structlog", specifier = ">=25.0.0" },
+    { name = "urllib3", specifier = ">=2.8.0" },
 ]
 provides-extras = ["dev"]
 
