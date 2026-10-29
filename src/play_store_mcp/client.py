@@ -4306,11 +4306,6 @@ class PlayStoreClient:
 
             return {"success": True, "track": track, "google_groups": google_groups}
 
-        except HttpError as e:
-            self._logger.exception("Failed to update testers", error=str(e))
-            if edit_id is not None:
-                self._delete_edit(package_name, edit_id)
-            return {"success": False, "track": track, "error": str(e)}
         except Exception as e:
             self._logger.exception("Failed to update testers", error=str(e))
             if edit_id is not None:
