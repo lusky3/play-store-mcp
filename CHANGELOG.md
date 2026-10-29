@@ -11,10 +11,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Planned
+- Consolidate and reduce the MCP tool surface (now 117 tools) by grouping
+  related operations, to lower per-request tool-list overhead — with no planned
+  loss of functionality.
+
+## [0.7.0] - 2026-10-29
+
 > **Breaking — code-mode is now enabled by default.** Clients that expect the
 > full 117-tool list (e.g. anything enumerating tools by name) will instead
 > see three meta-tools (`search`/`get_schema`/`execute`) unless `CODE_MODE=0`
 > is set. See Changed below.
+
+This is the first published release since 0.6.1. It also ships 0.6.3 and 0.6.4,
+which were never tagged (0.6.2, also untagged, is listed separately below).
+
+### Security
+- Blocked SSRF via a spoofed `token_uri` in credential JSON. Credentials passed
+  in the `X-Google-Credentials`/`X-Google-Credentials-Base64` headers (accepted
+  on any request) could name an arbitrary `token_uri`, which google-auth POSTs
+  to on token refresh. Credentials are now rejected unless `token_uri` is
+  Google's own `https://oauth2.googleapis.com/token`.
+- Upgraded `pyjwt` 2.13.0 → 2.15.1 (14 known vulnerabilities, 2 critical, fixed;
+  declared floor raised to `>=2.15.1` so published metadata carries the fix),
+  `urllib3` 2.7.0 → 2.8.0 (3 known vulnerabilities), and `authlib` 1.7.2 → 1.9.1
+  (7 known vulnerabilities in 1.8.0, 1 critical).
+- The server warns at startup if `PLAY_STORE_MCP_ADMIN_TOKEN` is set but shorter
+  than 16 characters, and the docs warn that `--host 0.0.0.0` exposes the
+  unauthenticated `/mcp` endpoint.
 
 ### Added
 - Opt-in tool-failure log. Set `PLAY_STORE_MCP_FAILURE_LOG=1` to record each
@@ -29,6 +53,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   their own tool names. The idea came from
   [abd3lraouf-studios/google-play-console-mcp](https://github.com/abd3lraouf-studios/google-play-console-mcp)
   and was implemented independently here.
+- `list_subscriptions` gains `include_regional_prices` (see Changed).
 
 ### Changed
 - **Breaking:** `CODE_MODE` now defaults to **enabled** (was opt-in/default-off).
@@ -38,13 +63,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   install path (`pip install play-store-mcp`, `uvx play-store-mcp`, Docker)
   works out of the box with no separate install step. Read-only enforcement
   still applies inside the sandbox.
+- `list_subscriptions` no longer returns each base plan's per-region price
+  table by default (see Fixed); pass `include_regional_prices=True` for it.
+- The Docker image now runs on Python 3.15 (`python:3.15-alpine`, was 3.14).
 
 ### Fixed
 - `get_reviews` and `get_review` failed on every real response with a pydantic
   `string_type` error: the Reviews API sends `androidOsVersion` as an integer
   SDK level (e.g. `34`), while `Review.android_version` is a string. It is now
-  converted; a missing value is still `None`. The test fixtures used `"13"`,
-  which is why the suite never caught it.
+  converted; a missing value is still `None`. Reported and fixed by @j4velin
+  (#178).
+- `deploy_app`, `promote_release`, `halt_release`, `update_rollout`,
+  `update_listing` and `update_testers` raised instead of returning their
+  documented failure result when setting up the edit failed (bad package name,
+  missing permission, edit quota, transient API errors).
 - A pooled keep-alive connection that Google closed while idle made calls fail
   with `BrokenPipeError` or an SSL EOF, and kept failing: httplib2 leaves a
   connection whose send failed in its pool, so the next call reused the dead
@@ -62,55 +94,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `get_subscription` still returns one product's prices. The bug was reported
   in [abd3lraouf-studios/google-play-console-mcp](https://github.com/abd3lraouf-studios/google-play-console-mcp)
   and fixed independently here.
-
-### Security
-- Upgraded `pyjwt` 2.13.0 → 2.15.1 (14 known vulnerabilities, 2 critical, fixed;
-  declared floor raised to `>=2.15.1` so published metadata carries the fix) and
-  `urllib3` 2.7.0 → 2.8.0 (3 known vulnerabilities).
-- Upgraded `authlib` 1.8.0 → 1.9.1 (7 known vulnerabilities, 1 critical, fixed).
-  It's a transitive dependency of `fastmcp`.
+- Concurrent first tool calls could each build their own API client (a race in
+  the lazy client setup); the client is now built once.
 
 ### Dependencies
-- Refreshed the full lockfile, including `fastmcp` 4.0.3 → 4.0.11, `mcp` 2.1.1 →
-  2.3.0, `google-auth` 2.57.1 → 2.61.0, and the `python:3.14-alpine` base image digest.
-- CI: all `github/codeql-action` refs now pin the same version (v4.38.1) and are
-  grouped in Dependabot, fixing a CodeQL `Analyze` failure from mismatched
-  `init`/`autobuild`/`analyze` versions.
-- Refreshed the lockfile again: `fastmcp` 4.0.11 → 4.1.0, the code-mode sandbox
-  `pydantic-monty` 0.0.21 → 1.1.0, `pydantic` 2.13.5 → 2.14.1, `google-auth`
-  2.61.0 → 2.62.0. Verified `execute` still runs correctly in the new sandbox.
-- Dev hooks: `gitleaks` v8.24.0 → v8.30.1, `pre-commit-hooks` v5.0.0 → v6.0.0.
-- Refreshed the lockfile: `fastmcp` 4.1.2 → 4.1.4, the code-mode sandbox
-  `pydantic-monty` 1.1.0 → 1.4.0, `starlette` 1.7.0 → 1.10.0, `httpx2`/`httpcore2`
-  2.13.1 → 2.16.0, `google-api-core` 2.42.0 → 2.43.0, `ruff` 0.17.0 → 0.17.3, and
-  others. 12 packages drop out because upstream no longer needs them (`keyring`
-  and its dependency chain, via `py-key-value-aio`, and `tomli`, via `coverage`).
-  Also bumped the `python:3.15-alpine` base image digest and `mkdocs-material`
-  9.7.7 → 9.8.0.
-- CI and the Docker build now pin `uv` 0.13.6 (was 0.11.26). Its breaking
-  changes don't touch the commands used here (`sync`, `run`, `build`, `export`),
-  and it reads the existing lockfile unchanged.
+- `fastmcp` 4.0.2 → 4.1.4, `mcp` 2.1.1 → 2.3.0, the code-mode sandbox
+  `pydantic-monty` 0.0.18 → 1.4.0, `starlette` 1.3.1 → 1.10.0,
+  `google-api-python-client` 2.198.0 → 2.201.0, `google-auth` 2.55.1 → 2.62.0,
+  `cryptography` 50.0.0 → 50.0.2, and the rest of the lockfile.
+- Container: newer base image digest, plus `apk upgrade` in the runtime stage to
+  pick up Alpine fixes that the base image hasn't yet.
+- CI: `uv` 0.13.6; GitHub Actions updated (all `github/codeql-action` refs pinned
+  to one version and grouped in Dependabot); runners on `ubuntu-26.04` with
+  Python 3.14.9; Grype/Trivy suppress only no-fix-yet CVEs, using each
+  scanner's native mechanism (state-based or with an expiry).
 
-### Planned
-- Consolidate and reduce the MCP tool surface (now 117 tools) by grouping
-  related operations, to lower per-request tool-list overhead — with no planned
-  loss of functionality.
+## [0.6.2] - 2026-09-05
+
+### Fixed
+- `stable`'s copied CI/security workflows (`ci`, `codeql`, `sonarcloud`, `snyk`,
+  `safety`, `dependency-review`, `qlty-coverage`, `docker`) still filtered on
+  `branches: [main]` — a leftover from copying them from `main` — so none of
+  them ever actually ran on a PR or push targeting `stable`. Retargeted all
+  eight to `branches: [stable]`. (`docs` and `scorecard` deliberately left
+  unchanged: `docs` deploys to the single shared GitHub Pages site and
+  `scorecard` isn't a PR gate on either branch, so both need their own
+  ownership decision rather than a mechanical fix here.)
+- `Dockerfile` still used the pre-`uv.lock`-aware build pattern
+  (`uv build --wheel` + `uv pip install` into a fresh venv), already fixed on
+  `main`: that pattern re-resolves dependencies instead of honoring the
+  lockfile, and can fail to reproduce a pin `uv.lock` already settled on.
+  Ported `main`'s fix (`uv sync --frozen --no-editable` straight into the
+  runtime venv path). Verified with a real local `docker build` + boot.
+
+## [0.6.1] - 2026-09-04
+
+### Added
+- `release.yml` now has a `Verify Version & Changelog` gate that runs before
+  any test/build/publish step: it fails the whole release if `pyproject.toml`'s
+  version doesn't exactly match the pushed tag, or if `CHANGELOG.md` has no
+  matching `## [X.Y.Z]` heading. Complements the PR-time `Version Bump Check`
+  (which only runs on PRs into `stable`) by also guarding the tag-push
+  trigger itself — nothing stops a tag from being pushed independently of a
+  PR. Verified live: a deliberately mismatched test tag failed at this gate
+  and never reached the Publish to PyPI step.
+
+## [0.6.0] - 2026-09-04
+
+Upgrades to **FastMCP 4** and the new **MCP 2026-07-28 spec**, now that
+FastMCP 4 has reached a stable GA release (`4.0.0`, `4.0.1`, `4.0.2`).
+
+### Changed
+- Bumped `fastmcp` from the `<4.0` cap to `>=4.0.0,<5.0`, which migrates to
+  MCP Python SDK v2 and the new MCP 2026-07-28 spec (stateless protocol
+  core; no more mandatory `initialize`/`Mcp-Session-Id`). FastMCP 4
+  negotiates the best mutual protocol era per client by default, so
+  existing clients still on the older handshake keep working unchanged —
+  verified: full unit suite (728 tests), lint, mypy, both transports
+  (`stdio` and `streamable-http`) boot and complete a legacy `initialize` →
+  `notifications/initialized` → `tools/list` round trip, the live
+  read-only integration suite against a real Play Console app, and the
+  Docker build all pass unmodified. This was soaked on `main` first (see
+  the nightly-only beta trial and this GA follow-up) before promotion here.
+
+## [0.5.1] - 2026-08-19
+
+### Added
+- CI now requires a version bump and a matching `CHANGELOG.md` entry on every
+  pull request into `stable`, so a dependency or config change can no longer
+  slip onto the production branch without a corresponding release.
 
 ### Dependencies
-- Bumped `fastmcp` from the `4.0.0b3`/`b5` betas to the stable GA release
-  (`>=4.0.0,<5.0`, currently resolving to `4.0.2`), which migrates to MCP
-  Python SDK v2 and the new MCP 2026-07-28 spec (stateless protocol core; no
-  more mandatory `initialize`/`Mcp-Session-Id`). FastMCP 4 negotiates the
-  best mutual protocol era per client by default, so existing clients still
-  on the older handshake keep working unchanged — verified locally: full
-  unit suite (728 tests), lint, mypy, both transports (`stdio` and
-  `streamable-http`) boot and complete a legacy `initialize` →
-  `notifications/initialized` → `tools/list` round trip, the live read-only
-  integration suite against a real Play Console app, and the Docker build
-  all pass unmodified. Now that FastMCP 4 is GA, the `uvx --from git+URL`
-  prerelease limitation noted in earlier releases no longer applies —
-  regular installs work without `--prerelease=allow`. `stable` will follow
-  in its own release once this has soaked.
+- Capped `fastmcp` to `<4.0` (was open-ended `>=3.4.2`). FastMCP 4 targets the
+  new, backward-incompatible MCP 2026-07-28 spec (stateless protocol core,
+  no more `initialize`/`Mcp-Session-Id`) and is still in beta upstream. This
+  keeps Dependabot from silently proposing/merging a major protocol jump;
+  the migration will be a deliberate, manually-verified upgrade instead.
 
 ## [0.5.0] - 2026-08-14
 
@@ -287,7 +346,10 @@ Security hardening, dependency upgrades, and CI improvements.
 
 See the [GitHub Releases](https://github.com/lusky3/play-store-mcp/releases) page.
 
-[Unreleased]: https://github.com/lusky3/play-store-mcp/compare/v0.5.0...HEAD
-[0.5.0]: https://github.com/lusky3/play-store-mcp/compare/v0.4.0...v0.5.0
-[0.4.0]: https://github.com/lusky3/play-store-mcp/compare/v0.3.0...v0.4.0
+[Unreleased]: https://github.com/lusky3/play-store-mcp/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/lusky3/play-store-mcp/compare/v0.6.1...v0.7.0
+[0.6.1]: https://github.com/lusky3/play-store-mcp/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/lusky3/play-store-mcp/compare/v0.5.1...v0.6.0
+[0.5.1]: https://github.com/lusky3/play-store-mcp/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/lusky3/play-store-mcp/compare/v0.3.0...v0.5.0
 [0.3.0]: https://github.com/lusky3/play-store-mcp/compare/v0.2.0...v0.3.0

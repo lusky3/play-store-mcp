@@ -1318,7 +1318,7 @@ wheels = [
 
 [[package]]
 name = "play-store-mcp"
-version = "0.5.0"
+version = "0.7.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastmcp", extra = ["code-mode"] },
