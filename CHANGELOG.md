@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- The published package metadata now requires `urllib3>=2.8.0` and
+  `authlib>=1.9.1`, as it already did `pyjwt>=2.15.1`. 0.7.0's lockfile and
+  Docker image already had these versions, but `pip install play-store-mcp`
+  could keep an older, vulnerable copy that was already installed.
+
 ### Planned
 - Consolidate and reduce the MCP tool surface (now 117 tools) by grouping
   related operations, to lower per-request tool-list overhead — with no planned
