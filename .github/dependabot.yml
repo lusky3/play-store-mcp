@@ -19,6 +19,11 @@ updates:
     labels:
       - "ci"
     open-pull-requests-limit: 5
+    groups:
+      # init/autobuild/analyze must run the same version or CodeQL fails with a config-version mismatch
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
 
   - package-ecosystem: docker
     directory: /

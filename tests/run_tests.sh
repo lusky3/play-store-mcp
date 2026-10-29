@@ -17,8 +17,8 @@ elif [ -f .venv/bin/python ]; then
     echo "✓ Using virtual environment"
     .venv/bin/python -m pytest tests/ -v --tb=short --cov=src/play_store_mcp --cov-report=term-missing
 else
-    echo "✗ Neither uv nor virtual environment found"
-    echo "Please run: uv sync --extra dev"
+    echo "✗ Neither uv nor virtual environment found" >&2
+    echo "Please run: uv sync --extra dev" >&2
     exit 1
 fi
 
@@ -29,5 +29,5 @@ echo "Tests verify:"
 echo "  - API client methods work correctly with mocked responses"
 echo "  - MCP server tools are properly defined"
 echo "  - Data models validate correctly"
-echo "  - Error handling works as expected"
+echo "  - Failure paths are handled as expected"
 echo "  - Validation logic catches invalid inputs"

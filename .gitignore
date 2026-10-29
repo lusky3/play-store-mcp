@@ -107,3 +107,6 @@ credentials*.json
 
 # uv
 .uv/
+
+# Local runtime/tool logs (e.g. MCP audit logs written into the repo root)
+logs/

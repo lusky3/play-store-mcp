@@ -1,0 +1,29 @@
+# Grype has no time-bound (expiry) ignore mechanism (confirmed against
+# anchore/grype's open, unimplemented issue #452) -- so these are scoped by
+# fix-state instead of a calendar date. fix-state: unknown means "no fix
+# version exists yet"; the moment Alpine or upstream Python actually ships
+# one, these stop matching and the finding reopens on its own -- no manual
+# expiry-date bookkeeping needed.
+ignore:
+  # No fix in Alpine 3.24's repo as of 2026-09-06. Also not realistically
+  # exploitable here: wget is only invoked by the Dockerfile's HEALTHCHECK
+  # against a hardcoded localhost URL, never attacker-controlled input.
+  - package:
+      name: busybox
+    fix-state: unknown
+  - package:
+      name: busybox-binsh
+    fix-state: unknown
+  - package:
+      name: ssl_client
+    fix-state: unknown
+  # No fix in CPython 3.14.x as of 2026-09-06.
+  - package:
+      name: python
+    fix-state: unknown
+  # Grype reports this "fixed in 3.15.0a6" -- an alpha pre-release, not a
+  # real fix to move to in a production image. fix-state: unknown above
+  # doesn't catch this one since a version does technically exist.
+  - vulnerability: CVE-2025-15367
+    package:
+      name: python

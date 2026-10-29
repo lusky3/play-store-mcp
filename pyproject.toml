@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "play-store-mcp"
-version = "0.6.4"
+version = "0.7.0"
 description = "MCP server for Google Play Developer API - deploy apps, manage releases, reviews, and more"
 readme = "README.md"
 license = "MIT"
@@ -33,7 +33,12 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "fastmcp>=4.0.0,<5.0",
+    # [code-mode]: the Monty sandbox that powers the `execute` meta-tool.
+    # Code-mode is enabled by default (CODE_MODE=0 to opt out), so its
+    # sandbox must be a base dependency, not an optional extra -- otherwise
+    # every default install (uvx/pip/Docker) ships a server whose only
+    # actionable tool, `execute`, fails out of the box.
+    "fastmcp[code-mode]>=4.0.0,<5.0",
     "google-api-python-client>=2.180.0",
     "google-auth>=2.40.0",
     "pydantic>=2.10.0",
@@ -51,10 +56,6 @@ dev = [
     "pytest-cov>=6.0.0",
     "ruff>=0.9.0",
     "mypy>=1.14.0",
-    "fastmcp[code-mode]>=4.0.0,<5.0",
-]
-code-mode = [
-    "fastmcp[code-mode]>=4.0.0,<5.0",
 ]
 
 [project.scripts]
@@ -134,6 +135,9 @@ ignore = [
 ]
 "src/play_store_mcp/client.py" = [
     "C901",    # complexity in _get_service is acceptable for credential handling
+    "BLE001",  # write methods must return a Result rather than crash the MCP
+               # tool call on any failure; _fail_result always logs and
+               # constructs a proper error Result, never silently swallows
 ]
 
 [tool.ruff.lint.isort]

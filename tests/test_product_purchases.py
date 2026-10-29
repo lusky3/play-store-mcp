@@ -164,8 +164,10 @@ def test_acknowledge_product_purchase_http_error():
     products.acknowledge.return_value.execute.side_effect = _make_http_error("bad")
     client = _client_with_products(products)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to acknowledge product purchase"):
-        client.acknowledge_product_purchase("com.example.app", "sku1", "tok")
+    result = client.acknowledge_product_purchase("com.example.app", "sku1", "tok")
+
+    assert result.success is False
+    assert "Failed to acknowledge product purchase" in result.message
 
 
 def test_consume_product_purchase_success():
@@ -186,8 +188,10 @@ def test_consume_product_purchase_http_error():
     products.consume.return_value.execute.side_effect = _make_http_error("bad")
     client = _client_with_products(products)
 
-    with pytest.raises(PlayStoreClientError, match="Failed to consume product purchase"):
-        client.consume_product_purchase("com.example.app", "sku1", "tok")
+    result = client.consume_product_purchase("com.example.app", "sku1", "tok")
+
+    assert result.success is False
+    assert "Failed to consume product purchase" in result.message
 
 
 # ---------------------------------------------------------------------------

@@ -211,8 +211,12 @@ def test_download_system_apk_variant_http_error(monkeypatch, tmp_path):
 
     monkeypatch.setattr(client_module, "MediaIoBaseDownload", MagicMock())
 
-    with pytest.raises(PlayStoreClientError, match="Failed to download system APK variant"):
-        client.download_system_apk_variant("com.example.app", 42, 1, str(tmp_path / "variant.apk"))
+    result = client.download_system_apk_variant(
+        "com.example.app", 42, 1, str(tmp_path / "variant.apk")
+    )
+
+    assert result.success is False
+    assert "Failed to download system APK variant" in result.message
 
 
 # ---------------------------------------------------------------------------

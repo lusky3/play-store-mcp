@@ -8,6 +8,7 @@ below). These bring branch coverage of the newly hardened code paths back to
 from __future__ import annotations
 
 import json
+import threading
 from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -100,9 +101,10 @@ class TestExecuteRetryThroughOperation:
             {},
         ]
 
-        with pytest.raises(PlayStoreClientError, match="Failed to acknowledge"):
-            client.acknowledge_product_purchase("com.example.app", "sku-1", "tok-1")
+        result = client.acknowledge_product_purchase("com.example.app", "sku-1", "tok-1")
 
+        assert result.success is False
+        assert "Failed to acknowledge" in result.message
         assert ack.execute.call_count == 1
 
     def test_non_idempotent_operation_retries_on_429(
@@ -174,6 +176,51 @@ class TestExecuteThreadSafety:
 
         assert observed["locked_during_chunk"] is True
         assert client._http_lock.locked() is False
+
+
+class TestGetServiceThreadSafety:
+    """_get_service double-checked locking closes a cold-start race.
+
+    Without the lock, concurrent first calls could each pass the initial
+    None-check before either assigned self._service, each redundantly
+    resolving credentials and calling build().
+    """
+
+    def test_concurrent_first_calls_build_service_exactly_once(self, tmp_path: Any) -> None:
+        creds_file = tmp_path / "creds.json"
+        creds_file.write_text('{"type": "service_account"}')
+        client = PlayStoreClient(credentials_path=str(creds_file))
+
+        build_calls = 0
+        start_gate = threading.Event()
+
+        def fake_build(*_args: Any, **_kwargs: Any) -> MagicMock:
+            nonlocal build_calls
+            build_calls += 1
+            return MagicMock()
+
+        def call_get_service() -> None:
+            start_gate.wait()
+            client._get_service()
+
+        with (
+            patch(
+                "play_store_mcp.client.service_account.Credentials.from_service_account_info"
+            ) as mock_creds,
+            patch("play_store_mcp.client.build", side_effect=fake_build),
+        ):
+            mock_creds.return_value = MagicMock()
+            # Every thread blocks on start_gate, then all race _get_service()
+            # at once -- this is what would expose the race without the lock.
+            threads = [threading.Thread(target=call_get_service) for _ in range(20)]
+            for t in threads:
+                t.start()
+            start_gate.set()
+            for t in threads:
+                t.join(timeout=5)
+
+        assert build_calls == 1
+        assert client._service is not None
 
 
 # =========================================================================
@@ -436,9 +483,10 @@ class TestEditOrphanCleanup:
         # The image delete itself succeeds; the commit step blows up.
         edits.commit.return_value.execute.side_effect = RuntimeError("commit boom")
 
-        with pytest.raises(PlayStoreClientError, match="Failed to delete image"):
-            client.delete_image("com.example.app", "en-US", "icon", "img-1")
+        result = client.delete_image("com.example.app", "en-US", "icon", "img-1")
 
+        assert result.success is False
+        assert "Failed to delete image" in result.message
         edits.delete.assert_called()
 
     def test_delete_all_images_cleanup_on_runtime_error(
@@ -450,9 +498,10 @@ class TestEditOrphanCleanup:
         edits.images.return_value.deleteall.return_value.execute.return_value = {"deleted": []}
         edits.commit.return_value.execute.side_effect = RuntimeError("commit boom")
 
-        with pytest.raises(PlayStoreClientError, match="Failed to delete all images"):
-            client.delete_all_images("com.example.app", "en-US", "icon")
+        result = client.delete_all_images("com.example.app", "en-US", "icon")
 
+        assert result.success is False
+        assert "Failed to delete all images" in result.message
         edits.delete.assert_called()
 
     def test_update_testers_cleanup_on_runtime_error(
@@ -477,13 +526,17 @@ class TestEditOrphanCleanup:
 
 
 class TestRevokeSubscriptionRefundType:
-    def test_invalid_refund_type_raises(
+    def test_invalid_refund_type_returns_failure_result(
         self,
         client: PlayStoreClient,
         _mock_service: MagicMock,
     ) -> None:
-        with pytest.raises(PlayStoreClientError, match="Invalid refund_type"):
-            client.revoke_subscription_purchase("com.example.app", "token-1", refund_type="bogus")
+        result = client.revoke_subscription_purchase(
+            "com.example.app", "token-1", refund_type="bogus"
+        )
+
+        assert result.success is False
+        assert "Invalid refund_type" in result.message
 
 
 # =========================================================================
@@ -740,8 +793,10 @@ class TestDownloadOsError:
         # exist, so the write (mkstemp) raises OSError rather than confinement.
         client._download_dir = str(tmp_path)
         bad = str(tmp_path / "missing_subdir" / "out.apk")
-        with pytest.raises(PlayStoreClientError, match="Failed to write generated APK"):
-            client.download_generated_apk("com.example.app", 100, "download-1", bad)
+        result = client.download_generated_apk("com.example.app", 100, "download-1", bad)
+
+        assert result.success is False
+        assert "Failed to write generated APK" in result.message
 
     def test_download_system_apk_variant_wraps_oserror(
         self,
@@ -751,8 +806,10 @@ class TestDownloadOsError:
     ) -> None:
         client._download_dir = str(tmp_path)
         bad = str(tmp_path / "missing_subdir" / "out.apk")
-        with pytest.raises(PlayStoreClientError, match="Failed to write system APK variant"):
-            client.download_system_apk_variant("com.example.app", 100, 1, bad)
+        result = client.download_system_apk_variant("com.example.app", 100, 1, bad)
+
+        assert result.success is False
+        assert "Failed to write system APK variant" in result.message
 
 
 # =========================================================================
