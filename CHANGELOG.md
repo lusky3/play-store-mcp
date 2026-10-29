@@ -346,7 +346,10 @@ Security hardening, dependency upgrades, and CI improvements.
 
 See the [GitHub Releases](https://github.com/lusky3/play-store-mcp/releases) page.
 
-[Unreleased]: https://github.com/lusky3/play-store-mcp/compare/v0.5.0...HEAD
-[0.5.0]: https://github.com/lusky3/play-store-mcp/compare/v0.4.0...v0.5.0
-[0.4.0]: https://github.com/lusky3/play-store-mcp/compare/v0.3.0...v0.4.0
+[Unreleased]: https://github.com/lusky3/play-store-mcp/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/lusky3/play-store-mcp/compare/v0.6.1...v0.7.0
+[0.6.1]: https://github.com/lusky3/play-store-mcp/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/lusky3/play-store-mcp/compare/v0.5.1...v0.6.0
+[0.5.1]: https://github.com/lusky3/play-store-mcp/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/lusky3/play-store-mcp/compare/v0.3.0...v0.5.0
 [0.3.0]: https://github.com/lusky3/play-store-mcp/compare/v0.2.0...v0.3.0
