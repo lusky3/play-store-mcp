@@ -2,9 +2,9 @@ name: Safety Dependency Check
 
 on:
   push:
-    branches: [main]
+    branches: [stable]
   pull_request:
-    branches: [main]
+    branches: [stable]
   schedule:
     - cron: "0 5 * * 3"
 
