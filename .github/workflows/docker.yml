@@ -2,7 +2,7 @@ name: Docker
 
 on:
   push:
-    branches: [stable]
+    branches: [main]
     tags: ["v*"]
     paths:
       - "Dockerfile"
@@ -14,7 +14,7 @@ on:
       - "uv.lock"
       - ".github/workflows/docker.yml"
   pull_request:
-    branches: [stable]
+    branches: [main]
     paths:
       - "Dockerfile"
       - ".dockerignore"

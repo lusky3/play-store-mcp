@@ -2,9 +2,9 @@ name: Snyk Security
 
 on:
   push:
-    branches: [stable]
+    branches: [main]
   pull_request:
-    branches: [stable]
+    branches: [main]
   schedule:
     - cron: "0 5 * * 1"
 
